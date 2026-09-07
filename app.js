@@ -523,14 +523,47 @@ function initWallet() {
     });
   });
 
-  rechargeBtn.addEventListener("click", () => {
+  rechargeBtn.addEventListener("click", async () => {
     const selected = document.querySelector(".tier-card.selected");
     const amount = selected ? selected.dataset.amount : "50";
-    const addVal = amount === "custom" ? 20.00 : parseFloat(amount);
+    const discount = selected ? (selected.dataset.discount || 0) : 0;
+    const nominal = amount === "custom" ? 20.00 : parseFloat(amount);
 
-    APP_STATE.userBalance += addVal;
-    document.getElementById("user-balance").textContent = `$${APP_STATE.userBalance.toFixed(2)}`;
-    alert(`🎉 Rechargement simulé de $${addVal} validé avec succès ! Nouveau solde : $${APP_STATE.userBalance.toFixed(2)}`);
+    rechargeBtn.disabled = true;
+    rechargeBtn.textContent = "Génération de la session de paiement sécurisée...";
+
+    try {
+      const res = await fetch("/api/pay/create-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: 1, amount: nominal, discount: parseFloat(discount) })
+      });
+      const data = await res.json();
+      if (data.url) {
+        if (data.url.startsWith("http")) {
+          window.location.href = data.url;
+        } else {
+          // Validation de la session de paiement
+          const confirmRes = await fetch("/api/pay/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: data.session_id })
+          });
+          const confirmData = await confirmRes.json();
+          APP_STATE.userBalance = confirmData.new_balance || (APP_STATE.userBalance + nominal);
+          document.getElementById("user-balance").textContent = `$${APP_STATE.userBalance.toFixed(2)}`;
+          alert(`🎉 Paiement validé ! Votre solde Quota.Hub a été crédité de +$${nominal.toFixed(2)}. Nouveau solde : $${APP_STATE.userBalance.toFixed(2)}`);
+        }
+      } else {
+        alert("Erreur lors de la création de la session de paiement.");
+      }
+    } catch (err) {
+      alert("Erreur de connexion au serveur de paiement.");
+    } finally {
+      rechargeBtn.disabled = false;
+      const toPay = nominal * (1 - (discount / 100));
+      rechargeBtn.textContent = `Procéder au Rechargement ($${toPay.toFixed(2)} pour $${nominal} de crédit)`;
+    }
   });
 
   // Code de réduction
