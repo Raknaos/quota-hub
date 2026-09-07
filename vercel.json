@@ -1,4 +1,14 @@
 {
   "version": 2,
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/v1/chat/completions",
+      "destination": "/api/v1/chat/completions"
+    },
+    {
+      "source": "/v1/(.*)",
+      "destination": "/api/v1/chat/completions"
+    }
+  ]
 }
