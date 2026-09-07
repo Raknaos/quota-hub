@@ -264,6 +264,30 @@ function initAuth() {
     authError.hidden = true;
   });
 
+  // OAuth Google & GitHub
+  document.getElementById("btn-oauth-google").addEventListener("click", () => {
+    const email = prompt("Connexion Google OAuth 2.0 (Simulation) :\nEntrez votre adresse Gmail :", "baptiste@gmail.com");
+    if (email && email.includes("@")) {
+      const username = email.split("@")[0];
+      APP_STATE.currentUser = { id: 101, username: username, balance: 10.00, email: email };
+      localStorage.setItem("quota_user", JSON.stringify(APP_STATE.currentUser));
+      updateAuthUI();
+      authModal.close();
+      alert(`🎉 Connecté avec succès via Google (${email}) !`);
+    }
+  });
+
+  document.getElementById("btn-oauth-github").addEventListener("click", () => {
+    const ghUser = prompt("Connexion GitHub OAuth (Simulation) :\nEntrez votre pseudo GitHub :", "Raknaos");
+    if (ghUser) {
+      APP_STATE.currentUser = { id: 102, username: ghUser, balance: 10.00, github: ghUser };
+      localStorage.setItem("quota_user", JSON.stringify(APP_STATE.currentUser));
+      updateAuthUI();
+      authModal.close();
+      alert(`🎉 Connecté avec succès via GitHub (@${ghUser}) !`);
+    }
+  });
+
   authForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const username = document.getElementById("auth-username").value.trim();
