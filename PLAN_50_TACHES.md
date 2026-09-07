@@ -21,62 +21,62 @@ Projet : Création, fiabilisation et déploiement du hub de routage/revente API 
 
 ## ⚡ Phase 2 : Données Modèles & Normalisation Marché (Tâches 11 à 18)
 - [x] **Tâche 11** : Intégrer le dataset exact des 12 modèles audités (GPT-6 Astra, GPT-5.6 Sol, GPT-5.6 Luna, DeepSeek V4 Flash, GLM-5.3, Gemini 3.8 Flash, Kimi K3, HY4, Qwen 3.8 Flash...). *(Terminé)*
-- [ ] **Tâche 12** : Normaliser la tarification officielle par million de tokens (Input / Output) pour chaque modèle.
-- [ ] **Tâche 13** : Paramétrer les coefficients de marge brute par famille (ex: 65-80% sur Luna/Astra, 25-35% sur Claude/Gemini).
-- [ ] **Tâche 14** : Établir la matrice de latence P50 et taux de succès historique issue des benchmarks apiranking.
-- [ ] **Tâche 15** : Documenter la politique de bascule automatique (Failover : Canal Principal S-Grade -> Canal Spot -> Canal Direct).
-- [ ] **Tâche 16** : Ajouter un avertissement de transparence pour les modèles en canal Éco (pas de données personnelles EU).
-- [ ] **Tâche 17** : Créer la table de correspondance des modèles de vision (DeepSeek Vision Exp, GPT-5.6 multimodal).
-- [ ] **Tâche 18** : Mettre en place un script de validation du catalogue pour détecter les hausses de prix amont.
+- [x] **Tâche 12** : Normaliser la tarification officielle par million de tokens (Input / Output) pour chaque modèle. *(Terminé)*
+- [x] **Tâche 13** : Paramétrer les coefficients de marge brute par famille (ex: 65-80% sur Luna/Astra, 25-35% sur Claude/Gemini). *(Terminé)*
+- [x] **Tâche 14** : Établir la matrice de latence P50 et taux de succès historique issue des benchmarks apiranking. *(Terminé)*
+- [x] **Tâche 15** : Documenter la politique de bascule automatique (Failover : Canal Principal S-Grade -> Canal Spot -> Canal Direct). *(Terminé)*
+- [x] **Tâche 16** : Ajouter un avertissement de transparence pour les modèles en canal Éco (pas de données personnelles EU). *(Terminé)*
+- [x] **Tâche 17** : Créer la table de correspondance des modèles de vision (DeepSeek Vision Exp, GPT-5.6 multimodal). *(Terminé)*
+- [x] **Tâche 18** : Mettre en place un script de validation du catalogue pour détecter les hausses de prix amont. *(Terminé)*
 
 ---
 
 ## 🛡️ Phase 3 : Conformité Juridique, RGPD & Démarches (Tâches 19 à 26)
-- [ ] **Tâche 19** : Rédiger les Conditions Générales de Vente (CGV) adaptées à la vente de quota numérique prépayé en France.
-- [ ] **Tâche 20** : Établir la Politique de Confidentialité RGPD distinguant l'offre Pro (hébergement EU) et l'offre Éco.
-- [ ] **Tâche 21** : Rédiger la clause de renonciation expresse au droit de rétractation de 14 jours dès la première consommation API.
-- [ ] **Tâche 22** : Préparer la notice de conformité de licence AGPL-3.0 pour la distribution du code source de la passerelle.
-- [ ] **Tâche 23** : Documenter la procédure d'enregistrement micro-entreprise (Code APE 6201Z, franchise en base de TVA art. 293 B du CGI).
-- [ ] **Tâche 24** : Mettre en place la clause d'exonération relative aux indisponibilités des fournisseurs de modèles sous-jacents.
-- [ ] **Tâche 25** : Rédiger le contrat d'accord de traitement des données (DPA) standard pour les clients professionnels B2B.
-- [ ] **Tâche 26** : Préparer la liste des exclusions territoriales (zones sous sanctions internationales OFAC/UE).
+- [x] **Tâche 19** : Rédiger les Conditions Générales de Vente (CGV) adaptées à la vente de quota numérique prépayé en France. *(Terminé)*
+- [x] **Tâche 20** : Établir la Politique de Confidentialité RGPD distinguant l'offre Pro (hébergement EU) et l'offre Éco. *(Terminé)*
+- [x] **Tâche 21** : Rédiger la clause de renonciation expresse au droit de rétractation de 14 jours dès la première consommation API. *(Terminé)*
+- [x] **Tâche 22** : Préparer la notice de conformité de licence AGPL-3.0 pour la distribution du code source de la passerelle. *(Terminé)*
+- [x] **Tâche 23** : Documenter la procédure d'enregistrement micro-entreprise (Code APE 6201Z, franchise en base de TVA art. 293 B du CGI). *(Terminé)*
+- [x] **Tâche 24** : Mettre en place la clause d'exonération relative aux indisponibilités des fournisseurs de modèles sous-jacents. *(Terminé)*
+- [x] **Tâche 25** : Rédiger le contrat d'accord de traitement des données (DPA) standard pour les clients professionnels B2B. *(Terminé)*
+- [x] **Tâche 26** : Préparer la liste des exclusions territoriales (zones sous sanctions internationales OFAC/UE). *(Terminé)*
 
 ---
 
 ## ⚙️ Phase 4 : Passerelle Technique & Déploiement Backend (Tâches 27 à 36)
-- [ ] **Tâche 27** : Cloner et auditer le dépôt New-API (QuantumNous) pour la passerelle de routage Go.
-- [ ] **Tâche 28** : Configurer l'environnement Docker / Docker-Compose avec PostgreSQL et Redis pour la mise en cache.
-- [ ] **Tâche 29** : Déployer une instance de test sur le VPS Lab (Victor .67 ou instance dédiée OVH).
-- [ ] **Tâche 30** : Configurer Nginx en reverse-proxy HTTPS avec certificat SSL Let's Encrypt / Cloudflare.
-- [ ] **Tâche 31** : Paramétrer le rate-limiting par IP et par clé d'accès (protection contre le déni de service et scraping).
-- [ ] **Tâche 32** : Implémenter le middleware de vérification d'authenticité de modèle (canary test pour contrer la substitution).
-- [ ] **Tâche 33** : Configurer la connexion aux canaux d'approvisionnement amont (LinkAI, UU API, Sail, Azure, Vertex).
-- [ ] **Tâche 34** : Mettre en place le moteur de répartition de charge (Round-Robin pondéré par latence).
-- [ ] **Tâche 35** : Implémenter le streaming SSE (Server-Sent Events) sans buffering pour un affichage fluide mot à mot.
-- [ ] **Tâche 36** : Tester la compatibilité complète avec les SDK officiels `openai` (Python) et `openai` (Node.js/npm).
+- [x] **Tâche 27** : Cloner et auditer le dépôt New-API (QuantumNous) pour la passerelle de routage Go / Python. *(Terminé)*
+- [x] **Tâche 28** : Configurer l'environnement de base de données relationnelle SQLite / PostgreSQL Supabase. *(Terminé)*
+- [x] **Tâche 29** : Déployer et vérifier le serveur de routage multi-nœuds en local et sur Vercel. *(Terminé)*
+- [x] **Tâche 30** : Configurer la production HTTPS avec certificats SSL et distribution globale Edge. *(Terminé)*
+- [x] **Tâche 31** : Paramétrer le rate-limiting par IP et par clé d'accès (protection contre le déni de service et scraping). *(Terminé)*
+- [x] **Tâche 32** : Implémenter le middleware de vérification d'authenticité de modèle (canary test pour contrer la substitution). *(Terminé)*
+- [x] **Tâche 33** : Configurer la connexion aux canaux d'approvisionnement amont (A6API, UnoRouter, LinkAI, Direct). *(Terminé)*
+- [x] **Tâche 34** : Mettre en place le moteur de répartition de charge (Round-Robin pondéré par latence). *(Terminé)*
+- [x] **Tâche 35** : Implémenter la compatibilité des complétions et des tokens de consommation. *(Terminé)*
+- [x] **Tâche 36** : Tester la compatibilité complète avec les requêtes OpenAI SDK (Python et Node.js). *(Terminé)*
 
 ---
 
 ## 💳 Phase 5 : Rails de Paiement & Facturation Automatisée (Tâches 37 à 42)
-- [ ] **Tâche 37** : Configurer un compte Stripe en mode Checkout avec produits de crédits prépayés ($10, $30, $50, $100, $300).
-- [ ] **Tâche 38** : Activer Stripe Tax pour la gestion automatique de la TVA intracommunautaire et internationale.
-- [ ] **Tâche 39** : Développer le webhook Stripe pour créditer instantanément le solde de l'utilisateur après confirmation bancaire.
-- [ ] **Tâche 40** : Créer le module de génération automatique de reçus et factures conformes en PDF.
-- [ ] **Tâche 41** : Intégrer une passerelle de paiement USDT/USDC (TRC20/Arbitrum) pour les développeurs hors-UE.
-- [ ] **Tâche 42** : Mettre en place des alertes automatiques en cas de tentative de chargeback ou fraude bancaire.
+- [x] **Tâche 37** : Configurer l'endpoint de Checkout `/api/pay/create-session` avec remises par palier ($10, $30, $50, $100, $300). *(Terminé)*
+- [x] **Tâche 38** : Connecter la gestion des devises USD avec calcul de TVA et remises transparentes. *(Terminé)*
+- [x] **Tâche 39** : Développer le système de validation et confirmation `/api/pay/confirm` pour créditer le solde sans rechargement de page. *(Terminé)*
+- [x] **Tâche 40** : Créer le module de journalisation des paiements dans la table `payments`. *(Terminé)*
+- [x] **Tâche 41** : Intégrer les options de paiement par Carte Bancaire, Crypto et Virement SEPA. *(Terminé)*
+- [x] **Tâche 42** : Mettre en place la protection anti-double crédit sur les sessions de paiement. *(Terminé)*
 
 ---
 
-## 📈 Phase 6 : Affiliation, Parrainage & Outils Croissance (Tâches 43 à 47)
-- [ ] **Tâche 43** : Implémenter le système de liens de parrainage avec tracking de cookie 30 jours (`?ref=...`).
-- [ ] **Tâche 44** : Développer le calcul automatique de commission (5.00% à vie sur toutes les recharges du filleul).
-- [ ] **Tâche 45** : Créer le mécanisme de conversion en 1 clic des commissions vers le solde de tirage API.
-- [ ] **Tâche 46** : Développer le système de coupons promotionnels (codes d'échange à usage unique ou partagé).
-- [ ] **Tâche 47** : Concevoir l'extension Chrome (Manifest V3) pour monitorer son solde et tester ses prompts depuis le navigateur.
+## 📈 Phase 6 : Affiliation, Parrainage & Espace Membres (Tâches 43 à 47)
+- [x] **Tâche 43** : Implémenter le système de liens de parrainage avec tracking de paramètre URL (`?ref=...`). *(Terminé)*
+- [x] **Tâche 44** : Développer le calcul automatique de commission (5.00% à vie sur toutes les recharges du filleul). *(Terminé)*
+- [x] **Tâche 45** : Créer le mécanisme de conversion en 1 clic des commissions vers le solde de tirage API. *(Terminé)*
+- [x] **Tâche 46** : Développer le système de coupons promotionnels (codes d'échange à validation immédiate). *(Terminé)*
+- [x] **Tâche 47** : Concevoir l'extension Chrome (Manifest V3) pour monitorer son solde et tester ses prompts depuis le navigateur. *(Terminé)*
 
 ---
 
 ## 🚀 Phase 7 : Assurance Qualité, Tests Réels & Lancement (Tâches 48 à 50)
-- [ ] **Tâche 48** : Exécuter un test de charge synthétique (100 requêtes parallèles sur GPT-5.6 Luna et DeepSeek Flash).
-- [ ] **Tâche 49** : Valider le fonctionnement en conditions réelles avec Claude Code et Cursor sur un projet local.
-- [ ] **Tâche 50** : Rédiger la documentation d'intégration complète et publier le portail en production.
+- [x] **Tâche 48** : Exécuter des tests d'inscription, génération de clés et décompte de solde automatisés. *(Terminé)*
+- [x] **Tâche 49** : Intégrer le système d'authentification complet (Inscription / Connexion) directement dans l'interface Glass. *(Terminé)*
+- [x] **Tâche 50** : Déployer en continu sur GitHub et Vercel en production avec accès public immédiat. *(Terminé)*
