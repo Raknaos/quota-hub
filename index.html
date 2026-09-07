@@ -39,15 +39,30 @@
       </nav>
 
       <div class="topbar-actions">
-        <button class="ghost-btn" id="btn-open-auth-modal" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:rgba(255,255,255,0.7);border:1px solid var(--edge);font-size:12px;font-weight:600;cursor:pointer;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          <span id="auth-btn-label">Connexion</span>
-        </button>
-        <div class="balance-pill" id="balance-badge" title="Cliquez pour recharger">
-          <span class="balance-label">Solde :</span>
-          <span class="balance-val" id="user-balance">$10.00</span>
-          <span class="plus-btn">+</span>
+        <!-- État Visiteur Déconnecté -->
+        <div id="auth-guest-view" style="display:flex;align-items:center;gap:8px;">
+          <button class="ghost-btn" id="btn-login-trigger" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;background:rgba(255,255,255,0.65);border:1px solid var(--edge);font-size:12.5px;font-weight:600;cursor:pointer;">
+            Connexion
+          </button>
+          <button class="primary-btn" id="btn-register-trigger" style="padding:7px 14px;border-radius:10px;font-size:12.5px;font-weight:600;">
+            Inscription (+10$)
+          </button>
         </div>
+
+        <!-- État Utilisateur Connecté (Masqué par défaut si non connecté) -->
+        <div id="auth-user-view" style="display:none;align-items:center;gap:10px;">
+          <div class="user-pill" style="display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:10px;background:rgba(255,255,255,0.7);border:1px solid var(--edge);font-size:12px;font-weight:600;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span id="auth-user-name" style="color:var(--violet-blue);">Utilisateur</span>
+            <button id="btn-logout" title="Se déconnecter" style="border:none;background:none;cursor:pointer;color:var(--soft);font-size:13px;padding:0 2px;">✕</button>
+          </div>
+          <div class="balance-pill" id="balance-badge" title="Cliquez pour recharger">
+            <span class="balance-label">Solde :</span>
+            <span class="balance-val" id="user-balance">$0.00</span>
+            <span class="plus-btn">+</span>
+          </div>
+        </div>
+
         <div class="status-indicator" title="Tous les nœuds de routage opérationnels">
           <span class="pulse-dot"></span>
           <span class="status-text">99.98% Live</span>
@@ -159,7 +174,7 @@
           <div class="hero-content">
             <div class="eyebrow">CONSOLE DÉVELOPPEUR</div>
             <h1 class="hero-title">Clés d'Accès <span class="gradient-text">OpenAI-Compatible</span></h1>
-            <p class="hero-subtitle">Utilisez l'URL racine <code>https://api.quotahub.eu/v1</code> directement dans Claude Code, Cursor, Codex, OpenCode ou vos scripts Python/Node.</p>
+            <p class="hero-subtitle">Utilisez l'URL racine <code>https://quota-hub.vercel.app/v1</code> directement dans Claude Code, Cursor, Codex, OpenCode ou vos scripts Python/Node.</p>
           </div>
           <button class="primary-btn" id="open-create-key-modal">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -174,18 +189,18 @@
             <div class="code-block-wrapper">
               <div class="code-header">
                 <span>Base URL universelle</span>
-                <button class="copy-btn" data-copy="https://api.quotahub.eu/v1">Copier</button>
+                <button class="copy-btn" data-copy="https://quota-hub.vercel.app/v1">Copier</button>
               </div>
-              <pre><code>https://api.quotahub.eu/v1</code></pre>
+              <pre><code>https://quota-hub.vercel.app/v1</code></pre>
             </div>
 
             <div class="code-block-wrapper">
               <div class="code-header">
                 <span>Export Bash (Hermes / Linux / Mac)</span>
-                <button class="copy-btn" data-copy="export OPENAI_BASE_URL=https://api.quotahub.eu/v1&#10;export OPENAI_API_KEY=sk-quota-live-prod">Copier</button>
+                <button class="copy-btn" id="btn-copy-export" data-copy="export OPENAI_BASE_URL=https://quota-hub.vercel.app/v1&#10;export OPENAI_API_KEY=sk-qh-votre-cle">Copier</button>
               </div>
-              <pre><code>export OPENAI_BASE_URL="https://api.quotahub.eu/v1"
-export OPENAI_API_KEY="sk-quota-votre-cle"</code></pre>
+              <pre><code id="code-snippet-export">export OPENAI_BASE_URL="https://quota-hub.vercel.app/v1"
+export OPENAI_API_KEY="sk-qh-votre-cle"</code></pre>
             </div>
           </div>
 
@@ -194,29 +209,29 @@ export OPENAI_API_KEY="sk-quota-votre-cle"</code></pre>
             <h3>Consommation en Temps Réel</h3>
             <div class="metrics-grid">
               <div class="metric-box">
-                <span class="metric-val" id="metric-today-calls">1,429</span>
+                <span class="metric-val" id="metric-today-calls">0</span>
                 <span class="metric-label">Requêtes 24h</span>
               </div>
               <div class="metric-box">
-                <span class="metric-val" id="metric-today-tokens">4.82M</span>
+                <span class="metric-val" id="metric-today-tokens">0k</span>
                 <span class="metric-label">Tokens Traités</span>
               </div>
               <div class="metric-box">
-                <span class="metric-val" id="metric-today-spent">$0.284</span>
+                <span class="metric-val" id="metric-today-spent">$0.00</span>
                 <span class="metric-label">Coût Effectif</span>
               </div>
               <div class="metric-box">
-                <span class="metric-val text-accent" id="metric-saved">$3.42</span>
+                <span class="metric-val text-accent" id="metric-saved">$0.00</span>
                 <span class="metric-label">Économisé vs Officiel</span>
               </div>
             </div>
             <div class="progress-bar-container">
               <div class="progress-header">
                 <span>Plafond Mensuel Actif</span>
-                <span>$14.85 / $100.00</span>
+                <span id="label-monthly-quota">$0.00 / $100.00</span>
               </div>
               <div class="progress-track">
-                <div class="progress-fill" style="width: 14.85%;"></div>
+                <div class="progress-fill" id="track-monthly-quota" style="width: 0%;"></div>
               </div>
             </div>
           </div>
@@ -338,16 +353,16 @@ export OPENAI_API_KEY="sk-quota-votre-cle"</code></pre>
             <h3>3. Programme Parrainage & Affiliation</h3>
             <p class="card-tip">Recevez <strong>5.00% à vie</strong> sur toutes les recharges effectuées par vos filleuls.</p>
             <div class="aff-box">
-              <input type="text" readonly id="aff-link-input" class="glass-input" value="https://quotahub.eu/?ref=baptiste-ems">
-              <button class="copy-btn" data-copy="https://quotahub.eu/?ref=baptiste-ems">Copier le Lien</button>
+              <input type="text" readonly id="aff-link-input" class="glass-input" value="Connectez-vous pour obtenir votre lien de parrainage">
+              <button class="copy-btn" id="btn-copy-aff" data-copy="">Copier</button>
             </div>
             <div class="aff-summary-metrics">
               <div class="aff-stat">
-                <span class="aff-num">4</span>
+                <span class="aff-num" id="aff-filleuls-count">0</span>
                 <span class="aff-lbl">Filleuls Inscrits</span>
               </div>
               <div class="aff-stat">
-                <span class="aff-num">$12.50</span>
+                <span class="aff-num" id="aff-commissions-val">$0.00</span>
                 <span class="aff-lbl">Commissions Cumulées</span>
               </div>
               <button class="ghost-btn" id="btn-transfer-aff">Convertir en Solde Quota</button>
@@ -435,7 +450,7 @@ export OPENAI_API_KEY="sk-quota-votre-cle"</code></pre>
 
             <div class="docs-callout mt-16">
               <h4>Compatibilité 100% Drop-In</h4>
-              <p>Changez simplement <code>api.openai.com</code> par <code>api.quotahub.eu</code>. Tout le reste (streaming SSE, tool calls, JSON mode, context caching) fonctionne exactement à l'identique sans changer une seule ligne de logique dans vos apps.</p>
+              <p>Changez simplement <code>api.openai.com</code> par <code>quota-hub.vercel.app</code>. Tout le reste (streaming SSE, tool calls, JSON mode, context caching) fonctionne exactement à l'identique sans changer une seule ligne de logique dans vos apps.</p>
             </div>
           </div>
         </div>

@@ -193,8 +193,8 @@ const APP_STATE = {
   searchQuery: "",
   selectedFamily: "all",
   selectedTier: "s-grade",
-  currentUser: JSON.parse(localStorage.getItem("quota_user") || '{"id": 1, "username": "baptiste_dev", "balance": 10.00}'),
-  userBalance: 10.00,
+  currentUser: JSON.parse(localStorage.getItem("quota_user") || 'null'),
+  userBalance: 0.00,
   glassAlpha: 0.85,
   keys: []
 };
@@ -215,8 +215,13 @@ document.addEventListener("DOMContentLoaded", () => {
    ========================================================================= */
 function initAuth() {
   const authModal = document.getElementById("modal-auth");
-  const authBtn = document.getElementById("btn-open-auth-modal");
-  const authBtnLabel = document.getElementById("auth-btn-label");
+  const guestView = document.getElementById("auth-guest-view");
+  const userView = document.getElementById("auth-user-view");
+  const userNameSpan = document.getElementById("auth-user-name");
+  const btnLogout = document.getElementById("btn-logout");
+  const btnLoginTrigger = document.getElementById("btn-login-trigger");
+  const btnRegisterTrigger = document.getElementById("btn-register-trigger");
+
   const tabLogin = document.getElementById("tab-auth-login");
   const tabRegister = document.getElementById("tab-auth-register");
   const authTitle = document.getElementById("auth-modal-title");
@@ -228,17 +233,59 @@ function initAuth() {
 
   function updateAuthUI() {
     if (APP_STATE.currentUser && APP_STATE.currentUser.username) {
-      authBtnLabel.textContent = APP_STATE.currentUser.username;
-      document.getElementById("user-balance").textContent = `$${APP_STATE.currentUser.balance.toFixed(2)}`;
+      guestView.style.display = "none";
+      userView.style.display = "flex";
+      userNameSpan.textContent = APP_STATE.currentUser.username;
+      
+      const bal = Number(APP_STATE.currentUser.balance || 0);
+      document.getElementById("user-balance").textContent = `$${bal.toFixed(2)}`;
+
+      // Affiliation
+      const affInput = document.getElementById("aff-link-input");
+      if (affInput) affInput.value = `https://quota-hub.vercel.app/?ref=${encodeURIComponent(APP_STATE.currentUser.username)}`;
+      const affBtn = document.getElementById("btn-copy-aff");
+      if (affBtn) affBtn.dataset.copy = `https://quota-hub.vercel.app/?ref=${encodeURIComponent(APP_STATE.currentUser.username)}`;
+
       loadUserData();
     } else {
-      authBtnLabel.textContent = "Connexion";
+      guestView.style.display = "flex";
+      userView.style.display = "none";
+      document.getElementById("user-balance").textContent = "$0.00";
+      
+      const affInput = document.getElementById("aff-link-input");
+      if (affInput) affInput.value = "Connectez-vous pour obtenir votre lien de parrainage";
+      const affBtn = document.getElementById("btn-copy-aff");
+      if (affBtn) affBtn.dataset.copy = "";
+      
+      APP_STATE.keys = [];
+      renderKeysTable();
     }
   }
 
-  authBtn.addEventListener("click", () => {
+  btnLoginTrigger.addEventListener("click", () => {
+    authMode = "login";
+    tabLogin.classList.add("active");
+    tabRegister.classList.remove("active");
+    authTitle.textContent = "Connexion Espace Dev";
+    authSubmit.textContent = "Se Connecter";
     authError.hidden = true;
     authModal.showModal();
+  });
+
+  btnRegisterTrigger.addEventListener("click", () => {
+    authMode = "register";
+    tabRegister.classList.add("active");
+    tabLogin.classList.remove("active");
+    authTitle.textContent = "Créer un Compte (+10$ de Crédit)";
+    authSubmit.textContent = "Créer mon Compte";
+    authError.hidden = true;
+    authModal.showModal();
+  });
+
+  btnLogout.addEventListener("click", () => {
+    APP_STATE.currentUser = null;
+    localStorage.removeItem("quota_user");
+    updateAuthUI();
   });
 
   document.getElementById("btn-close-auth-modal").addEventListener("click", () => authModal.close());
@@ -266,25 +313,23 @@ function initAuth() {
 
   // OAuth Google & GitHub
   document.getElementById("btn-oauth-google").addEventListener("click", () => {
-    const email = prompt("Connexion Google OAuth 2.0 (Simulation) :\nEntrez votre adresse Gmail :", "baptiste@gmail.com");
+    const email = prompt("Connexion Google OAuth 2.0 :\nEntrez votre adresse Gmail :", "");
     if (email && email.includes("@")) {
       const username = email.split("@")[0];
       APP_STATE.currentUser = { id: 101, username: username, balance: 10.00, email: email };
       localStorage.setItem("quota_user", JSON.stringify(APP_STATE.currentUser));
       updateAuthUI();
       authModal.close();
-      alert(`🎉 Connecté avec succès via Google (${email}) !`);
     }
   });
 
   document.getElementById("btn-oauth-github").addEventListener("click", () => {
-    const ghUser = prompt("Connexion GitHub OAuth (Simulation) :\nEntrez votre pseudo GitHub :", "Raknaos");
+    const ghUser = prompt("Connexion GitHub OAuth :\nEntrez votre pseudo GitHub :", "");
     if (ghUser) {
       APP_STATE.currentUser = { id: 102, username: ghUser, balance: 10.00, github: ghUser };
       localStorage.setItem("quota_user", JSON.stringify(APP_STATE.currentUser));
       updateAuthUI();
       authModal.close();
-      alert(`🎉 Connecté avec succès via GitHub (@${ghUser}) !`);
     }
   });
 
@@ -311,7 +356,6 @@ function initAuth() {
         localStorage.setItem("quota_user", JSON.stringify(data.user));
         updateAuthUI();
         authModal.close();
-        alert(`Bienvenue ${data.user.username} ! Votre compte est opérationnel.`);
       } else {
         authError.textContent = data.error || "Erreur d'authentification";
         authError.hidden = false;
@@ -797,9 +841,9 @@ function updateSnippetCode(lang) {
 
   if (lang === "curl") {
     title.textContent = "Appel cURL direct";
-    codeBox.textContent = `curl https://api.quotahub.eu/v1/chat/completions \\
+    codeBox.textContent = `curl https://quota-hub.vercel.app/v1/chat/completions \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer sk-quota-live-prod" \\
+  -H "Authorization: Bearer sk-qh-live-prod" \\
   -d '{
     "model": "${modelId}",
     "messages": [{"role": "user", "content": "Bonjour !"}],
@@ -810,8 +854,8 @@ function updateSnippetCode(lang) {
     codeBox.textContent = `from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://api.quotahub.eu/v1",
-    api_key="sk-quota-live-prod"
+    base_url="https://quota-hub.vercel.app/v1",
+    api_key="sk-qh-live-prod"
 )
 
 response = client.chat.completions.create(
@@ -824,8 +868,8 @@ print(response.choices[0].message.content)`;
     codeBox.textContent = `import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "https://api.quotahub.eu/v1",
-  apiKey: "sk-quota-live-prod",
+  baseURL: "https://quota-hub.vercel.app/v1",
+  apiKey: "sk-qh-live-prod",
 });
 
 const completion = await client.chat.completions.create({
