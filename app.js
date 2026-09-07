@@ -193,34 +193,15 @@ const APP_STATE = {
   searchQuery: "",
   selectedFamily: "all",
   selectedTier: "s-grade",
-  userBalance: 14.85,
+  currentUser: JSON.parse(localStorage.getItem("quota_user") || '{"id": 1, "username": "baptiste_dev", "balance": 10.00}'),
+  userBalance: 10.00,
   glassAlpha: 0.85,
-  keys: [
-    {
-      id: "key-1",
-      name: "Agent CutBG Production",
-      keyMasked: "sk-quota-live-9a8f...4e21",
-      fullKey: "sk-quota-live-9a8f21c045b84931aef7194e21",
-      limit: 50,
-      spent: 8.42,
-      createdAt: "2026-09-02",
-      status: "active"
-    },
-    {
-      id: "key-2",
-      name: "Cursor IDE Mac Dev",
-      keyMasked: "sk-quota-live-7b1c...99d2",
-      fullKey: "sk-quota-live-7b1c440192e44f808c1a5599d2",
-      limit: 25,
-      spent: 2.15,
-      createdAt: "2026-09-05",
-      status: "active"
-    }
-  ]
+  keys: []
 };
 
 // INITIALISATION DOM
 document.addEventListener("DOMContentLoaded", () => {
+  initAuth();
   initTabs();
   initMarket();
   initKeysTable();
@@ -228,6 +209,128 @@ document.addEventListener("DOMContentLoaded", () => {
   initPlayground();
   initGlassControl();
 });
+
+/* =========================================================================
+   AUTHENTIFICATION & UTILISATEUR
+   ========================================================================= */
+function initAuth() {
+  const authModal = document.getElementById("modal-auth");
+  const authBtn = document.getElementById("btn-open-auth-modal");
+  const authBtnLabel = document.getElementById("auth-btn-label");
+  const tabLogin = document.getElementById("tab-auth-login");
+  const tabRegister = document.getElementById("tab-auth-register");
+  const authTitle = document.getElementById("auth-modal-title");
+  const authSubmit = document.getElementById("btn-submit-auth");
+  const authForm = document.getElementById("form-auth");
+  const authError = document.getElementById("auth-error-msg");
+
+  let authMode = "login"; // 'login' ou 'register'
+
+  function updateAuthUI() {
+    if (APP_STATE.currentUser && APP_STATE.currentUser.username) {
+      authBtnLabel.textContent = APP_STATE.currentUser.username;
+      document.getElementById("user-balance").textContent = `$${APP_STATE.currentUser.balance.toFixed(2)}`;
+      loadUserData();
+    } else {
+      authBtnLabel.textContent = "Connexion";
+    }
+  }
+
+  authBtn.addEventListener("click", () => {
+    authError.hidden = true;
+    authModal.showModal();
+  });
+
+  document.getElementById("btn-close-auth-modal").addEventListener("click", () => authModal.close());
+  document.getElementById("btn-cancel-auth").addEventListener("click", () => authModal.close());
+
+  tabLogin.addEventListener("click", (e) => {
+    e.preventDefault();
+    authMode = "login";
+    tabLogin.classList.add("active");
+    tabRegister.classList.remove("active");
+    authTitle.textContent = "Connexion Espace Dev";
+    authSubmit.textContent = "Se Connecter";
+    authError.hidden = true;
+  });
+
+  tabRegister.addEventListener("click", (e) => {
+    e.preventDefault();
+    authMode = "register";
+    tabRegister.classList.add("active");
+    tabLogin.classList.remove("active");
+    authTitle.textContent = "Créer un Compte (+10$ de Crédit)";
+    authSubmit.textContent = "Créer mon Compte";
+    authError.hidden = true;
+  });
+
+  authForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = document.getElementById("auth-username").value.trim();
+    const password = document.getElementById("auth-password").value.trim();
+
+    authSubmit.disabled = true;
+    authSubmit.textContent = "Traitement...";
+
+    const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+
+      if (data.status === "success") {
+        APP_STATE.currentUser = data.user;
+        localStorage.setItem("quota_user", JSON.stringify(data.user));
+        updateAuthUI();
+        authModal.close();
+        alert(`Bienvenue ${data.user.username} ! Votre compte est opérationnel.`);
+      } else {
+        authError.textContent = data.error || "Erreur d'authentification";
+        authError.hidden = false;
+      }
+    } catch (err) {
+      authError.textContent = "Impossible de joindre le serveur d'authentification.";
+      authError.hidden = false;
+    } finally {
+      authSubmit.disabled = false;
+      authSubmit.textContent = authMode === "login" ? "Se Connecter" : "Créer mon Compte";
+    }
+  });
+
+  updateAuthUI();
+}
+
+async function loadUserData() {
+  if (!APP_STATE.currentUser || !APP_STATE.currentUser.id) return;
+  try {
+    const res = await fetch(`/api/user/${APP_STATE.currentUser.id}`);
+    if (res.ok) {
+      const data = await res.json();
+      APP_STATE.currentUser.balance = data.balance;
+      document.getElementById("user-balance").textContent = `$${data.balance.toFixed(2)}`;
+      
+      if (data.keys && data.keys.length > 0) {
+        APP_STATE.keys = data.keys.map(k => ({
+          id: `key-${k.id}`,
+          name: k.name,
+          keyMasked: `${k.key.slice(0, 10)}...${k.key.slice(-4)}`,
+          fullKey: k.key,
+          limit: k.limit,
+          spent: k.spent,
+          createdAt: k.created_at ? k.created_at.slice(0, 10) : "2026-09-07",
+          status: "active"
+        }));
+        renderKeysTable();
+      }
+    }
+  } catch (e) {
+    // Mode local ou hors-ligne
+  }
+}
 
 /* =========================================================================
    NAVIGATION PAR ONGLETS

@@ -39,9 +39,13 @@
       </nav>
 
       <div class="topbar-actions">
+        <button class="ghost-btn" id="btn-open-auth-modal" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:rgba(255,255,255,0.7);border:1px solid var(--edge);font-size:12px;font-weight:600;cursor:pointer;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span id="auth-btn-label">Connexion</span>
+        </button>
         <div class="balance-pill" id="balance-badge" title="Cliquez pour recharger">
           <span class="balance-label">Solde :</span>
-          <span class="balance-val" id="user-balance">$14.85</span>
+          <span class="balance-val" id="user-balance">$10.00</span>
           <span class="plus-btn">+</span>
         </div>
         <div class="status-indicator" title="Tous les nœuds de routage opérationnels">
@@ -438,6 +442,35 @@ export OPENAI_API_KEY="sk-quota-votre-cle"</code></pre>
       </section>
 
     </main>
+
+    <!-- Modal: Inscription / Connexion -->
+    <dialog id="modal-auth">
+      <div class="dialog-content">
+        <div class="dialog-header">
+          <h2 id="auth-modal-title">Espace Membre & Développeur</h2>
+          <button class="close-modal-btn" id="btn-close-auth-modal">&times;</button>
+        </div>
+        <div class="snippet-lang-tabs" style="margin-bottom:14px;">
+          <button class="mini-tab active" id="tab-auth-login">Connexion</button>
+          <button class="mini-tab" id="tab-auth-register">Créer un Compte (+10$ Offert)</button>
+        </div>
+        <form id="form-auth">
+          <div class="field-group">
+            <label for="auth-username">Identifiant / Pseudo :</label>
+            <input type="text" id="auth-username" class="glass-input" placeholder="Ex: baptiste_dev" required>
+          </div>
+          <div class="field-group">
+            <label for="auth-password">Mot de passe :</label>
+            <input type="password" id="auth-password" class="glass-input" placeholder="Minimum 4 caractères" required>
+          </div>
+          <div id="auth-error-msg" class="feedback-msg" style="color:var(--danger);font-size:11.5px;margin-bottom:10px;" hidden></div>
+          <div class="modal-actions">
+            <button type="button" class="secondary-btn" id="btn-cancel-auth">Fermer</button>
+            <button type="submit" class="primary-btn" id="btn-submit-auth">Se Connecter</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
 
     <!-- Modal: Création de Clé API -->
     <dialog id="modal-create-key">
