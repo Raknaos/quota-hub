@@ -74,7 +74,7 @@ MKT_URL      = 'https://a6api.com/api/marketplace/public/channels/search'
 # Pool AUTO : famille flash polyvalente. Les variantes deepseek v4 (latest/vision)
 # sans canal vivant aujourd'hui sont conservées : dès qu'un fournisseur en liste un,
 # le market scan les inclut automatiquement (aucun redeploy).
-MODELS = ['qwen3.8-flash', 'grok-4.6', 'grok-4.5', 'glm-5.3-flash',
+MODELS = ['qwen3.8-flash', 'grok-4.6', 'glm-5.3-flash',
           'deepseek-v4-pro', 'deepseek-v4-flash',
           'deepseek-v4.1-flash', 'deepseek-v4-flash-vision', 'deepseek-v4-vision']
 # Fournisseurs de confiance (données 24h réelles 2026-09-09) : cache hit élevé + succès stable.
@@ -330,7 +330,12 @@ def pick_model(models):
         if not b:
             continue
         success = max(b['success'] / 100.0, 0.01)
-        cand.append(((b['in'] + b['out']) / 2 / success, m, b))
+        # coût espéré CACHE-AWARE : le hit réel du canal (cache24) réduit le prix input
+        # au prix cache_read. Un canal qui annonce un cache et ne l'honore pas
+        # (deepseek chez certains) sort naturellement du classement après mesure.
+        chit = max(0.0, min(0.95, (b.get('cache24') or 0) / 100.0))
+        eff_in = b['in'] * (1 - chit) + b.get('cache_read', b['in']) * chit
+        cand.append(((eff_in + b['out']) / 2 / success, m, b))
     if not cand:
         return None, None
     cand.sort(key=lambda x: x[0])
@@ -449,9 +454,12 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         usage = data.get('usage', {}) or {}
         tin = usage.get('prompt_tokens') or 0
         tout = usage.get('completion_tokens') or 0
+        cached = ((usage.get('prompt_tokens_details') or {}).get('cached_tokens')) or 0
         r = market_get(model_id) or {}
         b = r.get('best') or {}
-        est = round((tin * b.get('in', 0) + tout * b.get('out', 0)) / 1e6, 8)
+        # coût amont RÉEL : les tokens cachés sont au prix cache_read (12x moins cher sur qwen)
+        est = round(((tin - cached) * b.get('in', 0) + cached * b.get('cache_read', b.get('in', 0))
+                     + tout * b.get('out', 0)) / 1e6, 8)
         data['a6_router'] = {'served_model': model_id, 'supplier': b.get('supplier'),
                              'note': 'modèle choisi automatiquement (le moins cher vivant)',
                              'requested_model': requested, 'ignored': True,
@@ -460,7 +468,8 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
             PIN['model'] = model_id
             PIN['supplier'] = b.get('supplier')
         return data, None, tin, tout, {'model': model_id, 'supplier': b.get('supplier'),
-                                       'est': est, 'plan': plan, 'requested': requested}
+                                       'est': est, 'plan': plan, 'requested': requested,
+                                       'cached': cached}
     return None, (502, {'error': {'message': f'tous les canaux ont échoué: {last_err}',
                                   'type': 'server_error', 'code': 'all_channels_failed'}}), 0, 0, None
 
@@ -741,20 +750,25 @@ def api_chat(auth_header, payload, ip):
     if e:
         return e[0], e[1]
     tokens = int(tin + tout)
-    # débit réel : ne jamais dépasser le plafond ; l'amont a consommé, on impute
+    cached_tok = int(served.get('cached', 0))
+    # FACTURATION CACHE : les tokens servis depuis le cache amont coûtent ~12x moins cher
+    # (qwen 0.0001 vs 0.0012/M) → ils sont comptés à 10 % au client. C'est le cœur du prix.
+    billed = max(0, tokens - int(cached_tok * 0.9))
+    # débit : jamais au-delà du plafond ; l'amont a consommé, on impute le volume réel corrigé
     c = db()
     c.execute('''UPDATE subscriptions SET tokens_used = MIN(tokens_total, tokens_used + ?)
-                 WHERE user_id=? AND plan=?''', (tokens, uid, plan))
+                 WHERE user_id=? AND plan=?''', (billed, uid, plan))
     c.execute('''INSERT INTO usage_logs(user_id,key_id,plan,model_served,model_requested,supplier,prompt_tokens,
                  completion_tokens,tokens,cost_amont_usd,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)''',
               (uid, key_id, plan, served['model'], served.get('requested'), served['supplier'],
-               tin, tout, tokens, served['est'], int(time.time())))
+               tin, tout, billed, served['est'], int(time.time())))
     c.commit()
     remaining = c.execute('SELECT tokens_total - tokens_used FROM subscriptions WHERE user_id=? AND plan=?',
                           (uid, plan)).fetchone()[0]
     c.close()
-    data['quota_hub'] = {'plan': plan, 'tokens_billed': tokens, 'tokens_remaining': max(0, remaining),
-                         'served_model': served['model']}
+    data['quota_hub'] = {'plan': plan, 'tokens_billed': billed, 'tokens_raw': tokens,
+                         'cache_tokens': cached_tok, 'cache_savings_tokens': tokens - billed,
+                         'tokens_remaining': max(0, remaining), 'served_model': served['model']}
     return 200, data
 
 def admin_codes(admin_token, payload):
