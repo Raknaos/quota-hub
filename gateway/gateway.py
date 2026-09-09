@@ -74,7 +74,8 @@ MKT_URL      = 'https://a6api.com/api/marketplace/public/channels/search'
 # Pool AUTO : famille flash polyvalente. Les variantes deepseek v4 (latest/vision)
 # sans canal vivant aujourd'hui sont conservées : dès qu'un fournisseur en liste un,
 # le market scan les inclut automatiquement (aucun redeploy).
-MODELS = ['qwen3.8-flash', 'glm-5.3-flash', 'deepseek-v4-flash',
+MODELS = ['qwen3.8-flash', 'grok-4.6', 'grok-4.5', 'glm-5.3-flash',
+          'deepseek-v4-pro', 'deepseek-v4-flash',
           'deepseek-v4.1-flash', 'deepseek-v4-flash-vision', 'deepseek-v4-vision']
 # Fournisseurs de confiance (données 24h réelles 2026-09-09) : cache hit élevé + succès stable.
 # tokentrans = ancre (le moins cher sur qwen, présent sur les 3 modèles, cache ~76-82 %).
@@ -401,7 +402,12 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
     mt = body.get('max_tokens')
     if mt is None:
         body['max_tokens'] = 1000
-    if isinstance(mt, int) and mt > MAX_TOKENS_CAP:
+    # les modèles raisonneurs (deepseek-v4-pro, grok) consomment le budget en
+    # reasoning_tokens invisible : un max_tokens court donne un content VIDE
+    # (fini en length) que le client paie pour rien -> budget amont minimal.
+    if isinstance(body.get('max_tokens'), int) and body['max_tokens'] < 2048:
+        body['max_tokens'] = 2048
+    if isinstance(body.get('max_tokens'), int) and body['max_tokens'] > MAX_TOKENS_CAP:
         body['max_tokens'] = MAX_TOKENS_CAP
     # détection d'images → cible vision si un canal existe (polyvalence auto)
     pool = list(MODELS)
@@ -427,6 +433,18 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
             log(f'GW essai {attempt+1} {model_id}: {status} {msg[:80]}')
             on_failure(model_id, msg)
             last_err = (status, msg)
+            continue
+        c0 = (data.get('choices') or [{}])[0]
+        content = ''
+        msg0 = c0.get('message') or {}
+        if isinstance(msg0.get('content'), str):
+            content = msg0['content'].strip()
+        finish = c0.get('finish_reason')
+        if not content and finish == 'length':
+            # réponse vide tronquée par le raisonnement : inutilisable pour le client
+            log(f'GW essai {attempt+1} {model_id}: reponse vide (length), canal ecarte')
+            on_failure(model_id, 'reponse vide (length)')
+            last_err = (502, 'reponse vide (budget raisonnement)')
             continue
         usage = data.get('usage', {}) or {}
         tin = usage.get('prompt_tokens') or 0
