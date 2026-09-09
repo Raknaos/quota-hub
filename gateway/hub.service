@@ -11,6 +11,8 @@ WorkingDirectory=/opt/quota-hub
 ExecStart=/usr/bin/python3 /opt/quota-hub/gateway.py
 Environment=QH_DB=/opt/quota-hub/hub.db
 Environment=A6API_KEY_PATH=/opt/quota-hub/key.json
+Environment=QH_TLS_CERT=/opt/quota-hub/tls/gw.crt
+Environment=QH_TLS_KEY=/opt/quota-hub/tls/gw.key
 Restart=always
 RestartSec=3
 NoNewPrivileges=yes

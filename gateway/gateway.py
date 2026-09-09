@@ -76,6 +76,10 @@ MKT_URL      = 'https://a6api.com/api/marketplace/public/channels/search'
 # le market scan les inclut automatiquement (aucun redeploy).
 MODELS = ['qwen3.8-flash', 'glm-5.3-flash', 'deepseek-v4-flash',
           'deepseek-v4.1-flash', 'deepseek-v4-flash-vision', 'deepseek-v4-vision']
+# Fournisseurs de confiance (données 24h réelles 2026-09-09) : cache hit élevé + succès stable.
+# tokentrans = ancre (le moins cher sur qwen, présent sur les 3 modèles, cache ~76-82 %).
+# Changement de modèle = perte du cache amont → on reste sur le MÊME fournisseur tant qu'il vit.
+TRUSTED_SUPPLIERS = ['tokentrans', '国产', 'bbgt-vip', 'deepseek线路']
 GEMINI_MODEL = 'gemini-3.8-flash'
 PLANS = ('auto', 'gemini')
 PLAN_DEFAULT = {'auto': 1_000_000_000, 'gemini': 100_000_000}   # tokens par code
@@ -242,19 +246,23 @@ def marketplace_best(model_id):
              and i.get('listing_availability') == 1
              and (i.get('recent_success_rate') or 0) >= MIN_SUCCESS_RAW
              and (i.get('sample_count') or 0) >= 20]
+    trusted = [i for i in alive if str(i.get('supplier_nickname')) in TRUSTED_SUPPLIERS]
     def expected(i):
         s = max((i.get('recent_success_rate') or 0) / SUCCESS_SCALE, 0.01)
         return i.get('input_price_micros', 10**18) / s
-    alive.sort(key=expected)
-    if not alive:
-        return {'best': None, 'n_alive': 0}
-    b = alive[0]
+    pool = trusted or alive   # si aucun canal de confiance, on retombe sur tous
+    pool.sort(key=expected)
+    if not pool:
+        return {'best': None, 'n_alive': 0, 'trusted_alive': 0}
+    b = pool[0]
     return {'best': {'supplier': b.get('supplier_nickname'),
                      'in': b.get('input_price_micros', 0) / 1e6,
                      'out': b.get('output_price_micros', 0) / 1e6,
                      'cache_read': b.get('cache_read_price_micros', 0) / 1e6,
+                     'cache24': ((i_cache24 := b.get('cache_hit_rate_24h')) or 0) / 100.0 if b.get('cache_hit_rate_24h') else None,
                      'success': (b.get('recent_success_rate') or 0) / SUCCESS_SCALE * 100},
-            'n_alive': len(alive)}
+            'n_alive': len(alive),
+            'n_trusted': len(trusted)}
 
 def market_get(model_id, max_age=MARKET_TTL):
     now = time.time()
@@ -308,7 +316,9 @@ def on_failure(model_id, msg):
     cooldowns_save()
 
 def pick_model(models):
-    """Modèle le moins cher vivant du pool ; hystérésis 15 % (préserve le cache amont)."""
+    """Choix cache-first : 1) même modèle qu'avant (cache) dans l'hystérésis 15 % ;
+    2) sinon même FOURNISSEUR qu'avant sur un autre modèle (cache partiel) tant que
+    le surcoût reste < 25 % ; 3) sinon le moins cher espéré."""
     cand = []
     for m in models:
         cd, _ = in_cooldown(m)
@@ -323,12 +333,25 @@ def pick_model(models):
     if not cand:
         return None, None
     cand.sort(key=lambda x: x[0])
+    best_cost = cand[0][0]
+    # 1) pin modèle (hystérésis 15 %)
     if PIN.get('model'):
         pc = next((c for c, m, _ in cand if m == PIN['model']), None)
-        if pc is not None and pc <= cand[0][0] * (1 + HYSTERESIS):
+        if pc is not None and pc <= best_cost * (1 + HYSTERESIS):
             cand.sort(key=lambda x: 0 if x[1] == PIN['model'] else 1)
+            with LOCK:
+                PIN['model'] = cand[0][1]
+            return cand[0][1], cand
+    # 2) pin fournisseur (cache amont rattaché au supplier) tolérance 25 %
+    if PIN.get('supplier'):
+        ps = next((t for t, m, b in cand if b.get('supplier') == PIN['supplier']), None)
+        if ps is not None and ps <= best_cost * 1.25:
+            with LOCK:
+                PIN['model'] = next(m for c, m, b in cand if b.get('supplier') == PIN['supplier'])
+            return PIN['model'], cand
     with LOCK:
         PIN['model'] = cand[0][1]
+        PIN['supplier'] = cand[0][2].get('supplier')
     return cand[0][1], cand
 
 def forward_upstream(model_id, payload):
@@ -415,6 +438,9 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
                              'note': 'modèle choisi automatiquement (le moins cher vivant)',
                              'requested_model': requested, 'ignored': True,
                              'latency_s': round(dt, 2)}
+        with LOCK:
+            PIN['model'] = model_id
+            PIN['supplier'] = b.get('supplier')
         return data, None, tin, tout, {'model': model_id, 'supplier': b.get('supplier'),
                                        'est': est, 'plan': plan, 'requested': requested}
     return None, (502, {'error': {'message': f'tous les canaux ont échoué: {last_err}',
