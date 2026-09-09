@@ -1,18 +1,18 @@
 /**
- * Quota.Hub — Proxy Vercel → Passerelle VPS (signature HMAC).
- * Le secret QH_INTERNAL_SECRET vit UNIQUEMENT côté serveur Vercel.
- * Le navigateur ne connaît aucun secret : il appelle /gw/* et /v1/* sur son
- * propre domaine ; cette fonction signe (X-QH-TS, X-QH-SIG) puis relaie vers
- * la passerelle. Signature = HMAC-SHA256(SECRET, ts|path|sha256(body)|auth),
- * fenêtre 300 s côté gateway → pas de rejeu, le secret ne circule jamais.
- *
- * Routage : vercel.json rewrite /gw/:path* et /v1/:path* → /api/gw?path=:path*
- * (le catch-all [[...path]] multi-segments ne matche pas de façon fiable ici).
+ * Quota.Hub — Proxy Vercel → Passerelle VPS (TLS + pin + HMAC).
+ * - TLS vers la passerelle (QH_GATEWAY_URL=https://…), certificat auto-signé
+ *   ÉPINGLÉ (QH_TLS_PIN = fingerprint sha256, format "AA:BB:…" ou base64) :
+ *   un MITM réseau ne peut pas intercepter la jambe Vercel→VPS.
+ * - Signature HMAC par requête (secret serveur uniquement, rejeu impossible).
+ * - /v1/* : flux binaire relaisé natif (SSE compatible SDK OpenAI).
  */
 import crypto from 'node:crypto';
+import https from 'node:https';
+import { URL } from 'node:url';
 
 const GW_BASE = process.env.QH_GATEWAY_URL || '';
 const SECRET = process.env.QH_INTERNAL_SECRET || '';
+const TLS_PIN = (process.env.QH_TLS_PIN || '').trim();
 const FORWARD = ['content-type', 'authorization', 'x-qh-session'];
 
 export default async function handler(req, res) {
@@ -27,7 +27,6 @@ export default async function handler(req, res) {
 
   const qp = new URL(req.url, 'http://x').searchParams;
   let path = '/' + (qp.get('path') || 'health');
-
   if (path.startsWith('/admin')) {
     return res.status(404).json({ error: { message: 'not found' } });
   }
@@ -38,7 +37,7 @@ export default async function handler(req, res) {
     if (v) headers[h] = Array.isArray(v) ? v[0] : v;
   }
 
-  let body;
+  let body = null;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     const chunks = [];
     let size = 0;
@@ -54,44 +53,66 @@ export default async function handler(req, res) {
 
   const ts = String(Math.floor(Date.now() / 1000));
   headers['x-qh-ts'] = ts;
+  if (body && body.length) {
+    headers['content-length'] = String(body.length); // sinon Node part en chunked et la passerelle lit un body vide → 403
+  }
   headers['x-qh-sig'] = crypto
     .createHmac('sha256', SECRET)
     .update(`${ts}|${path}|${crypto.createHash('sha256').update(body || '').digest('hex')}|${headers['authorization'] || ''}`)
     .digest('hex');
 
-  const url = GW_BASE.replace(/\/$/, '') + path;
+  const target = new URL(GW_BASE.replace(/\/$/, '') + path);
+  const isHttps = target.protocol === 'https:';
+  const lib = isHttps ? https : await import('node:http');
+
+  const options = {
+    hostname: target.hostname,
+    port: target.port || (isHttps ? 443 : 80),
+    path: target.pathname + (target.search || ''),
+    method: req.method,
+    headers,
+    timeout: path.startsWith('/v1/') ? 120_000 : 30_000
+  };
+  if (isHttps && TLS_PIN) {
+    options.rejectUnauthorized = false; // auto-signé : l'identité est LE PIN, pas une CA
+    options.checkServerIdentity = (host, cert) => {
+      const fp = cert.fingerprint256 || '';
+      const b64 = Buffer.from(fp.replace(/:/g, ''), 'hex').toString('base64');
+      if (fp === TLS_PIN || b64 === TLS_PIN) return undefined;
+      return new Error('certificat passerelle non reconnu (pin TLS)');
+    };
+  }
+
   try {
-    const upstream = await fetch(url, {
-      method: req.method,
-      headers,
-      body: body && body.length ? body : undefined,
-      signal: AbortSignal.timeout(path.startsWith('/v1/') ? 120_000 : 30_000)
-    });
-
-    res.status(upstream.status);
-    const ct = upstream.headers.get('content-type') || 'application/json';
-    res.setHeader('Content-Type', ct);
-    res.setHeader('Cache-Control', 'no-store');
-
-    if (path.startsWith('/v1/')) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      const reader = upstream.body.getReader();
-      const pump = async () => {
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (!res.write(value)) await new Promise(r => res.once('drain', r));
+    await new Promise((resolve, reject) => {
+      const up = lib.request(options, urs => {
+        res.status(urs.statusCode);
+        const ct = urs.headers['content-type'] || 'application/json';
+        res.setHeader('Content-Type', ct);
+        res.setHeader('Cache-Control', 'no-store');
+        if (path.startsWith('/v1/')) {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          urs.pipe(res); // flux natif (SSE/JSON), back-pressure géré par Node
+          urs.on('end', resolve);
+          urs.on('error', reject);
+        } else {
+          const bufs = [];
+          urs.on('data', c => bufs.push(c));
+          urs.on('end', () => { res.send(Buffer.concat(bufs)); resolve(); });
+          urs.on('error', reject);
         }
-        res.end();
-      };
-      pump().catch(() => { try { res.end(); } catch (e) { /* socket morte */ } });
-      return;
-    }
-
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    res.send(buf);
+      });
+      up.on('timeout', () => { up.destroy(new Error('timeout passerelle')); });
+      up.on('error', reject);
+      if (body && body.length) up.write(body);
+      up.end();
+    });
   } catch (e) {
-    const code = e && e.name === 'TimeoutError' ? 504 : 502;
-    res.status(code).json({ error: { message: `passerelle injoignable (${e && e.name})`, type: 'gateway_error' } });
+    if (!res.headersSent) {
+      const code = /timeout/i.test(String(e && e.message)) ? 504 : 502;
+      res.status(code).json({ error: { message: `passerelle injoignable (${(e && e.message) || e})`, type: 'gateway_error' } });
+    } else {
+      try { res.end(); } catch (e2) { /* socket morte */ }
+    }
   }
 }

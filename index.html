@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quota Hub — 1 milliard de tokens pour $10, modèle toujours le moins cher</title>
+  <title>Quota Hub — 1 Md tokens polyvalent ou 100 M Gemini 3.8 Flash pour $10</title>
   <meta name="description" content="Abonnement IA : $10 = 1 Md de tokens sur une API compatible OpenAI. Le modèle le moins cher et le plus fiable est choisi automatiquement à chaque requête.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -74,7 +74,7 @@
         <div class="glass-hero">
           <div class="hero-content">
             <div class="eyebrow">ABONNEMENT IA · COMPATIBLE OPENAI SDK · SANS CHOIX DE MODÈLE</div>
-            <h1 class="hero-title">1 milliard de tokens pour <span class="gradient-text">$10</span>. Le modèle, on s'en occupe.</h1>
+            <h1 class="hero-title">1 Md tokens polyvalent — ou 100 M <span class="gradient-text">Gemini 3.8 Flash</span> — pour $10. Le modèle, on s'en occupe.</h1>
             <p class="hero-subtitle">Vous ne choisissez jamais de modèle : notre routeur interne sélectionne à chaque requête le canal le moins cher vivant (fiabilité ≥ 80 %, bascule automatique en cas de panne). Vos agents voient une API OpenAI standard.</p>
             <div class="hero-stats">
               <div class="hero-stat-card">
@@ -179,6 +179,10 @@
               <div class="metric-box">
                 <span class="metric-val" id="metric-served-model">—</span>
                 <span class="metric-label">Dernier modèle servi</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-val" id="metric-gemini-left">—</span>
+                <span class="metric-label">Solde Gemini 100 M</span>
               </div>
               <div class="metric-box">
                 <span class="metric-val text-accent" id="metric-sub-status">—</span>
@@ -387,6 +391,13 @@ export OPENAI_API_KEY="sk-qh-…votre clé…"</code></pre>
           <div class="field-group">
             <label for="key-name-input">Nom mnémonique :</label>
             <input type="text" id="key-name-input" class="glass-input" placeholder="Ex: Agent CutBG / Cursor dev" required maxlength="60">
+          </div>
+          <div class="field-group">
+            <label for="key-plan-select">Plan de la clé :</label>
+            <select id="key-plan-select" class="glass-input">
+              <option value="auto" selected>Auto polyvalent (1 Md) — modèle toujours le moins cher</option>
+              <option value="gemini">Gemini 3.8 Flash (100 M) — qualité constante</option>
+            </select>
           </div>
           <div class="modal-actions">
             <button type="button" class="secondary-btn" id="btn-cancel-key">Annuler</button>

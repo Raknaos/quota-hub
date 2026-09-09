@@ -45,24 +45,27 @@ function setAuthUI() {
 function renderMe() {
   const me = APP_STATE.me;
   if (!me) return;
-  const sub = me.subscription || {};
-  const total = sub.tokens_total || 0, used = sub.tokens_used || 0;
-  const left = Math.max(0, total - used);
-  $('user-tokens').textContent = fmtM(left);
-  $('metric-tokens-left').textContent = fmtM(left);
-  $('metric-requests').textContent = String((me.usage && me.usage.requests) || 0);
-  $('metric-sub-status').textContent = sub.status === 'active' ? 'Actif' : 'Inactif';
-  $('metric-sub-status').style.color = sub.status === 'active' ? 'var(--lime)' : 'var(--soft)';
-  const pct = total ? Math.min(100, Math.round(100 * used / total)) : 0;
-  $('label-sub-quota').textContent = `${fmtM(used)} / ${fmtM(total)} tokens`;
+  const subs = me.subscription || {};
+  const auto = subs.auto || {}, gem = subs.gemini || {};
+  const autoLeft = Math.max(0, (auto.tokens_total || 0) - (auto.tokens_used || 0));
+  const gemLeft = Math.max(0, (gem.tokens_total || 0) - (gem.tokens_used || 0));
+  $('user-tokens').textContent = fmtM(autoLeft);
+  $('metric-tokens-left').textContent = fmtM(autoLeft);
+  const usageAuto = (me.usage && me.usage.auto) || {};
+  $('metric-requests').textContent = String(usageAuto.n || 0);
+  const autoActive = auto.status === 'active';
+  $('metric-sub-status').textContent = autoActive ? 'Actif' : 'Inactif';
+  $('metric-sub-status').style.color = autoActive ? 'var(--lime)' : 'var(--soft)';
+  const pct = auto.tokens_total ? Math.min(100, Math.round(100 * (auto.tokens_used || 0) / auto.tokens_total)) : 0;
+  $('label-sub-quota').textContent = `${fmtM(auto.tokens_used || 0)} / ${fmtM(auto.tokens_total)} tokens`;
   $('track-sub-quota').style.width = pct + '%';
-  $('label-quota-detail').textContent = `${fmtM(used)} / ${fmtM(total)}`;
+  $('label-quota-detail').textContent = `${fmtM(auto.tokens_used || 0)} / ${fmtM(auto.tokens_total)}`;
   $('track-quota-detail').style.width = pct + '%';
-  if (me.usage) {
-    $('metric-prompt-tokens').textContent = fmtM(me.usage.prompt || 0);
-    $('metric-completion-tokens').textContent = fmtM(me.usage.completion || 0);
-    $('metric-served-model').textContent = me.usage.last_model || '—';
-  }
+  $('metric-prompt-tokens').textContent = fmtM(usageAuto.pin || 0);
+  $('metric-completion-tokens').textContent = fmtM(usageAuto.pout || 0);
+  $('metric-served-model').textContent = usageAuto.last_model || '—';
+  const gemEl = $('metric-gemini-left');
+  if (gemEl) gemEl.textContent = `${fmtM(gemLeft)}${gem.status === 'active' ? '' : ' (inactif)'}`;
   APP_STATE.keys = me.keys || [];
   renderKeys();
 }
@@ -159,7 +162,7 @@ function renderKeys() {
   }
   tbody.innerHTML = keys.map(k => `
     <tr>
-      <td><strong>${escapeHtml(k.name)}</strong></td>
+      <td><strong>${escapeHtml(k.name)}</strong><div style="font-size:11px;color:var(--soft)">${k.plan === 'gemini' ? 'Gemini 100 M' : 'Auto 1 Md'}</div></td>
       <td><span class="key-code">${escapeHtml(k.prefix)}…</span></td>
       <td>${new Date((k.created_at || 0) * 1000).toISOString().slice(0, 10)}</td>
       <td>${k.last_used ? new Date(k.last_used * 1000).toISOString().slice(0, 16).replace('T', ' ') : 'jamais'}</td>
@@ -206,7 +209,8 @@ function initKeyCreation() {
   };
   $('form-create-key').onsubmit = async e => {
     e.preventDefault();
-    const { status, data } = await apiCall('/api/keys', { body: { name: $('key-name-input').value.trim() || 'Clé' } });
+    const planSel = $('key-plan-select');
+    const { status, data } = await apiCall('/api/keys', { body: { name: $('key-name-input').value.trim() || 'Clé', plan: planSel ? planSel.value : 'auto' } });
     if (status === 200 && data.key) {
       modal.close();
       $('newly-created-key-val').value = data.key;
@@ -229,11 +233,12 @@ function initRedeem() {
     msg.hidden = false;
     if (status === 200) {
       msg.style.color = 'var(--lime)';
-      msg.textContent = `✓ Code activé : +${fmtM(data.subscription.tokens_total)} tokens au total sur votre compte.`;
+      const pl = data.plan || 'auto';
+      const ps = (data.subscription && data.subscription[pl]) || {};
+      msg.textContent = `✓ Code ${pl === 'gemini' ? 'Gemini 3.8 Flash' : 'auto polyvalent'} activé : +${fmtM(ps.tokens_total || 0)} tokens.`;
       $('redeem-input').value = '';
-      const sub = data.subscription || {};
-      $('redeem-total').textContent = fmtM(sub.tokens_total || 0);
-      $('redeem-status').textContent = sub.status === 'active' ? 'Actif' : sub.status || '—';
+      $('redeem-total').textContent = fmtM(ps.tokens_total || 0);
+      $('redeem-status').textContent = ps.status === 'active' ? 'Actif' : ps.status || '—';
       await refreshMe();
     } else {
       msg.style.color = 'var(--danger)';
@@ -266,8 +271,12 @@ function initPlayground() {
 
 function myKey() {
   // la clé complète n'est JAMAIS stockée par le front : l'utilisateur la colle au besoin.
-  // Le playground utilise la clé saisie dans ce champ local (non persisté).
   return sessionStorage.getItem('qh_play_key') || '';
+}
+
+function keyPlanById(id) {
+  const k = (APP_STATE.keys || []).find(x => String(x.id) === String(id));
+  return (k && k.plan) || 'auto';
 }
 
 function runPlay() {
@@ -282,7 +291,9 @@ function runPlay() {
   }
   const prompt = $('play-user-prompt').value.trim();
   if (!prompt) { alert('Saisissez une invite.'); return; }
-  meta.textContent = '⏳ routage auto en cours…';
+  const sel = $('play-key-select');
+  const planLbl = keyPlanById(sel && sel.value) === 'gemini' ? 'gemini 3.8 flash' : 'routage auto';
+  meta.textContent = `⏳ ${planLbl} en cours…`;
   out.textContent = '…';
   const t0 = performance.now();
   fetch('/v1/chat/completions', {
