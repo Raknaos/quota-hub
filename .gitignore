@@ -11,3 +11,5 @@ gateway/_*.py
 *.log
 node_modules/
 .vercel/
+__pycache__/
+*.pyc
