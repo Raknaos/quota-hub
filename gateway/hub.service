@@ -1,0 +1,23 @@
+[Unit]
+Description=Quota.Hub Gateway (abonnement IA, routage auto)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qh
+Group=qh
+WorkingDirectory=/opt/quota-hub
+ExecStart=/usr/bin/python3 /opt/quota-hub/gateway.py
+Environment=QH_DB=/opt/quota-hub/hub.db
+Environment=A6API_KEY_PATH=/opt/quota-hub/key.json
+Restart=always
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/quota-hub
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

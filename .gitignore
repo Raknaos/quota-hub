@@ -1,7 +1,13 @@
-*.db
-__pycache__/
+# secrets & runtime — jamais committer
+gateway/.env
+gateway/key.json
+gateway/hub.db
+gateway/_test_state.json
+gateway/*.log
+gateway/_*.py
 .env
-.vercel
+.env.*
+*.db
+*.log
 node_modules/
-
-.vercel
+.vercel/

@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quota Hub — API IA Haute Performance à Prix de Gros</title>
+  <title>Quota Hub — 1 milliard de tokens pour $10, modèle toujours le moins cher</title>
+  <meta name="description" content="Abonnement IA : $10 = 1 Md de tokens sur une API compatible OpenAI. Le modèle le moins cher et le plus fiable est choisi automatiquement à chaque requête.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -11,26 +12,25 @@
 </head>
 <body>
   <div class="app-shell">
-    <!-- Topbar / Titlebar -->
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark">Q</div>
         <div class="brand-name">Quota<span class="brand-dot">.Hub</span></div>
-        <span class="brand-badge">PRO v2.6</span>
+        <span class="brand-badge">ABONNEMENT</span>
       </div>
 
       <nav class="nav-tabs">
-        <button class="nav-tab active" data-tab="market">
+        <button class="nav-tab active" data-tab="plan">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          Catalogue & Marché
+          L'abonnement
         </button>
         <button class="nav-tab" data-tab="console">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-          Clés d'Accès API
+          Ma console
         </button>
-        <button class="nav-tab" data-tab="wallet">
+        <button class="nav-tab" data-tab="redeem">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-          Recharge & Solde
+          Activer un code
         </button>
         <button class="nav-tab" data-tab="playground">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
@@ -39,535 +39,387 @@
       </nav>
 
       <div class="topbar-actions">
-        <!-- État Visiteur Déconnecté -->
         <div id="auth-guest-view" style="display:flex;align-items:center;gap:8px;">
           <button class="ghost-btn" id="btn-login-trigger" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;background:rgba(255,255,255,0.65);border:1px solid var(--edge);font-size:12.5px;font-weight:600;cursor:pointer;">
             Connexion
           </button>
           <button class="primary-btn" id="btn-register-trigger" style="padding:7px 14px;border-radius:10px;font-size:12.5px;font-weight:600;">
-            Inscription (+10$)
+            Créer un compte
           </button>
         </div>
 
-        <!-- État Utilisateur Connecté (Masqué par défaut si non connecté) -->
         <div id="auth-user-view" style="display:none;align-items:center;gap:10px;">
           <div class="user-pill" style="display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:10px;background:rgba(255,255,255,0.7);border:1px solid var(--edge);font-size:12px;font-weight:600;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
             <span id="auth-user-name" style="color:var(--violet-blue);">Utilisateur</span>
             <button id="btn-logout" title="Se déconnecter" style="border:none;background:none;cursor:pointer;color:var(--soft);font-size:13px;padding:0 2px;">✕</button>
           </div>
-          <div class="balance-pill" id="balance-badge" title="Cliquez pour recharger">
-            <span class="balance-label">Solde :</span>
-            <span class="balance-val" id="user-balance">$0.00</span>
-            <span class="plus-btn">+</span>
+          <div class="balance-pill" id="balance-badge" title="Voir mon abonnement">
+            <span class="balance-label">Tokens :</span>
+            <span class="balance-val" id="user-tokens">—</span>
           </div>
         </div>
 
-        <div class="status-indicator" title="Tous les nœuds de routage opérationnels">
+        <div class="status-indicator" title="Routeur interne : le canal le moins cher vivant, floor fiabilité 80%">
           <span class="pulse-dot"></span>
-          <span class="status-text">99.98% Live</span>
+          <span class="status-text">Auto-route actif</span>
         </div>
       </div>
     </header>
 
-    <!-- Main Content Area -->
     <main class="content-scroll">
-      
-      <!-- TAB 1: CATALOGUE / MARCHÉ DES MODÈLES (INSPIRÉ A6API MAIS ÉPURÉ GLASS) -->
-      <section id="tab-market" class="tab-pane active">
-        <!-- Hero Banner -->
+
+      <!-- TAB 1 : LE PLAN -->
+      <section id="tab-plan" class="tab-pane active">
         <div class="glass-hero">
           <div class="hero-content">
-            <div class="eyebrow">ROUTAGE INTELLIGENT MULTI-FOURNISSEURS · EUROPE & INTERNATIONAL</div>
-            <h1 class="hero-title">Le Hub API Unifié le <span class="gradient-text">plus avantageux</span> pour vos Agents & Devs.</h1>
-            <p class="hero-subtitle">Bascule automatique de canaux, garantie zéro altération de modèle, et tarifs négociés de gros jusqu'à -90% sous les grilles officielles.</p>
+            <div class="eyebrow">ABONNEMENT IA · COMPATIBLE OPENAI SDK · SANS CHOIX DE MODÈLE</div>
+            <h1 class="hero-title">1 milliard de tokens pour <span class="gradient-text">$10</span>. Le modèle, on s'en occupe.</h1>
+            <p class="hero-subtitle">Vous ne choisissez jamais de modèle : notre routeur interne sélectionne à chaque requête le canal le moins cher vivant (fiabilité ≥ 80 %, bascule automatique en cas de panne). Vos agents voient une API OpenAI standard.</p>
             <div class="hero-stats">
               <div class="hero-stat-card">
-                <span class="stat-num">12+</span>
-                <span class="stat-desc">Modèles Flagship 2026</span>
+                <span class="stat-num">$10</span>
+                <span class="stat-desc">1 Md de tokens · 30 jours</span>
               </div>
               <div class="hero-stat-card">
-                <span class="stat-num">&lt; 140ms</span>
-                <span class="stat-desc">Latence Proxy P50</span>
+                <span class="stat-num">$0.01</span>
+                <span class="stat-desc">par million de tokens</span>
               </div>
               <div class="hero-stat-card">
-                <span class="stat-num">-85%</span>
-                <span class="stat-desc">Économie Moyenne</span>
+                <span class="stat-num">60/min</span>
+                <span class="stat-desc">requêtes par clé</span>
               </div>
               <div class="hero-stat-card">
                 <span class="stat-num">100%</span>
-                <span class="stat-desc">OpenAI SDK Compatible</span>
+                <span class="stat-desc">compatible OpenAI SDK</span>
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- Hot Deals Ticker -->
-        <div class="hot-ticker-container">
-          <div class="ticker-label">🔥 Offres Vedettes</div>
-          <div class="ticker-scroll" id="hot-ticker-list">
-            <!-- Populated via JS -->
-          </div>
-        </div>
-
-        <!-- Filter & Search Controls -->
-        <div class="market-controls glass-card">
-          <div class="search-box">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            <input type="text" id="model-search-input" placeholder="Rechercher un modèle (Astra, Sol, Luna, DeepSeek, GLM, Claude, Gemini...)" autocomplete="off">
-            <button class="clear-search-btn" id="clear-search" hidden>&times;</button>
-          </div>
-
-          <div class="filter-groups">
-            <div class="pill-group" id="family-filter">
-              <button class="filter-pill active" data-family="all">Tous</button>
-              <button class="filter-pill" data-family="OpenAI">OpenAI</button>
-              <button class="filter-pill" data-family="DeepSeek">DeepSeek</button>
-              <button class="filter-pill" data-family="Anthropic">Anthropic</button>
-              <button class="filter-pill" data-family="Google">Google</button>
-              <button class="filter-pill" data-family="Zhipu">Zhipu GLM</button>
-              <button class="filter-pill" data-family="Moonshot">Moonshot</button>
-              <button class="filter-pill" data-family="Tencent">Tencent</button>
-              <button class="filter-pill" data-family="Alibaba">Qwen</button>
-            </div>
-
-            <div class="tier-selector">
-              <label for="channel-tier-select">Canal de Routage :</label>
-              <select id="channel-tier-select" class="glass-select">
-                <option value="all">Tous les canaux</option>
-                <option value="s-grade" selected>⭐ Canal S-Grade (Vérifié & Anti-Tromperie)</option>
-                <option value="eco">⚡ Canal Éco Ultra-Bas (Arbitrage de Gros)</option>
-                <option value="direct">🛡️ Cloud Direct (Azure / AWS / Vertex)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Models Table View -->
-        <div class="table-container glass-card">
-          <table class="market-table">
-            <thead>
-              <tr>
-                <th>Modèle / ID</th>
-                <th>Fournisseur</th>
-                <th>Prix Officiel / 1M</th>
-                <th>Prix Quota Hub / 1M</th>
-                <th>Réduction</th>
-                <th>Qualité & Latence</th>
-                <th>Canal Recommandé</th>
-                <th style="text-align: right;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="models-table-body">
-              <!-- Rendered by app.js -->
-            </tbody>
-          </table>
-          <div id="no-models-found" class="empty-state" hidden>
-            <p>Aucun modèle ne correspond à vos filtres actuels.</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 2: GESTION DES CLÉS API (CONSOLE DEV) -->
-      <section id="tab-console" class="tab-pane">
-        <div class="glass-hero mini">
-          <div class="hero-content">
-            <div class="eyebrow">CONSOLE DÉVELOPPEUR</div>
-            <h1 class="hero-title">Clés d'Accès <span class="gradient-text">OpenAI-Compatible</span></h1>
-            <p class="hero-subtitle">Utilisez l'URL racine <code>https://quota-hub.vercel.app/v1</code> directement dans Claude Code, Cursor, Codex, OpenCode ou vos scripts Python/Node.</p>
-          </div>
-          <button class="primary-btn" id="open-create-key-modal">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Créer une nouvelle clé
-          </button>
         </div>
 
         <div class="grid-2-cols">
-          <!-- Configuration Rapide -->
           <div class="glass-card">
-            <h3>Paramètres de Connexion</h3>
-            <div class="code-block-wrapper">
-              <div class="code-header">
-                <span>Base URL universelle</span>
-                <button class="copy-btn" data-copy="https://quota-hub.vercel.app/v1">Copier</button>
-              </div>
-              <pre><code>https://quota-hub.vercel.app/v1</code></pre>
-            </div>
-
-            <div class="code-block-wrapper">
-              <div class="code-header">
-                <span>Export Bash (Hermes / Linux / Mac)</span>
-                <button class="copy-btn" id="btn-copy-export" data-copy="export OPENAI_BASE_URL=https://quota-hub.vercel.app/v1&#10;export OPENAI_API_KEY=sk-qh-votre-cle">Copier</button>
-              </div>
-              <pre><code id="code-snippet-export">export OPENAI_BASE_URL="https://quota-hub.vercel.app/v1"
-export OPENAI_API_KEY="sk-qh-votre-cle"</code></pre>
-            </div>
-          </div>
-
-          <!-- Quick Stats / Quota Usage -->
-          <div class="glass-card">
-            <h3>Consommation en Temps Réel</h3>
+            <h3>Ce que vous recevez</h3>
             <div class="metrics-grid">
               <div class="metric-box">
-                <span class="metric-val" id="metric-today-calls">0</span>
-                <span class="metric-label">Requêtes 24h</span>
+                <span class="metric-val">1 Md</span>
+                <span class="metric-label">tokens décomptés réels (prompt + completion, à l'usage)</span>
               </div>
               <div class="metric-box">
-                <span class="metric-val" id="metric-today-tokens">0k</span>
-                <span class="metric-label">Tokens Traités</span>
+                <span class="metric-val">30 j</span>
+                <span class="metric-label">validité après activation</span>
               </div>
               <div class="metric-box">
-                <span class="metric-val" id="metric-today-spent">$0.00</span>
-                <span class="metric-label">Coût Effectif</span>
+                <span class="metric-val">3</span>
+                <span class="metric-label">canaux flash haut débit (qwen · glm · deepseek)</span>
               </div>
               <div class="metric-box">
-                <span class="metric-val text-accent" id="metric-saved">$0.00</span>
-                <span class="metric-label">Économisé vs Officiel</span>
+                <span class="metric-val text-accent">4 000</span>
+                <span class="metric-label">tokens max par réponse</span>
               </div>
             </div>
             <div class="progress-bar-container">
               <div class="progress-header">
-                <span>Plafond Mensuel Actif</span>
-                <span id="label-monthly-quota">$0.00 / $100.00</span>
+                <span>Votre consommation</span>
+                <span id="label-sub-quota">0 / 0 tokens</span>
               </div>
               <div class="progress-track">
-                <div class="progress-fill" id="track-monthly-quota" style="width: 0%;"></div>
+                <div class="progress-fill" id="track-sub-quota" style="width: 0%;"></div>
               </div>
+            </div>
+            <p class="card-tip" style="margin-top:12px;">Comment ça marche : <strong>1.</strong> créez un compte → <strong>2.</strong> activez votre code d'abonnement (bouton « Activer un code ») → <strong>3.</strong> générez une clé → <strong>4.</strong> branchez vos agents sur <code>https://quota-hub.vercel.app/v1</code>. Le champ <code>model</code> de vos requêtes est ignoré : répondez n'importe quoi, le routeur choisit seul.</p>
+          </div>
+
+          <div class="glass-card">
+            <h3>Transparence du routage</h3>
+            <p class="card-tip">Le routeur interne, à chaque requête :</p>
+            <div class="code-block-wrapper">
+              <div class="code-header"><span>Sélection automatique (extrait réel)</span></div>
+              <pre><code>1. liste les canaux vivants (fiabilité ≥ 80 %, échantillon ≥ 20)
+2. coût espéré = prix ÷ probabilité de succès → tri ascendant
+3. hystérésis 15 % : on garde le canal courant (cache de prompts
+   ~10× moins cher) sauf si un concurrent est nettement moins cher
+4. échec/timeout → cooldown 60-90 s, canal suivant immédiatement
+5. votre facturation : tokens réels consommés, jamais de simulation</code></pre>
+            </div>
+            <div class="docs-callout">
+              <h4>Pourquoi pas de choix de modèle ?</h4>
+              <p>C'est ce qui permet le prix : les modèles « vedettes » coûtent 30 à 300× plus cher. En fixant le routeur sur les canaux les plus économiques, le plan reste rentable pour vous comme pour nous. Besoin d'un modèle précis ? Les offres à l'usage arrivent ensuite.</p>
             </div>
           </div>
         </div>
+      </section>
 
-        <!-- Keys Table -->
+      <!-- TAB 2 : CONSOLE -->
+      <section id="tab-console" class="tab-pane">
+        <div class="glass-hero mini">
+          <div class="hero-content">
+            <div class="eyebrow">CONSOLE DÉVELOPPEUR</div>
+            <h1 class="hero-title">Vos clés <span class="gradient-text">OpenAI-compatible</span></h1>
+            <p class="hero-subtitle">Base URL <code>https://quota-hub.vercel.app/v1</code> — le champ model est sans effet, tout passe par le routeur auto.</p>
+          </div>
+          <button class="primary-btn" id="open-create-key-modal">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Nouvelle clé
+          </button>
+        </div>
+
+        <div class="grid-2-cols">
+          <div class="glass-card">
+            <h3>Votre abonnement</h3>
+            <div class="metrics-grid">
+              <div class="metric-box">
+                <span class="metric-val" id="metric-tokens-left">—</span>
+                <span class="metric-label">Tokens restants</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-val" id="metric-requests">—</span>
+                <span class="metric-label">Requêtes servies</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-val" id="metric-served-model">—</span>
+                <span class="metric-label">Dernier modèle servi</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-val text-accent" id="metric-sub-status">—</span>
+                <span class="metric-label">Statut</span>
+              </div>
+            </div>
+            <div class="code-block-wrapper">
+              <div class="code-header">
+                <span>Export Bash (Hermes / Linux / Mac)</span>
+                <button class="copy-btn" id="btn-copy-export" data-copy="export OPENAI_BASE_URL=https://quota-hub.vercel.app/v1">Copier</button>
+              </div>
+              <pre><code id="code-snippet-export">export OPENAI_BASE_URL="https://quota-hub.vercel.app/v1"
+export OPENAI_API_KEY="sk-qh-…votre clé…"</code></pre>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <h3>Consommation</h3>
+            <div class="metrics-grid">
+              <div class="metric-box">
+                <span class="metric-val" id="metric-prompt-tokens">—</span>
+                <span class="metric-label">Tokens prompt</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-val" id="metric-completion-tokens">—</span>
+                <span class="metric-label">Tokens completion</span>
+              </div>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-header">
+                <span>Avancement du quota</span>
+                <span id="label-quota-detail">—</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="track-quota-detail" style="width:0%"></div>
+              </div>
+            </div>
+            <p class="card-tip">Chaque réponse contient <code>quota_hub.tokens_remaining</code> : vos agents peuvent s'auto-surveiller. Rate-limit : 60 req/min par clé (409 si dépassé).</p>
+          </div>
+        </div>
+
         <div class="glass-card mt-16">
           <div class="card-header-flex">
-            <h3>Vos Clés d'Accès Actives</h3>
-            <span class="badge-subtle" id="keys-count-badge">2 clés créées</span>
+            <h3>Vos clés actives</h3>
+            <span class="badge-subtle" id="keys-count-badge">0 clé</span>
           </div>
           <table class="simple-table">
             <thead>
               <tr>
-                <th>Nom / Description</th>
-                <th>Clé Secrète</th>
-                <th>Plafond</th>
+                <th>Nom</th>
+                <th>Clé</th>
                 <th>Création</th>
+                <th>Dernier usage</th>
                 <th>Statut</th>
                 <th style="text-align: right;">Actions</th>
               </tr>
             </thead>
-            <tbody id="keys-table-body">
-              <!-- Rendered via JS -->
-            </tbody>
+            <tbody id="keys-table-body"></tbody>
           </table>
+          <p class="card-tip" id="keys-login-hint" style="padding:12px 4px;">Connectez-vous pour voir et créer vos clés.</p>
         </div>
       </section>
 
-      <!-- TAB 3: RECHARGE & PORTEFEUILLE (INSPIRÉ DE A6API AVEC BONUS PALIERS) -->
-      <section id="tab-wallet" class="tab-pane">
+      <!-- TAB 3 : ACTIVER UN CODE -->
+      <section id="tab-redeem" class="tab-pane">
         <div class="glass-hero mini">
           <div class="hero-content">
-            <div class="eyebrow">RECHARGE & GESTION DU COMPTE</div>
-            <h1 class="hero-title">Portefeuille & <span class="gradient-text">Bonus par Palier</span></h1>
-            <p class="hero-subtitle">Rechargez selon vos besoins sans abonnement mensuel contraignant. Remise immédiate appliquée dès 50$ de recharge.</p>
+            <div class="eyebrow">ACTIVATION D'ABONNEMENT</div>
+            <h1 class="hero-title">Activer un <span class="gradient-text">code</span></h1>
+            <p class="hero-subtitle">Chaque code ajoute son quota de tokens à votre compte (cumulable). Format : QH-XXXXXXXX-XXXXXXXX.</p>
           </div>
         </div>
 
         <div class="grid-2-cols">
-          <!-- Recharge Tiers -->
           <div class="glass-card">
-            <h3>1. Choisir un Montant de Crédit</h3>
-            <p class="card-tip">Taux de base : 1 USD = 1.00 USD de quota nominal d'utilisation.</p>
-            
-            <div class="tier-cards-grid">
-              <div class="tier-card" data-amount="10" data-discount="0">
-                <span class="tier-val">$10</span>
-                <span class="tier-sub">Starter</span>
-                <span class="tier-price">Payez 10.00$</span>
-              </div>
-              <div class="tier-card" data-amount="30" data-discount="2.5">
-                <span class="tier-badge-discount">-2.5%</span>
-                <span class="tier-val">$30</span>
-                <span class="tier-sub">Pro Dev</span>
-                <span class="tier-price">Payez 29.25$</span>
-              </div>
-              <div class="tier-card popular selected" data-amount="50" data-discount="5.34">
-                <span class="tier-badge-popular">Populaire</span>
-                <span class="tier-badge-discount">-5.34%</span>
-                <span class="tier-val">$50</span>
-                <span class="tier-sub">Studio / Agents</span>
-                <span class="tier-price">Payez 47.33$</span>
-              </div>
-              <div class="tier-card" data-amount="100" data-discount="7.5">
-                <span class="tier-badge-discount">-7.5%</span>
-                <span class="tier-val">$100</span>
-                <span class="tier-sub">Scale</span>
-                <span class="tier-price">Payez 92.50$</span>
-              </div>
-              <div class="tier-card" data-amount="300" data-discount="10">
-                <span class="tier-badge-discount">-10%</span>
-                <span class="tier-val">$300</span>
-                <span class="tier-sub">Enterprise</span>
-                <span class="tier-price">Payez 270.00$</span>
-              </div>
-              <div class="tier-card" data-amount="custom" data-discount="0">
-                <span class="tier-val">Libre</span>
-                <span class="tier-sub">Min $5</span>
-                <span class="tier-price">Sur-mesure</span>
-              </div>
-            </div>
-
-            <div class="payment-method-selector mt-16">
-              <h4>Moyen de Règlement Sécurisé :</h4>
-              <div class="pay-options">
-                <label class="pay-option active">
-                  <input type="radio" name="pay-method" value="card" checked>
-                  <span>💳 Carte Bancaire (Stripe / Apple Pay)</span>
-                </label>
-                <label class="pay-option">
-                  <input type="radio" name="pay-method" value="crypto">
-                  <span>⚡ Crypto Instantané (USDT / USDC)</span>
-                </label>
-                <label class="pay-option">
-                  <input type="radio" name="pay-method" value="sepa">
-                  <span>🏦 Virement SEPA Instantané</span>
-                </label>
-              </div>
-            </div>
-
-            <button class="primary-btn full-width mt-16" id="btn-proceed-recharge">
-              Procéder au Rechargement (<span id="recharge-btn-sum">47.33$</span> pour 50$ de crédit)
-            </button>
-          </div>
-
-          <!-- Code Redemption & Referral -->
-          <div class="glass-card">
-            <h3>2. Échanger un Code Promotionnel ou Bon</h3>
-            <p class="card-tip">Vous disposez d'un code cadeau, bon d'échange ou remise événementielle ?</p>
+            <h3>Votre code d'abonnement</h3>
             <div class="redeem-box">
-              <input type="text" id="redeem-input" class="glass-input" placeholder="Ex: QUOTA-WELCOME-2026" uppercase>
-              <button class="secondary-btn" id="btn-redeem">Valider</button>
+              <input type="text" id="redeem-input" class="glass-input" placeholder="QH-XXXXXXXX-XXXXXXXX" autocomplete="off" spellcheck="false">
+              <button class="secondary-btn" id="btn-redeem">Activer</button>
             </div>
             <div id="redeem-msg" class="feedback-msg" hidden></div>
-
             <hr class="glass-divider">
+            <p class="card-tip">Le paiement d'un code se fait hors ligne (virement/contact direct) : vous recevez le code par email une fois le règlement confirmé. Un code = 1 Md de tokens (30 jours de validité après activation).</p>
+          </div>
 
-            <h3>3. Programme Parrainage & Affiliation</h3>
-            <p class="card-tip">Recevez <strong>5.00% à vie</strong> sur toutes les recharges effectuées par vos filleuls.</p>
-            <div class="aff-box">
-              <input type="text" readonly id="aff-link-input" class="glass-input" value="Connectez-vous pour obtenir votre lien de parrainage">
-              <button class="copy-btn" id="btn-copy-aff" data-copy="">Copier</button>
+          <div class="glass-card">
+            <h3>Après activation</h3>
+            <p class="card-tip">Votre quota devient immédiatement :</p>
+            <div class="metrics-grid">
+              <div class="metric-box">
+                <span class="metric-val" id="redeem-total">—</span>
+                <span class="metric-label">Tokens totaux</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-val" id="redeem-status">—</span>
+                <span class="metric-label">Statut</span>
+              </div>
             </div>
-            <div class="aff-summary-metrics">
-              <div class="aff-stat">
-                <span class="aff-num" id="aff-filleuls-count">0</span>
-                <span class="aff-lbl">Filleuls Inscrits</span>
-              </div>
-              <div class="aff-stat">
-                <span class="aff-num" id="aff-commissions-val">$0.00</span>
-                <span class="aff-lbl">Commissions Cumulées</span>
-              </div>
-              <button class="ghost-btn" id="btn-transfer-aff">Convertir en Solde Quota</button>
+            <div class="docs-callout">
+              <h4>Compteur à l'usage, sans surprise</h4>
+              <p>Seuls les tokens réellement consommés sont décomptés (prompt + completion, données renvoyées par l'amont). Une requête qui échoue = 0 token décompté.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- TAB 4: PLAYGROUND / TESTEUR EN DIRECT & DOCS -->
+      <!-- TAB 4 : PLAYGROUND -->
       <section id="tab-playground" class="tab-pane">
         <div class="glass-hero mini">
           <div class="hero-content">
-            <div class="eyebrow">TESTEUR LIVE INTERACTIF</div>
-            <h1 class="hero-title">Playground & <span class="gradient-text">Snippets d'Intégration</span></h1>
-            <p class="hero-subtitle">Vérifiez la vitesse, le rendu et le coût exact d'une requête sur le modèle de votre choix en 1 clic.</p>
+            <div class="eyebrow">TESTEUR LIVE</div>
+            <h1 class="hero-title">Playground & <span class="gradient-text">snippets d'intégration</span></h1>
+            <p class="hero-subtitle">Test réel via votre clé : la réponse vient du routeur auto (modèle choisi seul, facturé à l'usage).</p>
           </div>
         </div>
 
         <div class="grid-2-cols">
-          <!-- Playground Form -->
           <div class="glass-card">
-            <h3>Requête de Test</h3>
+            <h3>Requête de test</h3>
             <div class="field-group">
-              <label for="play-model-select">Sélectionnez le Modèle :</label>
-              <select id="play-model-select" class="glass-select">
-                <!-- Filled dynamically -->
-              </select>
+              <label for="play-key-select">Clé à utiliser :</label>
+              <select id="play-key-select" class="glass-select"></select>
             </div>
-
             <div class="field-group">
-              <label for="play-system-prompt">Message Système (optionnel) :</label>
-              <input type="text" id="play-system-prompt" class="glass-input" value="Tu es un assistant IA concis et direct.">
+              <label for="play-user-prompt">Invite :</label>
+              <textarea id="play-user-prompt" class="glass-textarea" rows="4">Réponds en une phrase : pourquoi un routeur automatique est-il moins cher ?</textarea>
             </div>
-
-            <div class="field-group">
-              <label for="play-user-prompt">Invite Utilisateur :</label>
-              <textarea id="play-user-prompt" class="glass-textarea" rows="4">Donne-moi 3 arguments concrets pour héberger un cluster d'agents IA via une passerelle unifiée.</textarea>
-            </div>
-
             <div class="action-row">
               <button class="primary-btn" id="btn-run-playground">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                Exécuter la Requête
+                Exécuter
               </button>
               <button class="secondary-btn" id="btn-reset-playground">Réinitialiser</button>
             </div>
-
-            <!-- Playground Execution Result -->
             <div class="response-box mt-16">
               <div class="response-header">
-                <span>Sortie du Modèle</span>
+                <span>Sortie réelle</span>
                 <span class="response-meta" id="response-meta">Prêt</span>
               </div>
-              <div class="response-body" id="playground-output">
-                Cliquez sur « Exécuter la Requête » pour tester en direct.
-              </div>
+              <div class="response-body" id="playground-output">Connectez-vous, générez une clé, puis exécutez.</div>
             </div>
           </div>
 
-          <!-- Code Snippets -->
           <div class="glass-card">
             <div class="card-header-flex">
-              <h3>Code Prêt à l'Emploi</h3>
+              <h3>Code prêt à l'emploi</h3>
               <div class="snippet-lang-tabs" id="snippet-lang-tabs">
                 <button class="mini-tab active" data-lang="curl">cURL</button>
                 <button class="mini-tab" data-lang="python">Python</button>
                 <button class="mini-tab" data-lang="node">Node.js</button>
               </div>
             </div>
-
             <div class="code-block-wrapper">
               <div class="code-header">
                 <span id="snippet-header-title">Appel cURL direct</span>
                 <button class="copy-btn" id="btn-copy-snippet">Copier</button>
               </div>
-              <pre><code id="snippet-code-content">curl https://api.quotahub.eu/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-quota-live-prod" \
-  -d '{
-    "model": "gpt-6-astra",
-    "messages": [{"role": "user", "content": "Bonjour !"}],
-    "stream": false
-  }'</code></pre>
+              <pre><code id="snippet-code-content"></code></pre>
             </div>
-
             <div class="docs-callout mt-16">
-              <h4>Compatibilité 100% Drop-In</h4>
-              <p>Changez simplement <code>api.openai.com</code> par <code>quota-hub.vercel.app</code>. Tout le reste (streaming SSE, tool calls, JSON mode, context caching) fonctionne exactement à l'identique sans changer une seule ligne de logique dans vos apps.</p>
+              <h4>Compatibilité 100% drop-in</h4>
+              <p>Remplacez <code>api.openai.com</code> par <code>quota-hub.vercel.app</code>. Le <code>model</code> que vous envoyez est ignoré (valeurs acceptées : toute chaîne). Streaming SSE, tool calls et JSON mode passent tels quels.</p>
             </div>
           </div>
         </div>
       </section>
-
     </main>
 
-    <!-- Modal: Inscription / Connexion -->
+    <!-- Modal auth -->
     <dialog id="modal-auth">
       <div class="dialog-content">
         <div class="dialog-header">
-          <h2 id="auth-modal-title">Espace Membre & Développeur</h2>
+          <h2 id="auth-modal-title">Espace membre</h2>
           <button class="close-modal-btn" id="btn-close-auth-modal">&times;</button>
         </div>
-
-        <!-- Boutons OAuth Sociaux (Google & GitHub) -->
-        <div class="oauth-buttons" style="display:grid;gap:10px;margin-bottom:16px;">
-          <button type="button" id="btn-oauth-google" class="secondary-btn" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:10px;border-radius:12px;background:#ffffff;border:1px solid var(--edge);font-weight:600;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
-            Continuer avec Google
-          </button>
-          <button type="button" id="btn-oauth-github" class="secondary-btn" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:10px;border-radius:12px;background:#24292f;color:#ffffff;border:none;font-weight:600;font-size:13px;box-shadow:0 3px 10px rgba(0,0,0,0.15);">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
-            Continuer avec GitHub
-          </button>
-        </div>
-
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-          <hr style="flex:1;border:none;height:1px;background:rgba(84,101,115,0.2);">
-          <span style="font-size:11px;color:var(--soft);text-transform:uppercase;font-weight:600;">ou par identifiant</span>
-          <hr style="flex:1;border:none;height:1px;background:rgba(84,101,115,0.2);">
-        </div>
-
         <div class="snippet-lang-tabs" style="margin-bottom:14px;">
           <button class="mini-tab active" id="tab-auth-login">Connexion</button>
-          <button class="mini-tab" id="tab-auth-register">Créer un Compte (+10$ Offert)</button>
+          <button class="mini-tab" id="tab-auth-register">Créer un compte</button>
         </div>
         <form id="form-auth">
           <div class="field-group">
-            <label for="auth-username">Identifiant / Pseudo / Email :</label>
-            <input type="text" id="auth-username" class="glass-input" placeholder="Ex: baptiste_dev ou baptiste@gmail.com" required>
+            <label for="auth-username">Email :</label>
+            <input type="email" id="auth-username" class="glass-input" placeholder="vous@exemple.com" required autocomplete="email">
           </div>
           <div class="field-group">
             <label for="auth-password">Mot de passe :</label>
-            <input type="password" id="auth-password" class="glass-input" placeholder="Minimum 4 caractères" required>
+            <input type="password" id="auth-password" class="glass-input" placeholder="10 caractères minimum" required minlength="10" autocomplete="current-password">
           </div>
           <div id="auth-error-msg" class="feedback-msg" style="color:var(--danger);font-size:11.5px;margin-bottom:10px;" hidden></div>
           <div class="modal-actions">
             <button type="button" class="secondary-btn" id="btn-cancel-auth">Fermer</button>
-            <button type="submit" class="primary-btn" id="btn-submit-auth">Se Connecter</button>
+            <button type="submit" class="primary-btn" id="btn-submit-auth">Se connecter</button>
           </div>
         </form>
       </div>
     </dialog>
 
-    <!-- Modal: Création de Clé API -->
+    <!-- Modal clé -->
     <dialog id="modal-create-key">
       <div class="dialog-content">
         <div class="dialog-header">
-          <h2>Créer une Clé d'Accès API</h2>
+          <h2>Nouvelle clé d'accès</h2>
           <button class="close-modal-btn" id="btn-close-modal">&times;</button>
         </div>
         <form id="form-create-key">
           <div class="field-group">
-            <label for="key-name-input">Nom mémotechnique :</label>
-            <input type="text" id="key-name-input" class="glass-input" placeholder="Ex: Agent CutBG Studio / Cursor Dev" required>
-          </div>
-          <div class="field-group">
-            <label for="key-limit-input">Plafond de dépense mensuel ($) :</label>
-            <input type="number" id="key-limit-input" class="glass-input" placeholder="Illimité si vide" min="1" step="1">
-          </div>
-          <div class="field-group">
-            <label for="key-models-allowed">Accès aux modèles :</label>
-            <select id="key-models-allowed" class="glass-select">
-              <option value="all">Tous les modèles autorisés</option>
-              <option value="economy">Modèles Économiques uniquement (&lt;$1/1M)</option>
-              <option value="frontier">Flagships uniquement (Astra, Opus 5, Sol)</option>
-            </select>
+            <label for="key-name-input">Nom mnémonique :</label>
+            <input type="text" id="key-name-input" class="glass-input" placeholder="Ex: Agent CutBG / Cursor dev" required maxlength="60">
           </div>
           <div class="modal-actions">
             <button type="button" class="secondary-btn" id="btn-cancel-key">Annuler</button>
-            <button type="submit" class="primary-btn">Générer la Clé</button>
+            <button type="submit" class="primary-btn">Générer</button>
           </div>
         </form>
       </div>
     </dialog>
 
-    <!-- Modal: Affichage de la Clé Générée -->
     <dialog id="modal-key-created">
       <div class="dialog-content">
         <div class="dialog-header">
-          <h2>🎉 Clé API Générée</h2>
+          <h2>🎉 Clé générée</h2>
           <button class="close-modal-btn" id="btn-close-created-modal">&times;</button>
         </div>
-        <p class="dialog-note">Copiez votre clé immédiatement. Pour des raisons de sécurité, elle ne sera plus affichée en clair par la suite.</p>
+        <p class="dialog-note">Copiez-la maintenant : elle ne sera JAMAIS réaffichée (stockée hachée côté serveur).</p>
         <div class="generated-key-box">
-          <input type="text" readonly id="newly-created-key-val" class="glass-input key-display" value="sk-quota-live-...">
+          <input type="text" readonly id="newly-created-key-val" class="glass-input key-display" value="">
           <button class="copy-btn" id="btn-copy-new-key">Copier</button>
         </div>
         <div class="modal-actions">
-          <button class="primary-btn" id="btn-done-created">J'ai bien noté ma clé</button>
+          <button class="primary-btn" id="btn-done-created">C'est noté</button>
         </div>
       </div>
     </dialog>
 
-    <!-- Persistent Glass Footer with live Opacity Slider (Exact Quota Glass Feature) -->
     <footer class="app-footer">
       <div class="footer-left">
         <span class="footer-brand">Quota.Hub</span>
         <span class="footer-sep">·</span>
-        <span>Hébergement Neutre & Transparent</span>
-        <span class="footer-sep">·</span>
-        <span id="active-channel-stat">Canaux S-Grade Actifs</span>
+        <span>Routeur auto : le moins cher vivant, toujours.</span>
       </div>
-
       <div class="footer-right">
-        <!-- Glass Alpha Slider like in Quota Glass -->
         <div class="glass-control">
           <span class="control-icon" title="Opacité du verre">💧</span>
           <label for="glass-alpha-slider">Verre :</label>

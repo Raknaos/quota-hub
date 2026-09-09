@@ -1,14 +1,11 @@
 {
   "version": 2,
   "cleanUrls": true,
+  "functions": {
+    "api/gw.js": { "maxDuration": 120 }
+  },
   "rewrites": [
-    {
-      "source": "/v1/chat/completions",
-      "destination": "/api/v1/chat/completions"
-    },
-    {
-      "source": "/v1/(.*)",
-      "destination": "/api/v1/chat/completions"
-    }
+    { "source": "/gw/:path*", "destination": "/api/gw?path=:path*" },
+    { "source": "/v1/:path*", "destination": "/api/gw?path=v1/:path*" }
   ]
 }
