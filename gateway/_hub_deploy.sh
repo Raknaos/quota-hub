@@ -20,7 +20,8 @@ scp -i "$KEY" "$D/hub.service" root@"$H":/etc/systemd/system/quota-hub.service
 ssh -i "$KEY" root@"$H" '
   chown qh:qh /opt/quota-hub/.env && chmod 600 /opt/quota-hub/.env
   systemctl daemon-reload
-  systemctl enable --now quota-hub 2>/dev/null || systemctl restart quota-hub
+  systemctl enable quota-hub 2>/dev/null
+  systemctl restart quota-hub   # TOUJOURS redémarrer (enable --now ne redémarre pas un service actif)
   sleep 2
   systemctl is-active quota-hub
   curl -s -m 5 http://127.0.0.1:8890/health && echo'

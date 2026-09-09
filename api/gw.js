@@ -27,8 +27,13 @@ export default async function handler(req, res) {
 
   const qp = new URL(req.url, 'http://x').searchParams;
   let path = '/' + (qp.get('path') || 'health');
+  // anti-traversée : collapsing ../ et double-slash, normalisation AVANT tout check
+  path = '/' + path.replace(/\/{2,}/g, '/').split('/').filter(s => s && s !== '.' && s !== '..').join('/');
   if (path.startsWith('/admin')) {
     return res.status(404).json({ error: { message: 'not found' } });
+  }
+  if (!/^\/[a-z0-9/.-]*$/i.test(path)) {
+    return res.status(400).json({ error: { message: 'chemin invalide' } });
   }
 
   const headers = {};

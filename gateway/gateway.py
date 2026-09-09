@@ -29,7 +29,7 @@ Loopback uniquement (ops SSH) :
   POST /admin/codes  X-Admin-Token  {tokens} -> codes d'activation
   GET  /admin/stats       X-Admin-Token     -> stats globales
 """
-import json, os, re, ssl, sys, time, hmac, hashlib, secrets, sqlite3, threading, urllib.request, urllib.error, urllib.parse
+import json, os, re, ssl, sys, time, hmac, hashlib, secrets, sqlite3, threading, traceback, urllib.request, urllib.error, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 DIR = os.path.dirname(os.path.abspath(__file__))
@@ -91,7 +91,28 @@ SESSION_TTL = 30 * 86400
 LOCK = threading.Lock()
 MKT = {}                 # model -> {'r': ..., 'ts': ...}
 MKT_BUSY = set()
-COOLDOWN = {}            # model -> (until_ts, reason)
+COOLDOWN = {}
+COOLDOWN_PATH = os.path.join(DIR, 'cooldowns.json')
+
+def cooldowns_save():
+    try:
+        with LOCK:
+            snap = {m: [u, r] for m, (u, r) in COOLDOWN.items()}
+        with open(COOLDOWN_PATH, 'w') as f:
+            json.dump(snap, f)
+    except Exception:
+        pass
+
+def cooldowns_load():
+    try:
+        with open(COOLDOWN_PATH) as f:
+            snap = json.load(f)
+        now = time.time()
+        for m, v in snap.items():
+            if v[0] > now:
+                COOLDOWN[m] = (v[0], v[1])
+    except Exception:
+        pass            # model -> (until_ts, reason)
 PIN = {'model': None}
 NET_FAIL_TS = []         # détection de crise plateforme
 LOGIN_FAILS = {}         # (ip, email) -> [ts_list]
@@ -192,6 +213,8 @@ def init_db():
             c.execute("ALTER TABLE api_keys ADD COLUMN plan TEXT NOT NULL DEFAULT 'auto'")
     except Exception:
         pass
+    c.execute('CREATE INDEX IF NOT EXISTS idx_usage_user ON usage_logs(user_id, id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_keys_user ON api_keys(user_id)')
     _ensure_cols(c, 'codes', "plan TEXT NOT NULL DEFAULT 'auto'")
     _ensure_cols(c, 'usage_logs', "plan TEXT NOT NULL DEFAULT 'auto'")
     _ensure_cols(c, 'usage_logs', 'model_requested TEXT')
@@ -202,6 +225,7 @@ def audit(event, email, ip, ok):
         c = db()
         c.execute('INSERT INTO auth_log(event,email,ip,ok,ts) VALUES(?,?,?,?,?)',
                   (event, (email or '')[:80], (ip or '')[:64], int(bool(ok)), int(time.time())))
+        c.execute('DELETE FROM auth_log WHERE ts < ?', (int(time.time()) - 90 * 86400,))
         c.commit(); c.close()
     except Exception:
         pass
@@ -281,6 +305,7 @@ def on_failure(model_id, msg):
         crisis = len(NET_FAIL_TS) >= 2
         dur = 60 if crisis else 90          # crise plateforme -> récupération rapide
         COOLDOWN[model_id] = (now + dur, (msg or '')[:60])
+    cooldowns_save()
 
 def pick_model(models):
     """Modèle le moins cher vivant du pool ; hystérésis 15 % (préserve le cache amont)."""
@@ -362,6 +387,10 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         vr = [m for m in vision if not in_cooldown(m)[0] and (market_get(m) or {}).get('best')]
         if vr:
             pool = vision
+        else:
+            # aucun canal vision vivant : pas d'appel amont (0 coût, 0 cooldown)
+            return None, (400, {'error': {'message': 'images reçues mais aucun canal vision actif pour le moment — réessayez plus tard ou retirer les images',
+                                          'type': 'invalid_request_error', 'code': 'vision_unavailable'}}), 0, 0, None
     models = [GEMINI_MODEL] if plan == 'gemini' else pool
     last_err = None
     for attempt in range(3):
@@ -451,16 +480,35 @@ def new_api_key():
     return raw, hashlib.sha256(raw.encode()).hexdigest(), raw[:10]
 
 REGISTER_HITS = {}   # ip -> [ts]
+REDEEM_HITS = {}   # uid -> [ts]
+def redeem_throttled(uid):
+    now = time.time()
+    with LOCK:
+        _prune(REDEEM_HITS)
+        arr = [t for t in REDEEM_HITS.get(uid, []) if now - t < 60]
+        arr.append(now)   # compter la tentative courante (sinon jamais déclenché)
+        REDEEM_HITS[uid] = arr
+        return len(arr) > 10
+
 def register_throttled(ip):
     now = time.time()
     with LOCK:
+        _prune(REGISTER_HITS)
         arr = [t for t in REGISTER_HITS.get(ip, []) if now - t < 3600]
+        arr.append(now)   # compter la tentative courante
         REGISTER_HITS[ip] = arr
-        return len(arr) >= 5
+        return len(arr) > 5
+
+def _prune(d, max_keys=10_000):
+    """anti-DoS mémoire : les dicts de throttle ne peuvent pas croître sans limite."""
+    if len(d) > max_keys:
+        for k in list(d.keys())[:len(d) - max_keys]:
+            d.pop(k, None)
 
 def login_throttled(ip, email):
     now = time.time()
     with LOCK:
+        _prune(LOGIN_FAILS)
         arr = [t for t in LOGIN_FAILS.get((ip, email.lower()), []) if now - t < 900]
         LOGIN_FAILS[(ip, email.lower())] = arr
         return len(arr) >= 5
@@ -472,6 +520,7 @@ def login_fail(ip, email):
 def rate_limited(key_id):
     now = time.time()
     with LOCK:
+        _prune(RATE)
         arr = [t for t in RATE.get(key_id, []) if now - t < 60]
         if len(arr) >= RATE_RPM:
             RATE[key_id] = arr
@@ -709,6 +758,16 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
 
+    def handle_one_request(self):
+        try:
+            super().handle_one_request()
+        except Exception:
+            log('HANDLER EXC ' + traceback.format_exc(limit=3).replace('\n', ' | ')[:300])
+            try:
+                self._json(500, {'error': {'message': 'erreur interne (logguée)', 'type': 'server_error'}})
+            except Exception:
+                pass
+
     def _json(self, status, obj):
         data = json.dumps(obj, ensure_ascii=False).encode()
         self.send_response(status)
@@ -753,8 +812,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def do_OPTIONS(self):
-        # le front appelle son propre domaine (/gw/* via Vercel) : préflights gérés là-bas
+        # le front appelle son propre domaine (/gw/* via Vercel) : préflights gérés là-bas.
+        # CORS minimal : autoriser GET/POST/DELETE sans exposer les en-têtes internes.
         self.send_response(204)
+        self.send_header('Access-Control-Allow-Origin', 'https://quota-hub.vercel.app')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-QH-Session')
         self.send_header('Content-Length', '0')
         self.end_headers()
 
@@ -787,6 +850,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403, {'error': {'message': 'loopback uniquement'}})
             status, obj = admin_stats(self.headers.get('X-Admin-Token', ''))
             return self._json(status, obj)
+        if path == '/v1/models':
+            # compat SDK OpenAI : la liste exposée est le pool auto (le client ne choisit pas)
+            return self._json(200, {'object': 'list', 'data': [
+                {'id': m, 'object': 'model', 'owned_by': 'quota-hub'} for m in MODELS]
+                + [{'id': GEMINI_MODEL, 'object': 'model', 'owned_by': 'quota-hub-gemini'}]})
         self._json(404, {'error': {'message': 'not found'}})
 
     def do_DELETE(self):
@@ -842,6 +910,8 @@ class Handler(BaseHTTPRequestHandler):
             uid = session_user(self.headers.get('X-QH-Session', ''))
             if not uid:
                 return self._json(401, {'error': {'message': 'session absente ou expirée'}})
+            if redeem_throttled(uid):
+                return self._json(429, {'error': {'message': 'trop de tentatives — réessayez dans une minute', 'code': 'slow_down'}})
             status, obj = redeem(uid, payload)
         elif path == '/v1/chat/completions':
             stream_wanted = bool(payload.get('stream'))
@@ -858,6 +928,7 @@ def main():
     if not SECRET:
         log('AVERTISSEMENT : QH_INTERNAL_SECRET absent — aucune requête signée ne passera')
     init_db()
+    cooldowns_load()
     warm_market()
     srv = ThreadingHTTPServer(('0.0.0.0', PORT), Handler)
     srv.daemon_threads = True
