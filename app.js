@@ -7,7 +7,7 @@ const APP_STATE = {
   session: sessionStorage.getItem('qh_session') || '',
   me: null,
   keys: [],
-  currentTab: 'pricing',
+  currentTab: 'home',
   billingCycle: 'month'
 };
 
@@ -68,17 +68,10 @@ window.switchTab = function(tabId) {
 
 window.setCycle = function(cycle) {
   APP_STATE.billingCycle = cycle;
-  $('btn-cycle-month').classList.toggle('active', cycle === 'month');
-  $('btn-cycle-year').classList.toggle('active', cycle === 'year');
-  if (cycle === 'year') {
-    $('price-agent').innerHTML = '$0.79 <span>/ month</span>';
-    $('price-office').innerHTML = '$7.99 <span>/ month</span>';
-    $('price-frontier').innerHTML = '$79 <span>/ month</span>';
-  } else {
-    $('price-agent').innerHTML = '$0.99 <span>/ month</span>';
-    $('price-office').innerHTML = '$9.99 <span>/ month</span>';
-    $('price-frontier').innerHTML = '$99 <span>/ month</span>';
-  }
+  const month = $('btn-cycle-month');
+  const year = $('btn-cycle-year');
+  if (month) month.classList.toggle('active', cycle === 'month');
+  if (year) year.classList.toggle('active', cycle === 'year');
 };
 
 /* ── Split-Screen Auth ── */
@@ -379,5 +372,19 @@ document.addEventListener('DOMContentLoaded', () => {
   initPlayground();
   initChat();
   initRedeem();
+  const menu = $('mobile-menu-toggle');
+  const nav = $('main-nav');
+  if (menu && nav) {
+    menu.onclick = () => {
+      const open = nav.classList.toggle('mobile-open');
+      menu.setAttribute('aria-expanded', String(open));
+      menu.textContent = open ? '×' : '☰';
+    };
+    nav.querySelectorAll('.th-nav-link').forEach(link => link.addEventListener('click', () => {
+      nav.classList.remove('mobile-open');
+      menu.setAttribute('aria-expanded', 'false');
+      menu.textContent = '☰';
+    }));
+  }
   if (APP_STATE.session) refreshMe();
 });

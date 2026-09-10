@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quota.Hub — One API for the world's leading AI models</title>
+  <title>Quota.Hub — Une API, tous les modèles IA</title>
   <meta name="description" content="Une seule clé pour tous les meilleurs modèles d'IA au monde à −90% du prix officiel. Intégration en une commande pour Claude Code, Cursor, Codex.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
     <!-- ── Topbar (Token Harbor Navigation) ── -->
     <header class="th-header">
       <div class="th-header-inner">
-        <a href="#" class="th-logo" onclick="switchTab('pricing')">
+        <a href="#" class="th-logo" onclick="switchTab('home'); return false;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="5" r="3"></circle>
             <line x1="12" y1="22" x2="12" y2="8"></line>
@@ -28,16 +28,17 @@
           <span>Quota.Hub</span>
         </a>
 
-        <nav class="th-nav">
-          <button class="th-nav-link active" data-tab="home">Home</button>
+        <nav class="th-nav" id="main-nav">
+          <button class="th-nav-link active" data-tab="home">Accueil</button>
           <button class="th-nav-link" data-tab="chat">Chat</button>
-          <button class="th-nav-link" data-tab="models">Models</button>
-          <button class="th-nav-link" data-tab="pricing">Pricing</button>
-          <button class="th-nav-link" data-tab="connect">Connect <span class="nav-chevron">⌄</span></button>
+          <button class="th-nav-link" data-tab="models">Modèles</button>
+          <button class="th-nav-link" data-tab="pricing">Tarifs</button>
+          <button class="th-nav-link" data-tab="connect">Connecter</button>
           <button class="th-nav-link" data-tab="docs">Docs</button>
           <button class="th-nav-link" data-tab="console">API Keys</button>
-          <button class="th-nav-link" data-tab="playground">Playground</button>
+          <button class="th-nav-link" data-tab="playground">Tester</button>
         </nav>
+        <button class="mobile-menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false">☰</button>
 
         <div class="th-actions">
           <!-- Non connecté -->
@@ -65,9 +66,9 @@
       <!-- ==================== TAB 1 : PRICING ==================== -->
       <section id="tab-home" class="tab-pane active">
         <div class="qh-home-hero">
-          <div class="qh-announcement"><span>✦</span><span>Agent Pass is live · $0.99 for your first month</span><span class="announcement-sub">Get up to $20 on select models.</span><b>→</b></div>
+          <div class="qh-announcement"><span>✦</span><span>Quota.Hub · 2× votre crédit d’usage</span><span class="announcement-sub">Des tarifs simples, sans engagement.</span><b>→</b></div>
           <h1>One API for<br><span class="gradient-text">every model.</span></h1>
-          <p>Frontier AI, routed intelligently. One key, transparent pricing, and up to 98% less than official API rates.</p>
+          <p>Les meilleurs modèles dans une seule API. Payez un abonnement clair, recevez deux fois sa valeur en usage et laissez le routage choisir le canal le plus efficace.</p>
           <div class="qh-prompt-bar"><span>Ask Quota.Hub</span><input id="home-prompt" placeholder="Why Quota.Hub?" aria-label="Ask Quota.Hub"><button onclick="switchTab('playground')" aria-label="Open playground">→</button></div>
           <div class="provider-orbit"><span class="provider provider-anthropic">AI</span><span class="provider provider-openai">✳</span><span class="provider provider-google">✦</span><span class="provider provider-qwen">✣</span><span class="provider provider-xai">K</span></div>
           <button class="hero-connect-link" onclick="switchTab('connect')">Using Claude Code, Cursor or Codex? <u>Connect your agent in one command →</u></button>
@@ -81,13 +82,10 @@
           <div class="pill-eyebrow">
             <span>One API · Every model at wholesale rate</span>
           </div>
-          <h1>Choose how far<br>you want to build.</h1>
-          <p>Start free, save more with a pass, and move up as your monthly AI usage grows.</p>
+          <h1>Choisissez votre rythme<br>et gardez le contrôle.</h1>
+          <p>Un abonnement, tous les modèles. Payez 10, 20 ou 50 $ et recevez deux fois cette valeur en crédit d’usage API.</p>
           
-          <div class="cycle-toggle">
-            <button class="cycle-btn active" id="btn-cycle-month" onclick="setCycle('month')">Monthly</button>
-            <button class="cycle-btn" id="btn-cycle-year" onclick="setCycle('year')">Yearly (save 20%)</button>
-          </div>
+          <div class="pricing-value-note"><strong>Un forfait. Tous les modèles.</strong><span>Les abonnements seront activés par paiement sécurisé. En attendant, utilisez un code d’activation.</span></div>
         </div>
 
         <!-- 4 CARDS -->
@@ -95,138 +93,64 @@
           <!-- CARD 1 : FREE -->
           <div class="th-card">
             <div class="th-card-name">Free</div>
-            <div class="th-card-price">$0 <span>/ month</span></div>
-            <div class="th-card-tagline">Try Quota.Hub with a free allowance and a rotating model lineup.</div>
-            
-            <div class="th-allowance-box">
-              <span class="th-allowance-label">Free allowance</span>
-              <span class="th-allowance-val">$2.00 usage</span>
-              <span class="th-allowance-sub">Included every month</span>
-            </div>
-
-            <button class="btn-subscribe" onclick="openAuth('signup')">Start free</button>
-
+            <div class="th-card-price">$0 <span>/ mois</span></div>
+            <div class="th-card-tagline">Pour découvrir le routage Quota.Hub sans carte bancaire.</div>
+            <div class="th-allowance-box"><span class="th-allowance-label">Crédit inclus</span><span class="th-allowance-val">$2 d’usage</span><span class="th-allowance-sub">Chaque mois</span></div>
+            <button class="btn-subscribe" onclick="openAuth('signup')">Commencer gratuitement</button>
             <ul class="th-card-bullets">
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>DeepSeek V4 Flash & MiMo V2.5</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>Free monthly allowance</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>One OpenAI-compatible API</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>No card required</span>
-              </li>
+              <li class="th-bullet-item"><span>✓</span><span>Une clé compatible OpenAI</span></li>
+              <li class="th-bullet-item"><span>✓</span><span>Modèles gratuits disponibles</span></li>
+              <li class="th-bullet-item"><span>✓</span><span>Aucune carte requise</span></li>
             </ul>
           </div>
 
-          <!-- CARD 2 : AGENT PASS -->
+          <!-- CARD 2 : ESSENTIEL -->
           <div class="th-card">
-            <span class="th-card-badge">First month</span>
-            <div class="th-card-name">Agent Pass</div>
-            <div class="th-card-price" id="price-agent">$0.99 <span>/ month</span></div>
-            <div class="th-card-tagline">Built for agents and scripts that call the API around the clock.</div>
-            
-            <div class="th-allowance-box">
-              <span class="th-allowance-label">Included usage</span>
-              <span class="th-allowance-val">$10 included usage</span>
-              <span class="th-allowance-sub">Selected models go up to $20</span>
-            </div>
-
-            <button class="btn-subscribe" onclick="openAuth('login')">Choose Agent</button>
+            <span class="th-card-badge">Pour commencer</span>
+            <div class="th-card-name">Essentiel</div>
+            <div class="th-card-price" id="price-agent">$10 <span>/ mois</span></div>
+            <div class="th-card-tagline">Pour les développeurs qui veulent une API simple et prévisible.</div>
+            <div class="th-allowance-box"><span class="th-allowance-label">Crédit API inclus</span><span class="th-allowance-val">$20 d’usage</span><span class="th-allowance-sub">2× votre abonnement, chaque mois</span></div>
+            <button class="btn-subscribe" onclick="openAuth('login')">Choisir Essentiel</button>
 
             <ul class="th-card-bullets">
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>GPT-5.6 Luna & MiMo V2.5 Pro</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>GLM 5.3 Flash & Qwen3.8 Flash</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>Then 5% off pay-as-you-go</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>Your free allowance runs alongside it</span>
-              </li>
+              <li class="th-bullet-item"><span>✓</span><span>Routage automatique cache-first</span></li>
+              <li class="th-bullet-item"><span>✓</span><span>Modèles rapides et fiables</span></li>
+              <li class="th-bullet-item"><span>✓</span><span>Réduction sur chaque requête</span></li>
+              <li class="th-bullet-item"><span>✓</span><span>Votre crédit gratuit reste disponible</span></li>
             </ul>
           </div>
 
-          <!-- CARD 3 : OFFICE PASS (POPULAR / INVERTED) -->
+          <!-- CARD 3 : PRO -->
           <div class="th-card featured">
-            <span class="th-card-badge" style="background:#fff;color:#000;">Popular</span>
-            <div class="th-card-name">Office Pass</div>
-            <div class="th-card-price" id="price-office">$9.99 <span>/ month</span></div>
-            <div class="th-card-tagline">For desktop agents and everyday work — writing, research, coding.</div>
-            
-            <div class="th-allowance-box">
-              <span class="th-allowance-label">Included usage</span>
-              <span class="th-allowance-val">$35 included usage</span>
-              <span class="th-allowance-sub">Selected models go up to $70</span>
-            </div>
-
-            <button class="btn-subscribe" onclick="openAuth('login')">Choose Office</button>
+            <span class="th-card-badge" style="background:#fff;color:#000;">Le plus choisi</span>
+            <div class="th-card-name">Pro</div>
+            <div class="th-card-price" id="price-office">$20 <span>/ mois</span></div>
+            <div class="th-card-tagline">Pour les équipes et les agents qui utilisent l’IA chaque semaine.</div>
+            <div class="th-allowance-box"><span class="th-allowance-label">Crédit API inclus</span><span class="th-allowance-val">$40 d’usage</span><span class="th-allowance-sub">2× votre abonnement, chaque mois</span></div>
+            <button class="btn-subscribe" onclick="openAuth('login')">Choisir Pro</button>
 
             <ul class="th-card-bullets">
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>GPT-5.6 Terra & Claude Sonnet 5</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>Qwen3.8 Max & Gemini 3.8 Flash</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>Then 10% off pay-as-you-go</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>Built for daily desktop and office use</span>
-              </li>
+              <li class="th-bullet-item"><span>✓</span><span>Accès à toute la bibliothèque</span></li>
+              <li class="th-bullet-item"><span>✓</span><span>2× votre crédit en usage API</span></li>
+              <li class="th-bullet-item"><span>✓</span><span>Routage automatique priorisé</span></li>
+              <li class="th-bullet-item"><span>✓</span><span>Support des agents et SDK OpenAI</span></li>
             </ul>
           </div>
 
-          <!-- CARD 4 : FRONTIER PASS -->
+          <!-- CARD 4 : SCALE -->
           <div class="th-card">
-            <div class="th-card-name">Frontier Pass</div>
-            <div class="th-card-price" id="price-frontier">$99 <span>/ month</span></div>
-            <div class="th-card-tagline">Frontier model access for heavy usage and professional work.</div>
-            
-            <div class="th-allowance-box">
-              <span class="th-allowance-label">Included usage</span>
-              <span class="th-allowance-val">$180 included usage</span>
-              <span class="th-allowance-sub">Selected models go up to $360</span>
-            </div>
-
-            <button class="btn-subscribe" onclick="openAuth('login')">Choose Frontier</button>
+            <div class="th-card-name">Scale</div>
+            <div class="th-card-price" id="price-frontier">$50 <span>/ mois</span></div>
+            <div class="th-card-tagline">Pour les produits et équipes qui ont besoin d’un volume régulier.</div>
+            <div class="th-allowance-box"><span class="th-allowance-label">Crédit API inclus</span><span class="th-allowance-val">$100 d’usage</span><span class="th-allowance-sub">2× votre abonnement, chaque mois</span></div>
+            <button class="btn-subscribe" onclick="openAuth('login')">Choisir Scale</button>
 
             <ul class="th-card-bullets">
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>Claude Fable 5.1 & GPT-6 Astra</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>Claude Opus 5 & Grok 4.6</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>Then 15% off pay-as-you-go</span>
-              </li>
-              <li class="th-bullet-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>Designed for heavy and pro users</span>
-              </li>
+              <li class="th-bullet-item"><span>✓</span><span>Accès à toute la bibliothèque</span></li>
+              <li class="th-bullet-item"><span>✓</span><span>2× votre crédit en usage API</span></li>
+              <li class="th-bullet-item"><span>✓</span><span>Capacité et priorité renforcées</span></li>
+              <li class="th-bullet-item"><span>✓</span><span>Conçu pour les usages intensifs</span></li>
             </ul>
           </div>
         </div>
@@ -254,12 +178,13 @@
 
       <!-- ==================== TAB 2 : MODELS ==================== -->
       <section id="tab-models" class="tab-pane">
+        <div class="models-page-intro"><span class="pill-eyebrow">Bibliothèque de modèles</span><h2>Tous les modèles, une seule clé.</h2><p>Comparez les tarifs officiels et les tarifs Quota.Hub. Le routage automatique choisit le meilleur canal disponible, sans configuration complexe.</p></div>
         <div class="th-models-toolbar">
           <div class="th-filter-pills">
-            <button class="th-filter-btn active" onclick="filterModels('all', this)">All</button>
-            <button class="th-filter-btn" onclick="filterModels('frontier', this)">Frontier</button>
-            <button class="th-filter-btn" onclick="filterModels('value', this)">Value</button>
-            <button class="th-filter-btn" onclick="filterModels('free', this)">Free</button>
+            <button class="th-filter-btn active" onclick="filterModels('all', this)">Tous</button>
+            <button class="th-filter-btn" onclick="filterModels('frontier', this)">Raisonnement</button>
+            <button class="th-filter-btn" onclick="filterModels('value', this)">Rapides</button>
+            <button class="th-filter-btn" onclick="filterModels('free', this)">Gratuits</button>
           </div>
 
           <div class="th-search-box">
@@ -272,12 +197,12 @@
           <table class="th-models-table">
             <thead>
               <tr>
-                <th>AA Rank</th>
-                <th>Model</th>
-                <th>Modalities</th>
-                <th>Context</th>
-                <th>Price / 1M (In · Out)</th>
-                <th>Discount</th>
+                <th>Rang</th>
+                <th>Modèle</th>
+                <th>Capacités</th>
+                <th>Contexte</th>
+                <th>Prix / 1M · entrée / sortie</th>
+                <th>Réduction</th>
               </tr>
             </thead>
             <tbody>
@@ -461,11 +386,11 @@
 
           <!-- Top-up / Redeem -->
           <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;margin-top:40px;">
-            <h3 style="font-size:16px;font-weight:700;margin-bottom:8px;">Redeem Code / Activate Pass</h3>
-            <p style="color:var(--muted);font-size:13px;margin-bottom:18px;">Enter an activation code to instantly add credits or activate your Agent/Office Pass.</p>
+            <h3 style="font-size:16px;font-weight:700;margin-bottom:8px;">Ajouter du crédit</h3>
+            <p style="color:var(--muted);font-size:13px;margin-bottom:18px;">Entrez un code d’activation pour ajouter du crédit à votre compte.</p>
             <div style="display:flex;gap:10px;max-width:440px;">
               <input type="text" id="redeem-input" class="form-input" placeholder="QH-CODE-..." style="text-transform:uppercase;">
-              <button class="btn-tryfree" id="btn-redeem">Activate</button>
+              <button class="btn-tryfree" id="btn-redeem">Activer</button>
             </div>
             <div id="redeem-msg" style="margin-top:12px;font-size:13px;" hidden></div>
           </div>
