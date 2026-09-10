@@ -1,42 +1,196 @@
 /**
- * QUOTA HUB — Front abonnement. Toute la logique métier est côté passerelle ;
- * ici : session (token HMAC signé serveur), clés (hachées côté serveur),
- * activation de codes, playground réel via /v1/chat/completions.
- * Aucun secret dans ce fichier ; aucune donnée simulée : les états vides sont affichés comme tels.
+ * QUOTA.HUB — Front-end Logic (Token Harbor Theme & Integration)
+ * Gère l'authentification (Google/GitHub OAuth + Email), la gestion des clés,
+ * l'affichage dynamique des modèles, l'activation des pass et le playground.
  */
+
 const API = '/gw';
 const APP_STATE = {
   session: sessionStorage.getItem('qh_session') || '',
   me: null,
   keys: [],
-  currentTab: 'plan',
-  glassAlpha: parseFloat(localStorage.getItem('qh_glass') || '0.85'),
+  currentTab: 'pricing',
   playKey: ''
 };
 
 const $ = id => document.getElementById(id);
-const fmtM = n => (n >= 1e9 ? (n / 1e9).toFixed(2) + ' Md' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' M' : n >= 1e3 ? (n / 1e3).toFixed(1) + ' k' : String(n));
+
+// Formatage en Dollars d'usage ou en tokens
+const fmtTokens = n => {
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + ' Md';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + ' M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + ' k';
+  return String(n);
+};
+
+// 1 Md tokens sur plan $10 = équivalent $10.00 de crédit de base (et jusqu'à $60 d'usage officiel)
+const fmtBalanceUSD = tokens => {
+  if (!tokens || tokens <= 0) return '$0.00';
+  // Valeur faciale $10 pour 1 milliard de tokens
+  const val = (tokens / 1e9) * 10;
+  return '$' + val.toFixed(2);
+};
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 async function apiCall(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (APP_STATE.session) headers['X-QH-Session'] = APP_STATE.session;
-  const res = await fetch(API + path, { method: opts.method || 'POST', headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  const res = await fetch(API + path, {
+    method: opts.method || 'POST',
+    headers,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
   let data = null;
-  try { data = await res.json(); } catch (e) { data = { error: { message: 'réponse illisible' } }; }
+  try { data = await res.json(); } catch (e) { data = { error: { message: 'Réponse serveur invalide' } }; }
   return { status: res.status, data };
 }
 
-/* ============================ AUTH ============================ */
+/* ============================ NAVIGATION & TABS ============================ */
+window.switchTab = function(tabId) {
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tabId);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => {
+    p.classList.toggle('active', p.id === 'tab-' + tabId);
+  });
+  APP_STATE.currentTab = tabId;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+function initTabs() {
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+  const balanceBadge = $('balance-badge');
+  if (balanceBadge) {
+    balanceBadge.onclick = () => switchTab('console');
+  }
+}
+
+/* ============================ AUTHENTIFICATION ============================ */
+let authMode = 'login';
+
+window.triggerAuth = function(mode = 'login') {
+  authMode = mode;
+  const modal = $('modal-auth');
+  const title = $('auth-modal-title');
+  const subtitle = $('auth-modal-subtitle');
+  const submitBtn = $('btn-submit-auth');
+  const switchText = $('auth-switch-text');
+  const switchLink = $('auth-switch-link');
+
+  if (mode === 'login') {
+    title.textContent = 'Welcome back';
+    subtitle.textContent = 'Sign in to pick up where you left off.';
+    submitBtn.textContent = 'Sign in';
+    switchText.textContent = 'New here? ';
+    switchLink.textContent = 'Create an account';
+  } else {
+    title.textContent = 'Create an account';
+    subtitle.textContent = 'Start using all models in one unified API.';
+    submitBtn.textContent = 'Create account';
+    switchText.textContent = 'Already have an account? ';
+    switchLink.textContent = 'Sign in';
+  }
+  $('auth-error-msg').hidden = true;
+  modal.showModal();
+};
+
+function initAuth() {
+  const modal = $('modal-auth');
+  $('btn-login-trigger').onclick = () => triggerAuth('login');
+  $('btn-register-trigger').onclick = () => triggerAuth('register');
+  $('btn-close-auth-modal').onclick = () => modal.close();
+
+  $('auth-switch-link').onclick = e => {
+    e.preventDefault();
+    triggerAuth(authMode === 'login' ? 'register' : 'login');
+  };
+
+  $('btn-logout').onclick = () => {
+    APP_STATE.session = '';
+    APP_STATE.me = null;
+    sessionStorage.removeItem('qh_session');
+    setAuthUI();
+  };
+
+  $('form-auth').onsubmit = async e => {
+    e.preventDefault();
+    const email = $('auth-username').value.trim();
+    const password = $('auth-password').value;
+    const btn = $('btn-submit-auth');
+    btn.disabled = true;
+    btn.textContent = '…';
+
+    try {
+      const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+      const { status, data } = await apiCall(endpoint, { body: { email, password } });
+      if (status === 200 && data.session) {
+        APP_STATE.session = data.session;
+        sessionStorage.setItem('qh_session', data.session);
+        modal.close();
+        await refreshMe();
+      } else {
+        $('auth-error-msg').textContent = (data.error && data.error.message) || 'Authentication failed';
+        $('auth-error-msg').hidden = false;
+      }
+    } catch (err) {
+      $('auth-error-msg').textContent = 'Passerelle injoignable.';
+      $('auth-error-msg').hidden = false;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = authMode === 'login' ? 'Sign in' : 'Create account';
+    }
+  };
+}
+
+/* ============================ OAUTH GOOGLE / GITHUB ============================ */
+function initOAuth() {
+  const go = async provider => {
+    const { status, data } = await apiCall('/api/auth/oauth/start?provider=' + provider, { method: 'GET' });
+    if (status === 200 && data.url) {
+      window.location.href = data.url;
+    } else {
+      alert((data.error && data.error.message) || 'Connexion sociale indisponible');
+    }
+  };
+
+  $('btn-oauth-google').onclick = () => go('google');
+  $('btn-oauth-github').onclick = () => go('github');
+
+  const q = new URLSearchParams(window.location.search);
+  const s = q.get('oauth_session');
+  if (s) {
+    history.replaceState({}, '', window.location.pathname);
+    APP_STATE.session = s;
+    sessionStorage.setItem('qh_session', s);
+    refreshMe();
+  }
+}
+
+/* ============================ UI & ÉTAT UTILISATEUR ============================ */
 function setAuthUI() {
   const logged = !!(APP_STATE.me && APP_STATE.me.user);
   $('auth-guest-view').style.display = logged ? 'none' : 'flex';
   $('auth-user-view').style.display = logged ? 'flex' : 'none';
+
   if (logged) {
-    const email = APP_STATE.me.user.email;
-    $('auth-user-name').textContent = email.split('@')[0];
+    const email = APP_STATE.me.user.email || '';
+    const username = email.split('@')[0] || 'User';
+    $('auth-user-name').textContent = username;
+    $('user-avatar-initial').textContent = username.charAt(0).toUpperCase();
     renderMe();
   } else {
-    $('user-tokens').textContent = '—';
+    $('user-tokens').textContent = '$0.00';
     APP_STATE.keys = [];
     renderKeys();
   }
@@ -46,77 +200,12 @@ function renderMe() {
   const me = APP_STATE.me;
   if (!me) return;
   const subs = me.subscription || {};
-  const auto = subs.auto || {}, gem = subs.gemini || {};
+  const auto = subs.auto || {};
   const autoLeft = Math.max(0, (auto.tokens_total || 0) - (auto.tokens_used || 0));
-  const gemLeft = Math.max(0, (gem.tokens_total || 0) - (gem.tokens_used || 0));
-  $('user-tokens').textContent = fmtM(autoLeft);
-  $('metric-tokens-left').textContent = fmtM(autoLeft);
-  const usageAuto = (me.usage && me.usage.auto) || {};
-  $('metric-requests').textContent = String(usageAuto.n || 0);
-  const autoActive = auto.status === 'active';
-  $('metric-sub-status').textContent = autoActive ? 'Actif' : 'Inactif';
-  $('metric-sub-status').style.color = autoActive ? 'var(--lime)' : 'var(--soft)';
-  const pct = auto.tokens_total ? Math.min(100, Math.round(100 * (auto.tokens_used || 0) / auto.tokens_total)) : 0;
-  $('label-sub-quota').textContent = `${fmtM(auto.tokens_used || 0)} / ${fmtM(auto.tokens_total)} tokens`;
-  $('track-sub-quota').style.width = pct + '%';
-  $('label-quota-detail').textContent = `${fmtM(auto.tokens_used || 0)} / ${fmtM(auto.tokens_total)}`;
-  $('track-quota-detail').style.width = pct + '%';
-  $('metric-prompt-tokens').textContent = fmtM(usageAuto.pin || 0);
-  $('metric-completion-tokens').textContent = fmtM(usageAuto.pout || 0);
-  $('metric-served-model').textContent = usageAuto.last_model || '—';
-  const gemEl = $('metric-gemini-left');
-  if (gemEl) gemEl.textContent = `${fmtM(gemLeft)}${gem.status === 'active' ? '' : ' (inactif)'}`;
+
+  $('user-tokens').textContent = fmtBalanceUSD(autoLeft);
   APP_STATE.keys = me.keys || [];
   renderKeys();
-}
-
-function initAuth() {
-  const modal = $('modal-auth');
-  let mode = 'login';
-  const setMode = m => {
-    mode = m;
-    $('tab-auth-login').classList.toggle('active', m === 'login');
-    $('tab-auth-register').classList.toggle('active', m === 'register');
-    $('auth-modal-title').textContent = m === 'login' ? 'Connexion' : 'Créer un compte';
-    $('btn-submit-auth').textContent = m === 'login' ? 'Se connecter' : 'Créer mon compte';
-    $('auth-error-msg').hidden = true;
-  };
-  $('btn-login-trigger').onclick = () => { setMode('login'); modal.showModal(); };
-  $('btn-register-trigger').onclick = () => { setMode('register'); modal.showModal(); };
-  $('tab-auth-login').onclick = () => setMode('login');
-  $('tab-auth-register').onclick = () => setMode('register');
-  $('btn-close-auth-modal').onclick = () => modal.close();
-  $('btn-cancel-auth').onclick = () => modal.close();
-  $('btn-logout').onclick = () => {
-    APP_STATE.session = ''; APP_STATE.me = null;
-    sessionStorage.removeItem('qh_session');
-    setAuthUI();
-  };
-  $('form-auth').onsubmit = async e => {
-    e.preventDefault();
-    const email = $('auth-username').value.trim();
-    const password = $('auth-password').value;
-    const btn = $('btn-submit-auth');
-    btn.disabled = true; btn.textContent = '…';
-    try {
-      const { status, data } = await apiCall(mode === 'login' ? '/api/auth/login' : '/api/auth/register', { body: { email, password } });
-      if (status === 200 && data.session) {
-        APP_STATE.session = data.session;
-        sessionStorage.setItem('qh_session', data.session);
-        modal.close();
-        await refreshMe();
-      } else {
-        $('auth-error-msg').textContent = (data.error && data.error.message) || 'Échec';
-        $('auth-error-msg').hidden = false;
-      }
-    } catch (err) {
-      $('auth-error-msg').textContent = 'Passerelle injoignable.';
-      $('auth-error-msg').hidden = false;
-    } finally {
-      btn.disabled = false;
-      setMode(mode);
-    }
-  };
 }
 
 async function refreshMe() {
@@ -126,103 +215,82 @@ async function refreshMe() {
     APP_STATE.me = data;
     setAuthUI();
   } else {
-    // session expirée / invalide
-    APP_STATE.session = ''; APP_STATE.me = null;
+    APP_STATE.session = '';
+    APP_STATE.me = null;
     sessionStorage.removeItem('qh_session');
     setAuthUI();
   }
 }
 
-/* ============================ ONGLES ============================ */
-function initTabs() {
-  document.querySelectorAll('.nav-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      APP_STATE.currentTab = tab.dataset.tab;
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-      const pane = $('tab-' + tab.dataset.tab);
-      if (pane) pane.classList.add('active');
-    });
-  });
-  $('balance-badge').onclick = () => document.querySelector('.nav-tab[data-tab="console"]').click();
-}
-
-/* ============================ CLÉS ============================ */
+/* ============================ GESTION DES CLÉS API ============================ */
 function renderKeys() {
   const tbody = $('keys-table-body');
   const logged = !!APP_STATE.me;
-  $('keys-login-hint').hidden = logged;
+  $('keys-login-hint').style.display = logged ? 'none' : 'block';
   const keys = APP_STATE.keys;
-  $('keys-count-badge').textContent = `${keys.length} clé${keys.length > 1 ? 's' : ''}`;
+
   if (!keys.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="padding:14px;color:var(--soft);">${logged ? 'Aucune clé — créez-en une pour appeler l\'API.' : 'Connectez-vous pour voir vos clés.'}</td></tr>`;
-    fillPlayKeySelect();
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);">${logged ? 'No API keys yet. Create one to connect your agents.' : 'Sign in to view your API keys.'}</td></tr>`;
     return;
   }
+
   tbody.innerHTML = keys.map(k => `
     <tr>
-      <td><strong>${escapeHtml(k.name)}</strong><div style="font-size:11px;color:var(--soft)">${k.plan === 'gemini' ? 'Gemini 100 M' : 'Auto 1 Md'}</div></td>
-      <td><span class="key-code">${escapeHtml(k.prefix)}…</span></td>
+      <td><strong>${escapeHtml(k.name)}</strong></td>
+      <td><code style="font-family:var(--font-mono);color:var(--emerald);font-size:12px;">${escapeHtml(k.prefix)}…</code></td>
       <td>${new Date((k.created_at || 0) * 1000).toISOString().slice(0, 10)}</td>
-      <td>${k.last_used ? new Date(k.last_used * 1000).toISOString().slice(0, 16).replace('T', ' ') : 'jamais'}</td>
-      <td><span style="font-weight:600;color:${k.revoked ? 'var(--danger)' : 'var(--lime)'}">● ${k.revoked ? 'Révoquée' : 'Active'}</span></td>
-      <td style="text-align: right;">
-        ${k.revoked ? '' : `<button class="ghost-btn" style="color:#e11d48;" onclick="revokeKey(${k.id})">Révoquer</button>`}
+      <td>${k.last_used ? new Date(k.last_used * 1000).toISOString().slice(0, 16).replace('T', ' ') : 'never'}</td>
+      <td><span style="color:${k.revoked ? 'var(--danger)' : 'var(--emerald)'};font-weight:600;">● ${k.revoked ? 'Revoked' : 'Active'}</span></td>
+      <td style="text-align:right;">
+        ${k.revoked ? '' : `<button class="btn-ghost" style="color:var(--danger);" onclick="revokeKey(${k.id})">Revoke</button>`}
       </td>
     </tr>`).join('');
-  fillPlayKeySelect();
 }
 
-function fillPlayKeySelect() {
-  const sel = $('play-key-select');
-  if (!sel) return;
-  const keys = (APP_STATE.keys || []).filter(k => !k.revoked);
-  sel.innerHTML = keys.length
-    ? keys.map(k => `<option value="${k.id}">${escapeHtml(k.name)}</option>`).join('')
-    : '<option value="">— aucune clé —</option>';
-}
-
-window.revokeKey = async function (id) {
-  if (!confirm('Révoquer définitivement cette clé ? Les agents qui l\'utilisent cesseront de fonctionner.')) return;
-  const { status, data } = await apiCall(`/api/keys/${id}`, { method: 'DELETE' });
+window.revokeKey = async function(id) {
+  if (!confirm('Permanently revoke this key? Any agent using it will stop working.')) return;
+  const { status } = await apiCall(`/api/keys/${id}`, { method: 'DELETE' });
   if (status === 200) await refreshMe();
-  else alert((data.error && data.error.message) || 'Échec de la révocation');
+  else alert('Failed to revoke key.');
 };
 
 function initKeyCreation() {
   const modal = $('modal-create-key');
   const created = $('modal-key-created');
+
   $('open-create-key-modal').onclick = () => {
-    if (!APP_STATE.me) { $('btn-login-trigger').click(); return; }
+    if (!APP_STATE.me) { triggerAuth('login'); return; }
     $('key-name-input').value = '';
     modal.showModal();
   };
-  $('btn-close-modal').onclick = () => modal.close();
+
   $('btn-cancel-key').onclick = () => modal.close();
-  $('btn-close-created-modal').onclick = () => created.close();
   $('btn-done-created').onclick = () => created.close();
+
   $('btn-copy-new-key').onclick = () => {
     navigator.clipboard.writeText($('newly-created-key-val').value);
-    $('btn-copy-new-key').textContent = '✓ Copié';
-    setTimeout(() => $('btn-copy-new-key').textContent = 'Copier', 1800);
+    $('btn-copy-new-key').textContent = '✓ Copied';
+    setTimeout(() => $('btn-copy-new-key').textContent = 'Copy', 1800);
   };
+
   $('form-create-key').onsubmit = async e => {
     e.preventDefault();
     const planSel = $('key-plan-select');
-    const { status, data } = await apiCall('/api/keys', { body: { name: $('key-name-input').value.trim() || 'Clé', plan: planSel ? planSel.value : 'auto' } });
+    const { status, data } = await apiCall('/api/keys', {
+      body: { name: $('key-name-input').value.trim() || 'Agent Key', plan: planSel ? planSel.value : 'auto' }
+    });
     if (status === 200 && data.key) {
       modal.close();
       $('newly-created-key-val').value = data.key;
       created.showModal();
       await refreshMe();
     } else {
-      alert((data.error && data.error.message) || 'Échec de la création');
+      alert((data.error && data.error.message) || 'Error generating key');
     }
   };
 }
 
-/* ============================ CODES ============================ */
+/* ============================ TOP-UP / REDEEM CODE ============================ */
 function initRedeem() {
   $('btn-redeem').onclick = async () => {
     const msg = $('redeem-msg');
@@ -232,190 +300,105 @@ function initRedeem() {
     const { status, data } = await apiCall('/api/redeem', { body: { code } });
     msg.hidden = false;
     if (status === 200) {
-      msg.style.color = 'var(--lime)';
-      const pl = data.plan || 'auto';
-      const ps = (data.subscription && data.subscription[pl]) || {};
-      msg.textContent = `✓ Code ${pl === 'gemini' ? 'Gemini 3.8 Flash' : 'auto polyvalent'} activé : +${fmtM(ps.tokens_total || 0)} tokens.`;
+      msg.style.color = 'var(--emerald)';
+      msg.textContent = `✓ Code activated! +$10.00 in usage credits added.`;
       $('redeem-input').value = '';
-      $('redeem-total').textContent = fmtM(ps.tokens_total || 0);
-      $('redeem-status').textContent = ps.status === 'active' ? 'Actif' : ps.status || '—';
       await refreshMe();
     } else {
       msg.style.color = 'var(--danger)';
-      msg.textContent = '✕ ' + ((data.error && data.error.message) || 'Code refusé');
+      msg.textContent = '✕ ' + ((data.error && data.error.message) || 'Invalid code');
     }
   };
 }
 
-/* ============================ PLAYGROUND ============================ */
+/* ============================ RECHERCHE & FILTRES MODÈLES ============================ */
+window.filterModels = function(category, btn) {
+  document.querySelectorAll('.models-tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const rows = document.querySelectorAll('.model-row');
+  rows.forEach(r => {
+    if (category === 'all' || r.dataset.cat === category) {
+      r.style.display = '';
+    } else {
+      r.style.display = 'none';
+    }
+  });
+};
+
+window.searchModels = function(query) {
+  const q = query.toLowerCase().trim();
+  const rows = document.querySelectorAll('.model-row');
+  rows.forEach(r => {
+    const text = (r.dataset.name || '').toLowerCase();
+    r.style.display = text.includes(q) ? '' : 'none';
+  });
+};
+
+/* ============================ PLAYGROUND INTERACTIF ============================ */
 function initPlayground() {
   $('btn-run-playground').onclick = runPlay;
   $('btn-reset-playground').onclick = () => {
-    $('playground-output').textContent = 'Prêt.';
-    $('response-meta').textContent = 'Prêt';
+    $('playground-output').textContent = 'Ready.';
+    $('response-meta').textContent = 'Ready';
   };
-  document.querySelectorAll('#snippet-lang-tabs .mini-tab').forEach(t => {
-    t.onclick = () => {
-      document.querySelectorAll('#snippet-lang-tabs .mini-tab').forEach(x => x.classList.remove('active'));
-      t.classList.add('active');
-      updateSnippet(t.dataset.lang);
-    };
-  });
-  $('btn-copy-snippet').onclick = () => {
-    navigator.clipboard.writeText($('snippet-code-content').textContent);
-    $('btn-copy-snippet').textContent = '✓ Copié';
-    setTimeout(() => $('btn-copy-snippet').textContent = 'Copier', 1800);
-  };
-  updateSnippet('curl');
 }
 
-function myKey() {
-  // la clé complète n'est JAMAIS stockée par le front : l'utilisateur la colle au besoin.
-  return sessionStorage.getItem('qh_play_key') || '';
-}
-
-function keyPlanById(id) {
-  const k = (APP_STATE.keys || []).find(x => String(x.id) === String(id));
-  return (k && k.plan) || 'auto';
-}
-
-function runPlay() {
+async function runPlay() {
   const out = $('playground-output');
   const meta = $('response-meta');
-  let key = myKey();
+  let key = sessionStorage.getItem('qh_play_key') || '';
+
   if (!key) {
-    key = prompt('Collez une clé sk-qh-… (elle reste dans cet onglet uniquement, jamais envoyée ailleurs) :');
+    key = prompt('Paste your Quota.Hub API key (sk-qh-...):');
     if (!key) return;
-    if (!/^sk-qh-/.test(key)) { alert('Format attendu : sk-qh-…'); return; }
+    if (!/^sk-qh-/.test(key)) { alert('Invalid key format. Expected sk-qh-...'); return; }
     sessionStorage.setItem('qh_play_key', key);
   }
-  const prompt = $('play-user-prompt').value.trim();
-  if (!prompt) { alert('Saisissez une invite.'); return; }
-  const sel = $('play-key-select');
-  const planLbl = keyPlanById(sel && sel.value) === 'gemini' ? 'gemini 3.8 flash' : 'routage auto';
-  meta.textContent = `⏳ ${planLbl} en cours…`;
+
+  const promptText = $('play-user-prompt').value.trim();
+  if (!promptText) { alert('Please enter a prompt.'); return; }
+
+  meta.textContent = '⏳ Routing request...';
   out.textContent = '…';
   const t0 = performance.now();
-  fetch('/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-    body: JSON.stringify({ model: 'auto', messages: [{ role: 'user', content: prompt }], max_tokens: 400 })
-  }).then(async r => {
-    const dt = (performance.now() - t0) / 1000;
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      meta.textContent = `HTTP ${r.status}`;
-      out.textContent = (j.error && j.error.message) || 'échec';
+
+  try {
+    const res = await fetch('/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+      body: JSON.stringify({ model: 'auto', messages: [{ role: 'user', content: promptText }], max_tokens: 400 })
+    });
+    const dt = ((performance.now() - t0) / 1000).toFixed(1);
+    const j = await res.json();
+    if (!res.ok) {
+      meta.textContent = `HTTP ${res.status}`;
+      out.textContent = (j.error && j.error.message) || 'Inference error';
       return;
     }
-    const content = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '(vide)';
-    const qh = j.quota_hub || {};
+    const content = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '(empty)';
     const ar = j.a6_router || {};
-    const srv = ar.served_model || '?';
-    const dec = ar.decision ? ` · ${ar.decision}` : '';
-    meta.textContent = `200 OK · ${dt.toFixed(1)}s · servi : ${srv}${dec} · restant : ${fmtM(qh.tokens_remaining || 0)}`;
+    meta.textContent = `200 OK · ${dt}s · served: ${ar.served_model || 'auto'}`;
     out.textContent = content;
     if (APP_STATE.me) refreshMe();
-  }).catch(e => {
-    meta.textContent = 'erreur réseau';
+  } catch (e) {
+    meta.textContent = 'Network error';
     out.textContent = String(e);
-  });
-}
-
-function updateSnippet(lang) {
-  const code = $('snippet-code-content');
-  const title = $('snippet-header-title');
-  const BASE = 'https://quota-hub.vercel.app/v1';
-  if (lang === 'curl') {
-    title.textContent = 'Appel cURL (model ignoré par le routeur)';
-    code.textContent = `curl ${BASE}/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer sk-qh-VOTRE_CLE" \\
-  -d '{
-    "model": "auto",
-    "messages": [{"role": "user", "content": "Bonjour !"}],
-    "max_tokens": 500
-  }'`;
-  } else if (lang === 'python') {
-    title.textContent = 'SDK OpenAI Python';
-    code.textContent = `from openai import OpenAI
-
-client = OpenAI(
-    base_url="${BASE}",
-    api_key="sk-qh-VOTRE_CLE",
-)
-
-r = client.chat.completions.create(
-    model="auto",  # ignoré : le routeur choisit le moins cher
-    messages=[{"role": "user", "content": "Bonjour !"}],
-)
-print(r.choices[0].message.content)
-print(r.quota_hub.tokens_remaining)  # méta Quota.Hub (attribut extra)`;
-  } else {
-    title.textContent = 'SDK OpenAI Node.js';
-    code.textContent = `import OpenAI from "openai";
-
-const client = new OpenAI({
-  baseURL: "${BASE}",
-  apiKey: "sk-qh-VOTRE_CLE",
-});
-
-const r = await client.chat.completions.create({
-  model: "auto", // ignoré : le routeur choisit le moins cher
-  messages: [{ role: "user", content: "Bonjour !" }],
-});
-console.log(r.choices[0].message.content);`;
   }
 }
 
-/* ============================ DIVERS ============================ */
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
+window.copyCli = function() {
+  navigator.clipboard.writeText('curl -fsSL https://quota-hub.vercel.app/connect.sh | sh');
+  alert('Install command copied to clipboard!');
+};
 
-function initGlassControl() {
-  const slider = $('glass-alpha-slider');
-  slider.value = APP_STATE.glassAlpha;
-  document.documentElement.style.setProperty('--glass-alpha', APP_STATE.glassAlpha);
-  $('glass-alpha-label').textContent = Math.round(APP_STATE.glassAlpha * 100) + '%';
-  slider.addEventListener('input', e => {
-    const v = parseFloat(e.target.value);
-    APP_STATE.glassAlpha = v;
-    document.documentElement.style.setProperty('--glass-alpha', v);
-    $('glass-alpha-label').textContent = Math.round(v * 100) + '%';
-    localStorage.setItem('qh_glass', String(v));
-  });
-}
-
-function initOAuth() {
-  const go = async provider => {
-    const { status, data } = await apiCall('/api/auth/oauth/start?provider=' + provider, { method: 'GET' });
-    if (status === 200 && data.url) {
-      window.location.href = data.url; // redirection vers Google/GitHub
-    } else {
-      alert((data.error && data.error.message) || 'Connexion sociale indisponible');
-    }
-  };
-  $('btn-oauth-google').onclick = () => go('google');
-  $('btn-oauth-github').onclick = () => go('github');
-  // retour du flow : la session arrive en paramètre d'URL (jetée immédiatement)
-  const q = new URLSearchParams(window.location.search);
-  const s = q.get('oauth_session');
-  if (s) {
-    history.replaceState({}, '', window.location.pathname); // retire le jeton de l'URL
-    APP_STATE.session = s;
-    sessionStorage.setItem('qh_session', s);
-    refreshMe();
-  }
-}
-
+/* ============================ INITIALISATION ============================ */
 document.addEventListener('DOMContentLoaded', () => {
+  initTabs();
   initAuth();
   initOAuth();
-  initTabs();
   initKeyCreation();
   initRedeem();
   initPlayground();
-  initGlassControl();
-  refreshMe().then(() => setAuthUI()).catch(() => setAuthUI());
+  if (APP_STATE.session) refreshMe();
 });

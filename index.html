@@ -3,1243 +3,652 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quota.Hub — l'API des modèles du moment à −90 % · 10 $ = jusqu'à 600 $ d'usage</title>
-  <meta name="description" content="Un compte API, tous les derniers modèles (DeepSeek, Qwen, GLM, Grok), payés à l'usage en $ — comme votre CLI de codage. Le routeur auto choisit le moins cher à chaque requête. 10 $ = 1 Md de tokens décomptés : jusqu'à 150-600 $ d'usage au prix officiel.">
+  <title>Quota.Hub — One API · Every Model at −90%</title>
+  <meta name="description" content="Une seule clé, tous les derniers modèles d'IA à prix de gros. DeepSeek, Qwen, GLM, Grok intégrés en une commande pour Claude Code, Cursor, Codex.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
   <div class="app-shell">
+    
+    <!-- ── Topbar (Token Harbor Navigation) ── -->
     <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark">Q</div>
+      <div class="brand" onclick="switchTab('pricing')">
+        <div class="brand-mark">⚓</div>
         <div class="brand-name">Quota<span class="brand-dot">.Hub</span></div>
-        <span class="brand-badge">ABONNEMENT</span>
       </div>
 
       <nav class="nav-tabs">
-        <button class="nav-tab active" data-tab="plan">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          L'abonnement
+        <button class="nav-tab active" data-tab="pricing">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Pricing
+        </button>
+        <button class="nav-tab" data-tab="models">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          Models
+        </button>
+        <button class="nav-tab" data-tab="connect">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          Connect
         </button>
         <button class="nav-tab" data-tab="console">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-          Ma console
-        </button>
-        <button class="nav-tab" data-tab="redeem">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-          Activer un code
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+          API Keys
         </button>
         <button class="nav-tab" data-tab="playground">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-          Playground & Docs
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Playground
         </button>
       </nav>
 
       <div class="topbar-actions">
-        <div id="auth-guest-view" style="display:flex;align-items:center;gap:8px;">
-          <button class="ghost-btn" id="btn-login-trigger" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;background:rgba(255,255,255,0.65);border:1px solid var(--edge);font-size:12.5px;font-weight:600;cursor:pointer;">
-            Connexion
-          </button>
-          <button class="primary-btn" id="btn-register-trigger" style="padding:7px 14px;border-radius:10px;font-size:12.5px;font-weight:600;">
-            Créer un compte
-          </button>
+        <!-- Vue Invité -->
+        <div id="auth-guest-view" style="display:flex;align-items:center;gap:10px;">
+          <button class="btn-ghost" id="btn-login-trigger">Sign in</button>
+          <button class="btn-primary" id="btn-register-trigger">Try free</button>
         </div>
 
+        <!-- Vue Connecté -->
         <div id="auth-user-view" style="display:none;align-items:center;gap:10px;">
-          <div class="user-pill" style="display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:10px;background:rgba(255,255,255,0.7);border:1px solid var(--edge);font-size:12px;font-weight:600;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            <span id="auth-user-name" style="color:var(--violet-blue);">Utilisateur</span>
-            <button id="btn-logout" title="Se déconnecter" style="border:none;background:none;cursor:pointer;color:var(--soft);font-size:13px;padding:0 2px;">✕</button>
+          <div class="balance-pill" id="balance-badge" title="Gérer mes crédits & clés">
+            <span class="balance-label">BALANCE</span>
+            <span class="balance-val" id="user-tokens">$0.00</span>
           </div>
-          <div class="balance-pill" id="balance-badge" title="Voir mon abonnement">
-            <span class="balance-label">Tokens :</span>
-            <span class="balance-val" id="user-tokens">—</span>
+          <div class="user-pill">
+            <div class="user-avatar" id="user-avatar-initial">B</div>
+            <span id="auth-user-name">baptiste</span>
+            <button class="btn-logout" id="btn-logout" title="Déconnexion">✕</button>
           </div>
-        </div>
-
-        <div class="status-indicator" title="Routeur interne : le canal le moins cher vivant, marché revérifié toutes les 20 min, canal conservé 6 h minimum pour garder le cache de prompts chaud">
-          <span class="pulse-dot"></span>
-          <span class="status-text">Auto-route actif · marché 20 min</span>
         </div>
       </div>
     </header>
 
+    <!-- ── Main Content Container ── -->
     <main class="content-scroll">
 
-      <!-- TAB 1 : LE PLAN -->
-      <section id="tab-plan" class="tab-pane active">
-        <div class="glass-hero">
-          <div class="hero-content">
-            <div class="eyebrow">LE COMPTE API DES MODÈLES DU MOMENT · PRIX DE GROS · ROUTEUR AUTO</div>
-            <h1 class="hero-title">DeepSeek V4.1 au prix officiel ? <span class="gradient-text">150 $. Chez nous : 10 $.</span></h1>
-            <p class="hero-subtitle">Tous les derniers modèles — DeepSeek, Qwen, GLM, Grok — à <strong>−90 % en moyenne</strong>, payés à l'usage en dollars, exactement comme votre CLI de codage (OpenCode / CommandCode). Vous n'avez rien à choisir : le routeur auto prend à chaque requête <strong>le modèle le moins cher vivant</strong>, et le garde pour garder votre cache chaud. API OpenAI standard, ça branche en une ligne.</p>
-            <div class="hero-stats">
-              <div class="hero-stat-card">
-                <span class="stat-num">−90%</span>
-                <span class="stat-desc">sur les derniers modèles, en moyenne</span>
-              </div>
-              <div class="hero-stat-card">
-                <span class="stat-num">$10</span>
-                <span class="stat-desc">= 1 Md de tokens décomptés à l'usage</span>
-              </div>
-              <div class="hero-stat-card">
-                <span class="stat-num">600 $</span>
-                <span class="stat-desc">d'usage officiel couvert par ces 10 $</span>
-              </div>
-              <div class="hero-stat-card">
-                <span class="stat-num">20 min</span>
-                <span class="stat-desc">les prix du marché sont revérifiés en continu</span>
-              </div>
+      <!-- ==================== TAB 1 : PRICING (TOKEN HARBOR PASSES) ==================== -->
+      <section id="tab-pricing" class="tab-pane active">
+        <div class="th-hero">
+          <div class="th-badge">
+            <span class="dot"></span> ONE API · EVERY LEADING MODEL
+          </div>
+          <h1>Choose how far you want to build.</h1>
+          <p>Start free, save more with a pass, and move up as your monthly AI usage grows. Pay once in usage credits, spend across every assistant and developer CLI.</p>
+          
+          <!-- CLI Quick Connect -->
+          <div class="cli-box">
+            <div class="cli-cmd">
+              <span class="cli-prompt">$</span> curl -fsSL https://quota-hub.vercel.app/connect.sh | sh
             </div>
+            <button class="copy-icon-btn" onclick="copyCli()">Copy</button>
           </div>
         </div>
 
-        <!-- OFFRE FLASH : LE COMPARATIF AGRESSIF -->
-        <div class="glass-card mt-16">
-          <div class="card-header-flex">
-            <h3>10 $ d'abonnement = jusqu'à 600 $ d'usage officiel</h3>
-            <span class="badge-subtle">prix officiel DeepSeek V4.1 · 0,15 $/M input · 0,60 $/M output</span>
+        <!-- PRICING CARDS -->
+        <div class="pricing-header">
+          <h2>Plans & Passes</h2>
+          <p>Usage-based credits at wholesale prices. The router picks the cheapest live model automatically.</p>
+        </div>
+
+        <div class="pricing-grid">
+          <!-- PLAN 1: FREE -->
+          <div class="pricing-card">
+            <div class="pricing-name">FREE</div>
+            <div class="pricing-price">$0 <span>/ month</span></div>
+            <div class="pricing-desc">Try Quota.Hub with a free monthly allowance and rotating model lineup.</div>
+            
+            <div class="pricing-usage-box">
+              <span class="usage-label">Included Usage</span>
+              <div class="val-large">$2.00 free</div>
+              <span class="val-sub">Refreshed every month</span>
+            </div>
+
+            <button class="btn-plan" onclick="triggerAuth('register')">Start free</button>
+
+            <ul class="pricing-features">
+              <li>DeepSeek V4 Flash & MiMo V2.5</li>
+              <li>Free monthly allowance</li>
+              <li>One OpenAI-compatible API</li>
+              <li>No credit card required</li>
+            </ul>
           </div>
-          <div class="metrics-grid">
-            <div class="metric-box">
-              <span class="metric-val text-accent">10 $</span>
-              <span class="metric-label">votre abonnement → 1 Md de tokens décomptés à l'usage</span>
+
+          <!-- PLAN 2: AGENT PASS -->
+          <div class="pricing-card">
+            <span class="pricing-badge">FIRST MONTH $0.99</span>
+            <div class="pricing-name">AGENT PASS</div>
+            <div class="pricing-price">$1.99 <span>/ month</span></div>
+            <div class="pricing-desc">Built for agents and autonomous scripts that call the API around the clock.</div>
+            
+            <div class="pricing-usage-box">
+              <span class="usage-label">Included Usage</span>
+              <div class="val-large">$10.00 usage</div>
+              <span class="val-sub">Boosted up to $20 on select models</span>
             </div>
-            <div class="metric-box">
-              <span class="metric-val">150 $</span>
-              <span class="metric-label">si ces 1 Md étaient facturés au prix officiel, 100 % input</span>
-            </div>
-            <div class="metric-box">
-              <span class="metric-val">600 $</span>
-              <span class="metric-label">si facturés au prix officiel, 100 % output</span>
-            </div>
-            <div class="metric-box">
-              <span class="metric-val">−93%</span>
-              <span class="metric-label">à −98 % d'économie réelle selon le modèle servi</span>
-            </div>
+
+            <button class="btn-plan" onclick="triggerAuth('login')">Get Agent Pass</button>
+
+            <ul class="pricing-features">
+              <li><strong>$10 d'usage inclus</strong> (+ free allowance)</li>
+              <li>Qwen3.8 Flash & GLM-5.3 Flash</li>
+              <li>DeepSeek V4-Flash & V4-Pro</li>
+              <li>Grok 4.6 à −99% du prix</li>
+              <li>Auto-route 20 min + 6h cache hold</li>
+            </ul>
           </div>
-          <p class="card-tip" style="margin-top:12px;">Même calcul côté CLI : <strong>1 000 requêtes de 10 k tokens</strong> (10 M de tokens décomptés) coûtent <strong>0,10 $</strong> chez nous — au prix officiel V4.1 tout-input : <strong>≈ 1,50 $</strong>. C'est le principe « prix de gros » : vous payez l'usage, pas le prestige du modèle.</p>
-          <div class="docs-callout">
-            <h4>Le slogan qui résume tout :</h4>
-            <p><strong>« Le même LLM. Le prix divisé par dix. Le choix fait par la machine. »</strong> — un compte, tous les modèles du moment, un routeur qui choisit le moins cher pour vous, facturation à l'usage en dollars (système OpenCode / CommandCode).</p>
+
+          <!-- PLAN 3: OFFICE PASS (FEATURED) -->
+          <div class="pricing-card featured">
+            <span class="pricing-badge">POPULAR</span>
+            <div class="pricing-name">OFFICE PASS</div>
+            <div class="pricing-price">$9.99 <span>/ month</span></div>
+            <div class="pricing-desc">For desktop coding agents, daily workflows, Claude Code, and Cursor.</div>
+            
+            <div class="pricing-usage-box">
+              <span class="usage-label">Included Usage</span>
+              <div class="val-large">$35.00 usage</div>
+              <span class="val-sub">Boosted up to $70 on select models</span>
+            </div>
+
+            <button class="btn-plan" onclick="triggerAuth('login')">Get Office Pass</button>
+
+            <ul class="pricing-features">
+              <li><strong>$35 à $70 d'usage inclus</strong></li>
+              <li>10% off on pay-as-you-go overages</li>
+              <li>Gemini 3.8 Flash 1M context</li>
+              <li>DeepSeek V4.1 Flash & Thinking</li>
+              <li>Priorité de bande passante 24/7</li>
+            </ul>
+          </div>
+
+          <!-- PLAN 4: FRONTIER PASS -->
+          <div class="pricing-card">
+            <div class="pricing-name">FRONTIER PASS</div>
+            <div class="pricing-price">$99 <span>/ month</span></div>
+            <div class="pricing-desc">Frontier model access for heavy production usage and engineering teams.</div>
+            
+            <div class="pricing-usage-box">
+              <span class="usage-label">Included Usage</span>
+              <div class="val-large">$180.00 usage</div>
+              <span class="val-sub">Boosted up to $360 on select models</span>
+            </div>
+
+            <button class="btn-plan" onclick="triggerAuth('login')">Get Frontier Pass</button>
+
+            <ul class="pricing-features">
+              <li><strong>$180 à $360 d'usage inclus</strong></li>
+              <li>15% off on pay-as-you-go</li>
+              <li>Frontier reasoning models unlocked</li>
+              <li>Débit illimité sans throttling</li>
+              <li>Support dédié ingénieur</li>
+            </ul>
           </div>
         </div>
 
-        <!-- TOUS LES MODELES : liste a prix officiels barres (design genere par gemini-3.8-flash via a6api, 10-09) -->
-<style>
-.qh-mdl-section {
-  width: 100%;
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 32px 24px;
-  box-sizing: border-box;
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: var(--ink);
-  -webkit-font-smoothing: antialiased;
-}
-
-.qh-mdl-card {
-  position: relative;
-  background: linear-gradient(140deg, rgba(235,246,255,.88) 0%, rgba(242,234,255,.84) 50%, rgba(230,242,255,.88) 100%);
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-lg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 20px 48px -12px rgba(3, 10, 24, 0.35), 0 2px 6px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255,255,255,0.9);
-  padding: 36px 32px 28px;
-  overflow: hidden;
-}
-
-.qh-mdl-card::before {
-  content: '';
-  position: absolute;
-  top: -80px;
-  right: -60px;
-  width: 260px;
-  height: 260px;
-  background: radial-gradient(circle, rgba(107, 82, 255, 0.12) 0%, rgba(53, 121, 255, 0) 70%);
-  pointer-events: none;
-  border-radius: 50%;
-}
-
-.qh-mdl-header {
-  margin-bottom: 28px;
-}
-
-.qh-mdl-title {
-  margin: 0 0 10px 0;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: clamp(22px, 2.6vw, 28px);
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: var(--ink);
-  line-height: 1.2;
-}
-
-.qh-mdl-subtitle {
-  margin: 0;
-  font-size: 14.5px;
-  line-height: 1.5;
-  color: var(--soft);
-  max-width: 780px;
-}
-
-.qh-mdl-table-wrap {
-  width: 100%;
-  overflow-x: auto;
-  border: 1px solid var(--edge-subtle);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.45);
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.6);
-}
-
-.qh-mdl-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-variant-numeric: tabular-nums;
-}
-
-.qh-mdl-thead tr {
-  border-bottom: 1px solid var(--edge-subtle);
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.qh-mdl-th {
-  padding: 12px 14px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.qh-mdl-th:first-child { padding-left: 18px; }
-.qh-mdl-th:last-child { padding-right: 18px; text-align: right; }
-
-.qh-mdl-row {
-  border-bottom: 1px solid var(--edge-subtle);
-  transition: background-color 0.18s ease, transform 0.18s ease;
-}
-
-.qh-mdl-row:last-child {
-  border-bottom: none;
-}
-
-.qh-mdl-row:hover {
-  background-color: rgba(255, 255, 255, 0.7);
-}
-
-.qh-mdl-td {
-  padding: 14px;
-  vertical-align: middle;
-  font-size: 13.5px;
-}
-
-.qh-mdl-td:first-child { padding-left: 18px; }
-.qh-mdl-td:last-child { padding-right: 18px; text-align: right; }
-
-/* Identité Modèle */
-.qh-mdl-model-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 200px;
-}
-
-.qh-mdl-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 13px;
-  flex-shrink: 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-}
-
-.qh-mdl-av-qwen { background: rgba(107, 82, 255, 0.16); color: #533bf6; border: 1px solid rgba(107, 82, 255, 0.28); }
-.qh-mdl-av-zai { background: rgba(53, 121, 255, 0.15); color: #2264df; border: 1px solid rgba(53, 121, 255, 0.28); }
-.qh-mdl-av-xai { background: #071019; color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.2); }
-.qh-mdl-av-deepseek { background: rgba(84, 104, 255, 0.16); color: #3b4cca; border: 1px solid rgba(84, 104, 255, 0.28); }
-.qh-mdl-av-google { background: linear-gradient(135deg, #3579ff, #00b4d8); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.4); }
-
-.qh-mdl-name-group {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.qh-mdl-name-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.qh-mdl-name {
-  font-weight: 700;
-  color: var(--ink);
-  font-size: 14px;
-}
-
-.qh-mdl-vendor {
-  font-size: 11.5px;
-  color: var(--soft);
-}
-
-.qh-mdl-badge-top {
-  display: inline-flex;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 1.5px 6px;
-  border-radius: 999px;
-  background: rgba(107, 82, 255, 0.12);
-  color: var(--violet);
-  border: 1px solid rgba(107, 82, 255, 0.25);
-  line-height: 1.3;
-}
-
-/* Contexte */
-.qh-mdl-ctx-badge {
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(7, 16, 25, 0.05);
-  border: 1px solid rgba(7, 16, 25, 0.08);
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--ink-secondary);
-  white-space: nowrap;
-}
-
-/* Prix Entrée & Sortie */
-.qh-mdl-price-cell {
-  white-space: nowrap;
-  min-width: 100px;
-}
-
-.qh-mdl-price-striked {
-  font-size: 11px;
-  color: var(--muted);
-  text-decoration: line-through;
-  margin-right: 5px;
-}
-
-.qh-mdl-price-current {
-  font-weight: 700;
-  color: var(--ink);
-  font-size: 13.5px;
-}
-
-.qh-mdl-price-unit {
-  font-size: 10px;
-  color: var(--soft);
-  display: block;
-  margin-top: 1px;
-}
-
-/* Badge réduction */
-.qh-mdl-disc-pill {
-  display: inline-flex;
-  align-items: center;
-  font-weight: 700;
-  font-size: 12px;
-  color: #128a3e;
-  background: rgba(22, 163, 74, 0.12);
-  border: 1px solid rgba(22, 163, 74, 0.28);
-  padding: 3px 9px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-/* Statut Réussite */
-.qh-mdl-success-rate {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  color: var(--ink-secondary);
-  white-space: nowrap;
-}
-
-.qh-mdl-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  display: inline-block;
-  flex-shrink: 0;
-}
-
-.qh-mdl-dot-green {
-  background-color: var(--lime);
-  box-shadow: 0 0 6px rgba(22, 163, 74, 0.6);
-}
-
-.qh-mdl-dot-yellow {
-  background-color: #eab308;
-  box-shadow: 0 0 6px rgba(234, 179, 8, 0.5);
-}
-
-.qh-mdl-dot-orange {
-  background-color: #f97316;
-  box-shadow: 0 0 6px rgba(249, 115, 22, 0.5);
-}
-
-/* Latence */
-.qh-mdl-latency-cell {
-  white-space: nowrap;
-}
-
-.qh-mdl-latency-val {
-  font-weight: 600;
-  color: var(--ink-secondary);
-  display: block;
-}
-
-.qh-mdl-latency-sub {
-  font-size: 10px;
-  color: var(--soft);
-  display: block;
-}
-
-/* Canaux */
-.qh-mdl-channels {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--soft);
-  white-space: nowrap;
-}
-
-/* Note de bas */
-.qh-mdl-footer-note {
-  margin: 18px 0 0 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--soft);
-}
-
-/* Responsive tablette & mobile */
-@media (max-width: 820px) {
-  .qh-mdl-card {
-    padding: 24px 18px 20px;
-    border-radius: var(--radius-md);
-  }
-
-  .qh-mdl-table-wrap {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    overflow-x: visible;
-  }
-
-  .qh-mdl-thead {
-    display: none;
-  }
-
-  .qh-mdl-table,
-  .qh-mdl-tbody,
-  .qh-mdl-row {
-    display: block;
-    width: 100%;
-  }
-
-  .qh-mdl-row {
-    background: rgba(255, 255, 255, 0.65);
-    border: 1px solid var(--edge-subtle);
-    border-radius: var(--radius-md);
-    padding: 16px;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-  }
-
-  .qh-mdl-td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 7px 0;
-    text-align: right;
-  }
-
-  .qh-mdl-td:first-child {
-    padding-left: 0;
-    padding-bottom: 12px;
-    border-bottom: 1px solid rgba(7, 16, 25, 0.06);
-    margin-bottom: 4px;
-    width: 100%;
-  }
-
-  .qh-mdl-td:last-child {
-    padding-right: 0;
-  }
-
-  .qh-mdl-td::before {
-    content: attr(data-label);
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
-    text-align: left;
-    margin-right: 12px;
-  }
-
-  .qh-mdl-td:first-child::before {
-    display: none;
-  }
-
-  .qh-mdl-price-unit {
-    display: inline;
-    margin-left: 4px;
-  }
-
-  .qh-mdl-latency-sub {
-    display: inline;
-    margin-left: 4px;
-  }
-}
-</style>
-
-<section class="qh-mdl-section">
-  <div class="qh-mdl-card">
-    <div class="qh-mdl-header">
-      <h2 class="qh-mdl-title">Tous les modèles du moment, au prix de gros</h2>
-      <p class="qh-mdl-subtitle">Tarifs officiels barrés : c'est ce que vous paieriez ailleurs. Prix Quota.Hub : ce que vous payez réellement, revérifié toutes les 20 minutes.</p>
-    </div>
-
-    <div class="qh-mdl-table-wrap">
-      <table class="qh-mdl-table">
-        <thead class="qh-mdl-thead">
-          <tr>
-            <th class="qh-mdl-th">Modèle</th>
-            <th class="qh-mdl-th">Contexte</th>
-            <th class="qh-mdl-th">Entrée</th>
-            <th class="qh-mdl-th">Sortie</th>
-            <th class="qh-mdl-th">Réduction</th>
-            <th class="qh-mdl-th">Réussite</th>
-            <th class="qh-mdl-th">Latence</th>
-            <th class="qh-mdl-th">Réseau</th>
-          </tr>
-        </thead>
-        <tbody class="qh-mdl-tbody">
-          <!-- Qwen3.8 Flash -->
-          <tr class="qh-mdl-row">
-            <td class="qh-mdl-td">
-              <div class="qh-mdl-model-cell">
-                <div class="qh-mdl-avatar qh-mdl-av-qwen">Q</div>
-                <div class="qh-mdl-name-group">
-                  <div class="qh-mdl-name-row">
-                    <span class="qh-mdl-name">Qwen3.8 Flash</span>
-                  </div>
-                  <span class="qh-mdl-vendor">Qwen</span>
-                </div>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Contexte">
-              <span class="qh-mdl-ctx-badge">1M ctx</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Entrée">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$0.15</span><span class="qh-mdl-price-current">$0.0024</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Sortie">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$0.47</span><span class="qh-mdl-price-current">$0.007</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réduction">
-              <span class="qh-mdl-disc-pill">−98 %</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Réussite">
-              <span class="qh-mdl-success-rate">
-                <span class="qh-mdl-dot qh-mdl-dot-yellow"></span>98,7 %
-              </span>
-            </td>
-            <td class="qh-mdl-td" data-label="Latence">
-              <div class="qh-mdl-latency-cell">
-                <span class="qh-mdl-latency-val">15,4 s</span>
-                <span class="qh-mdl-latency-sub">temps au 1er token</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réseau">
-              <span class="qh-mdl-channels">29 canaux</span>
-            </td>
-          </tr>
-
-          <!-- GLM-5.3 Flash -->
-          <tr class="qh-mdl-row">
-            <td class="qh-mdl-td">
-              <div class="qh-mdl-model-cell">
-                <div class="qh-mdl-avatar qh-mdl-av-zai">Z</div>
-                <div class="qh-mdl-name-group">
-                  <div class="qh-mdl-name-row">
-                    <span class="qh-mdl-name">GLM-5.3 Flash</span>
-                  </div>
-                  <span class="qh-mdl-vendor">Z.ai</span>
-                </div>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Contexte">
-              <span class="qh-mdl-ctx-badge">1M ctx</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Entrée">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$0.15</span><span class="qh-mdl-price-current">$0.0083</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Sortie">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$0.50</span><span class="qh-mdl-price-current">$0.028</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réduction">
-              <span class="qh-mdl-disc-pill">−94 %</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Réussite">
-              <span class="qh-mdl-success-rate">
-                <span class="qh-mdl-dot qh-mdl-dot-yellow"></span>98,7 %
-              </span>
-            </td>
-            <td class="qh-mdl-td" data-label="Latence">
-              <div class="qh-mdl-latency-cell">
-                <span class="qh-mdl-latency-val">9,1 s</span>
-                <span class="qh-mdl-latency-sub">temps au 1er token</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réseau">
-              <span class="qh-mdl-channels">44 canaux</span>
-            </td>
-          </tr>
-
-          <!-- Grok 4.6 -->
-          <tr class="qh-mdl-row">
-            <td class="qh-mdl-td">
-              <div class="qh-mdl-model-cell">
-                <div class="qh-mdl-avatar qh-mdl-av-xai">X</div>
-                <div class="qh-mdl-name-group">
-                  <div class="qh-mdl-name-row">
-                    <span class="qh-mdl-name">Grok 4.6</span>
-                    <span class="qh-mdl-badge-top">Meilleur écart</span>
-                  </div>
-                  <span class="qh-mdl-vendor">xAI</span>
-                </div>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Contexte">
-              <span class="qh-mdl-ctx-badge">500K ctx</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Entrée">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$2.00</span><span class="qh-mdl-price-current">$0.0036</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Sortie">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$6.00</span><span class="qh-mdl-price-current">$0.011</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réduction">
-              <span class="qh-mdl-disc-pill">−99,8 %</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Réussite">
-              <span class="qh-mdl-success-rate">
-                <span class="qh-mdl-dot qh-mdl-dot-green"></span>99,0 %
-              </span>
-            </td>
-            <td class="qh-mdl-td" data-label="Latence">
-              <div class="qh-mdl-latency-cell">
-                <span class="qh-mdl-latency-val">7,7 s</span>
-                <span class="qh-mdl-latency-sub">temps au 1er token</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réseau">
-              <span class="qh-mdl-channels">100 canaux</span>
-            </td>
-          </tr>
-
-          <!-- DeepSeek V4-Flash -->
-          <tr class="qh-mdl-row">
-            <td class="qh-mdl-td">
-              <div class="qh-mdl-model-cell">
-                <div class="qh-mdl-avatar qh-mdl-av-deepseek">D</div>
-                <div class="qh-mdl-name-group">
-                  <div class="qh-mdl-name-row">
-                    <span class="qh-mdl-name">DeepSeek V4-Flash</span>
-                  </div>
-                  <span class="qh-mdl-vendor">DeepSeek</span>
-                </div>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Contexte">
-              <span class="qh-mdl-ctx-badge">1M ctx</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Entrée">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$0.14</span><span class="qh-mdl-price-current">$0.0036</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Sortie">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$0.28</span><span class="qh-mdl-price-current">$0.011</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réduction">
-              <span class="qh-mdl-disc-pill">−96 %</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Réussite">
-              <span class="qh-mdl-success-rate">
-                <span class="qh-mdl-dot qh-mdl-dot-green"></span>99,3 %
-              </span>
-            </td>
-            <td class="qh-mdl-td" data-label="Latence">
-              <div class="qh-mdl-latency-cell">
-                <span class="qh-mdl-latency-val">2,2 s</span>
-                <span class="qh-mdl-latency-sub">temps au 1er token</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réseau">
-              <span class="qh-mdl-channels">45 canaux</span>
-            </td>
-          </tr>
-
-          <!-- DeepSeek V4-Pro -->
-          <tr class="qh-mdl-row">
-            <td class="qh-mdl-td">
-              <div class="qh-mdl-model-cell">
-                <div class="qh-mdl-avatar qh-mdl-av-deepseek">D</div>
-                <div class="qh-mdl-name-group">
-                  <div class="qh-mdl-name-row">
-                    <span class="qh-mdl-name">DeepSeek V4-Pro</span>
-                  </div>
-                  <span class="qh-mdl-vendor">DeepSeek</span>
-                </div>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Contexte">
-              <span class="qh-mdl-ctx-badge">1M ctx</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Entrée">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$0.435</span><span class="qh-mdl-price-current">$0.012</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Sortie">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$0.87</span><span class="qh-mdl-price-current">$0.036</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réduction">
-              <span class="qh-mdl-disc-pill">−96 %</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Réussite">
-              <span class="qh-mdl-success-rate">
-                <span class="qh-mdl-dot qh-mdl-dot-yellow"></span>98,0 %
-              </span>
-            </td>
-            <td class="qh-mdl-td" data-label="Latence">
-              <div class="qh-mdl-latency-cell">
-                <span class="qh-mdl-latency-val">7,1 s</span>
-                <span class="qh-mdl-latency-sub">temps au 1er token</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réseau">
-              <span class="qh-mdl-channels">56 canaux</span>
-            </td>
-          </tr>
-
-          <!-- Gemini 3.8 Flash -->
-          <tr class="qh-mdl-row">
-            <td class="qh-mdl-td">
-              <div class="qh-mdl-model-cell">
-                <div class="qh-mdl-avatar qh-mdl-av-google">G</div>
-                <div class="qh-mdl-name-group">
-                  <div class="qh-mdl-name-row">
-                    <span class="qh-mdl-name">Gemini 3.8 Flash</span>
-                  </div>
-                  <span class="qh-mdl-vendor">Google</span>
-                </div>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Contexte">
-              <span class="qh-mdl-ctx-badge">1M ctx</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Entrée">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$0.75</span><span class="qh-mdl-price-current">$0.018</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Sortie">
-              <div class="qh-mdl-price-cell">
-                <span class="qh-mdl-price-striked">$3.75</span><span class="qh-mdl-price-current">$0.088</span>
-                <span class="qh-mdl-price-unit">/M tokens</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réduction">
-              <span class="qh-mdl-disc-pill">−98 %</span>
-            </td>
-            <td class="qh-mdl-td" data-label="Réussite">
-              <span class="qh-mdl-success-rate">
-                <span class="qh-mdl-dot qh-mdl-dot-orange"></span>97,8 %
-              </span>
-            </td>
-            <td class="qh-mdl-td" data-label="Latence">
-              <div class="qh-mdl-latency-cell">
-                <span class="qh-mdl-latency-val">5,8 s</span>
-                <span class="qh-mdl-latency-sub">temps au 1er token</span>
-              </div>
-            </td>
-            <td class="qh-mdl-td" data-label="Réseau">
-              <span class="qh-mdl-channels">34 canaux</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <p class="qh-mdl-footer-note">Prix par million de tokens. Officiels : tarifs publics des fournisseurs, relevés le 10/09/2026. Les modèles sont servis automatiquement : vous ne choisissez jamais, le routeur prend le meilleur canal vivant.</p>
-  </div>
-</section>
-
-        <div class="grid-2-cols">
-          <div class="glass-card">
-            <h3>Ce que vous recevez pour 10 $</h3>
-            <div class="metrics-grid">
-              <div class="metric-box">
-                <span class="metric-val">1 Md</span>
-                <span class="metric-label">tokens décomptés réels (prompt + completion, à l'usage)</span>
-              </div>
-              <div class="metric-box">
-                <span class="metric-val">30 j</span>
-                <span class="metric-label">validité après activation</span>
-              </div>
-              <div class="metric-box">
-                <span class="metric-val">4</span>
-                <span class="metric-label">canaux flash haut débit (qwen · glm · deepseek · grok)</span>
-              </div>
-              <div class="metric-box">
-                <span class="metric-val">6 h</span>
-                <span class="metric-label">rétention minimale du même canal (cache de prompts chaud)</span>
-              </div>
-              <div class="metric-box">
-                <span class="metric-val text-accent">4 000</span>
-                <span class="metric-label">tokens max par réponse</span>
-              </div>
-            </div>
-            <div class="progress-bar-container">
-              <div class="progress-header">
-                <span>Votre consommation</span>
-                <span id="label-sub-quota">0 / 0 tokens</span>
-              </div>
-              <div class="progress-track">
-                <div class="progress-fill" id="track-sub-quota" style="width: 0%;"></div>
-              </div>
-            </div>
-            <p class="card-tip" style="margin-top:12px;">Comment ça marche (quota à l'usage, comme OpenCode / CommandCode) : <strong>1.</strong> créez un compte → <strong>2.</strong> activez votre code (bouton « Activer un code ») : <strong>10 $ = 1 Md de tokens décomptés</strong>, débités au fil de l'eau → <strong>3.</strong> générez une clé → <strong>4.</strong> branchez vos agents sur <code>https://quota-hub.vercel.app/v1</code>. Le champ <code>model</code> est ignoré : le routeur choisit seul le modèle le moins cher vivant. Vous payez votre usage, jamais un modèle en particulier.</p>
+        <!-- 4 PILIERS DE PROMESSE -->
+        <div class="features-grid">
+          <div class="feat-card">
+            <div class="feat-icon">🎯</div>
+            <h3>Model integrity</h3>
+            <p>You call what you see. The router auto-selects the cheapest live channel without degrading model quality or silent downgrades.</p>
           </div>
-
-          <div class="glass-card">
-            <h3>Transparence du routage</h3>
-            <p class="card-tip">Le routeur interne, à chaque requête :</p>
-            <div class="code-block-wrapper">
-              <div class="code-header"><span>Sélection automatique (extrait réel)</span></div>
-              <pre><code>1. marché 30 jours : moyenne pondérée par le temps (pas un pic de prix),
-   revérifié toutes les 20 min — pas à chaque requête
-2. canaux vivants : fiabilité « pire heure » ≥ 80 %, échantillon ≥ 200 req/24 h
-3. coût espéré = coût moyen 30 j ÷ probabilité de succès → tri ascendant
-4. hystérésis 30 % + RETENUE MINIMALE 6 h : on garde le même fournisseur
-   et le même canal tant qu'il vit → cache de prompts chaud (2 à 10× moins cher)
-5. échec/timeout → cooldown 60-90 s, canal suivant immédiatement ;
-   si tous sont en cooldown : attente bornée puis dernier recours (pas de 503 sec)
-6. votre facturation : tokens réels consommés, jamais de simulation</code></pre>
-            </div>
-            <div class="docs-callout">
-              <h4>Pourquoi pas de choix de modèle ?</h4>
-              <p>C'est exactement ce qui rend le −90 % possible : en laissant le routeur sur les canaux les plus économiques, le plan reste rentable pour vous comme pour nous — et vous ne payez que <strong>l'usage réel, en dollars</strong>, sans abonnement par modèle. Besoin d'un modèle précis ? Les offres à l'usage par modèle arrivent ensuite.</p>
-            </div>
+          <div class="feat-card">
+            <div class="feat-icon">🔒</div>
+            <h3>Zero Data Retention</h3>
+            <p>Your data belongs to you. Paid routes enforce zero logging for training. Prompts are kept max 5 minutes for cache hits only.</p>
           </div>
-        </div>
-
-        <!-- CACHE DE PROMPTS : durée de vie officielle par fournisseur -->
-        <div class="glass-card mt-16">
-          <div class="card-header-flex">
-            <h3>Cache de prompts : combien de temps reste-t-il chaud ?</h3>
-            <span class="badge-subtle">durées publiées par les fournisseurs · sept. 2026</span>
+          <div class="feat-card">
+            <div class="feat-icon">⚡</div>
+            <h3>Prompt Cache Hold</h3>
+            <p>We hold your elected provider channel for 6 hours minimum so your repetitive agent prompts stay hot and 10× cheaper.</p>
           </div>
-          <p class="card-tip">Un canal stable = préfixe identique (system prompt, outils, historique) = <strong>cache de prompts réutilisé</strong>, facturé 2 à 50× moins cher que le plein tarif. Voici la durée de vie réelle du cache, telle que documentée par chaque fournisseur :</p>
-          <table class="simple-table">
-            <thead>
-              <tr>
-                <th>Fournisseur (canaux du plan)</th>
-                <th>Durée de vie du cache</th>
-                <th>Prix du token en cache</th>
-                <th>Minimum pour cacher</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>DeepSeek</strong><div style="font-size:11px;color:var(--soft)">v4-flash · v4-pro</div></td>
-                <td>Aucun réglage : purge automatique <strong>de quelques heures à quelques jours</strong> après le dernier usage (mémoire disque, « best effort »)</td>
-                <td>≈ 2 % du prix normal</td>
-                <td>64 tokens (unité de stockage) — hits fiables dès ~1 024</td>
-              </tr>
-              <tr>
-                <td><strong>Qwen / Alibaba</strong><div style="font-size:11px;color:var(--soft)">qwen3.8-flash</div></td>
-                <td>Implicite (auto) : indéterminée, purge périodique des entrées froides · Explicite : <strong>5 min</strong>, réarmé à chaque hit</td>
-                <td>20 % (auto) · 10 % (explicite)</td>
-                <td>1 024 tokens</td>
-              </tr>
-              <tr>
-                <td><strong>GLM / Zhipu</strong><div style="font-size:11px;color:var(--soft)">glm-5.3-flash</div></td>
-                <td>Automatique, TTL non publié · stockage facturé (promo en cours : gratuit)</td>
-                <td>≈ 50 % de réduction</td>
-                <td>—</td>
-              </tr>
-              <tr>
-                <td><strong>Grok / xAI</strong><div style="font-size:11px;color:var(--soft)">grok-4.6</div></td>
-                <td>Automatique entre requêtes consécutives partageant le même début de conversation</td>
-                <td>Token caché facturé à taux réduit</td>
-                <td>—</td>
-              </tr>
-              <tr>
-                <td><strong>Kimi / Moonshot</strong></td>
-                <td>Automatique, cycle de vie géré par la plateforme (pas de TTL manuel)</td>
-                <td>Token caché facturé à taux réduit</td>
-                <td>256 tokens</td>
-              </tr>
-              <tr>
-                <td colspan="4" style="color:var(--soft);font-size:11.5px;">Hors plan, pour référence : OpenAI GPT-5.x — <strong>≥ 30 min</strong> garanti, jusqu'à <strong>24 h</strong> sur les modèles compatibles · Anthropic Claude — 5 min (option 1 h) · Google Gemini — 60 min par défaut, jusqu'à 24 h.</td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="docs-callout">
-            <h4>Ce que ça change pour vous</h4>
-            <p>C'est le cœur du produit : le routeur <strong>garde le même fournisseur et le même canal</strong> — hystérésis 30 %, puis <strong>retenue minimale de 6 h</strong> — tant que ce canal vit et n'est pas nettement plus cher ailleurs. Votre préfixe reste identique, le cache amont tient, et vous payez le tarif « cache hit ». Un canal qui change toutes les 30 secondes ne casserait pas seulement le cache : il coûterait 5 à 50× plus cher.</p>
+          <div class="feat-card">
+            <div class="feat-icon">🔄</div>
+            <h3>Universal Drop-in</h3>
+            <p>Standard OpenAI API format. Point your Claude Code, Cursor, Codex, OpenCode or Python scripts in exactly one command.</p>
           </div>
         </div>
       </section>
 
-      <!-- TAB 2 : CONSOLE -->
+      <!-- ==================== TAB 2 : MODELS (TOKEN HARBOR CATALOG) ==================== -->
+      <section id="tab-models" class="tab-pane">
+        <div class="models-container">
+          <div class="models-toolbar">
+            <div class="models-tabs">
+              <button class="models-tab-btn active" onclick="filterModels('all', this)">Tous</button>
+              <button class="models-tab-btn" onclick="filterModels('flash', this)">Flash / Value</button>
+              <button class="models-tab-btn" onclick="filterModels('pro', this)">Frontier</button>
+            </div>
+            <div class="models-search">
+              <span class="models-search-icon">🔍</span>
+              <input type="text" id="models-search-input" placeholder="Search models by name, vendor..." oninput="searchModels(this.value)">
+            </div>
+          </div>
+
+          <div class="th-table-card">
+            <table class="th-table">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>Modalities</th>
+                  <th>Context</th>
+                  <th>Input / 1M</th>
+                  <th>Output / 1M</th>
+                  <th>Discount</th>
+                  <th>Success</th>
+                </tr>
+              </thead>
+              <tbody id="models-table-body">
+                <!-- Grok 4.6 -->
+                <tr class="model-row" data-cat="pro" data-name="grok 4.6 xai">
+                  <td>
+                    <div class="model-name-cell">
+                      <div class="model-avatar av-xai">X</div>
+                      <div class="model-meta">
+                        <span class="model-title">Grok 4.6 <span class="discount-pill" style="font-size:9px;">BEST VALUE</span></span>
+                        <span class="model-slug">grok-4.6 · xAI</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="modalities-icons">
+                      <span class="mod-tag">T</span><span class="mod-tag">📎</span>
+                    </div>
+                  </td>
+                  <td>500K</td>
+                  <td><span class="price-striked">$2.00</span><span class="price-current">$0.0036</span></td>
+                  <td><span class="price-striked">$6.00</span><span class="price-current">$0.011</span></td>
+                  <td><span class="discount-pill">−99.8%</span></td>
+                  <td><span style="color:var(--emerald);font-weight:600;">99.0%</span></td>
+                </tr>
+
+                <!-- Qwen3.8 Flash -->
+                <tr class="model-row" data-cat="flash" data-name="qwen 3.8 flash alibaba">
+                  <td>
+                    <div class="model-name-cell">
+                      <div class="model-avatar av-qwen">Q</div>
+                      <div class="model-meta">
+                        <span class="model-title">Qwen3.8 Flash</span>
+                        <span class="model-slug">qwen3.8-flash · Alibaba</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="modalities-icons">
+                      <span class="mod-tag">T</span><span class="mod-tag">🖼️</span><span class="mod-tag">📹</span>
+                    </div>
+                  </td>
+                  <td>1.0M</td>
+                  <td><span class="price-striked">$0.15</span><span class="price-current">$0.0024</span></td>
+                  <td><span class="price-striked">$0.47</span><span class="price-current">$0.007</span></td>
+                  <td><span class="discount-pill">−98%</span></td>
+                  <td><span style="color:var(--emerald);font-weight:600;">98.7%</span></td>
+                </tr>
+
+                <!-- DeepSeek V4 Flash -->
+                <tr class="model-row" data-cat="flash" data-name="deepseek v4 flash">
+                  <td>
+                    <div class="model-name-cell">
+                      <div class="model-avatar av-deepseek">D</div>
+                      <div class="model-meta">
+                        <span class="model-title">DeepSeek V4-Flash</span>
+                        <span class="model-slug">deepseek-v4-flash</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="modalities-icons">
+                      <span class="mod-tag">T</span><span class="mod-tag">📎</span>
+                    </div>
+                  </td>
+                  <td>1.0M</td>
+                  <td><span class="price-striked">$0.14</span><span class="price-current">$0.0036</span></td>
+                  <td><span class="price-striked">$0.28</span><span class="price-current">$0.011</span></td>
+                  <td><span class="discount-pill">−96%</span></td>
+                  <td><span style="color:var(--emerald);font-weight:600;">99.3%</span></td>
+                </tr>
+
+                <!-- GLM-5.3 Flash -->
+                <tr class="model-row" data-cat="flash" data-name="glm 5.3 flash zhipu z.ai">
+                  <td>
+                    <div class="model-name-cell">
+                      <div class="model-avatar av-zai">Z</div>
+                      <div class="model-meta">
+                        <span class="model-title">GLM-5.3 Flash</span>
+                        <span class="model-slug">glm-5.3-flash · Z.ai</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="modalities-icons">
+                      <span class="mod-tag">T</span><span class="mod-tag">📎</span>
+                    </div>
+                  </td>
+                  <td>1.0M</td>
+                  <td><span class="price-striked">$0.15</span><span class="price-current">$0.0083</span></td>
+                  <td><span class="price-striked">$0.50</span><span class="price-current">$0.028</span></td>
+                  <td><span class="discount-pill">−94%</span></td>
+                  <td><span style="color:var(--emerald);font-weight:600;">98.7%</span></td>
+                </tr>
+
+                <!-- DeepSeek V4 Pro -->
+                <tr class="model-row" data-cat="pro" data-name="deepseek v4 pro">
+                  <td>
+                    <div class="model-name-cell">
+                      <div class="model-avatar av-deepseek">D</div>
+                      <div class="model-meta">
+                        <span class="model-title">DeepSeek V4-Pro</span>
+                        <span class="model-slug">deepseek-v4-pro</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="modalities-icons">
+                      <span class="mod-tag">T</span><span class="mod-tag">📎</span>
+                    </div>
+                  </td>
+                  <td>1.0M</td>
+                  <td><span class="price-striked">$0.435</span><span class="price-current">$0.012</span></td>
+                  <td><span class="price-striked">$0.87</span><span class="price-current">$0.036</span></td>
+                  <td><span class="discount-pill">−96%</span></td>
+                  <td><span style="color:var(--emerald);font-weight:600;">98.0%</span></td>
+                </tr>
+
+                <!-- Gemini 3.8 Flash -->
+                <tr class="model-row" data-cat="flash" data-name="gemini 3.8 flash google">
+                  <td>
+                    <div class="model-name-cell">
+                      <div class="model-avatar av-google">G</div>
+                      <div class="model-meta">
+                        <span class="model-title">Gemini 3.8 Flash</span>
+                        <span class="model-slug">gemini-3.8-flash · Google</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="modalities-icons">
+                      <span class="mod-tag">T</span><span class="mod-tag">🖼️</span><span class="mod-tag">🎙️</span><span class="mod-tag">📹</span>
+                    </div>
+                  </td>
+                  <td>1.0M</td>
+                  <td><span class="price-striked">$0.75</span><span class="price-current">$0.018</span></td>
+                  <td><span class="price-striked">$3.75</span><span class="price-current">$0.088</span></td>
+                  <td><span class="discount-pill">−98%</span></td>
+                  <td><span style="color:var(--emerald);font-weight:600;">97.8%</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 3 : CONNECT (AGENT COMPATIBILITY) ==================== -->
+      <section id="tab-connect" class="tab-pane">
+        <div class="connect-container">
+          <div class="th-hero" style="margin-bottom:24px;">
+            <h2>Connect your agent in one command.</h2>
+            <p>Automatic detection and configuration for Claude Code, Codex, Cursor, and 20+ agent CLI tools.</p>
+          </div>
+
+          <div class="terminal-mockup">
+            <div class="terminal-header">
+              <div class="terminal-dots">
+                <div class="terminal-dot"></div>
+                <div class="terminal-dot"></div>
+                <div class="terminal-dot"></div>
+              </div>
+              <span>bash — quota-hub connect</span>
+              <span>v1.0</span>
+            </div>
+            <div class="terminal-body">
+              <p><span style="color:var(--emerald);">$</span> curl -fsSL https://quota-hub.vercel.app/connect.sh | sh</p>
+              <p style="color:var(--muted);">Downloading Quota.Hub agent connector… done</p>
+              <p style="color:var(--muted);">Verifying bearer token… ok (active plan: 1 Md)</p>
+              <p>Detected developer tools:</p>
+              <p style="color:var(--emerald);">  ✓ Claude Code — config written (~/.claude/settings.json)</p>
+              <p style="color:var(--emerald);">  ✓ OpenAI Codex CLI — configured</p>
+              <p style="color:var(--emerald);">  ✓ OpenCode / CommandCode — routed</p>
+              <p style="color:var(--soft);">  ℹ Cursor — baseUrl: https://quota-hub.vercel.app/v1</p>
+              <br>
+              <p style="color:var(--ink);">Ready. All inference requests now route at −90% wholesale price.</p>
+            </div>
+          </div>
+
+          <h3 style="font-family:var(--font-title);margin:32px 0 12px;font-size:18px;">Supported Clients & Agents</h3>
+          <div class="compat-grid">
+            <div class="compat-item"><span>Claude Code</span><span class="compat-tag">AUTO</span></div>
+            <div class="compat-item"><span>Codex CLI</span><span class="compat-tag">AUTO</span></div>
+            <div class="compat-item"><span>Cursor</span><span class="compat-tag">GUIDED</span></div>
+            <div class="compat-item"><span>OpenCode</span><span class="compat-tag">AUTO</span></div>
+            <div class="compat-item"><span>Aider</span><span class="compat-tag">ENV</span></div>
+            <div class="compat-item"><span>Cline / Roo</span><span class="compat-tag">GUIDED</span></div>
+            <div class="compat-item"><span>Hermes Agent</span><span class="compat-tag">NATIVE</span></div>
+            <div class="compat-item"><span>Continue.dev</span><span class="compat-tag">GUIDED</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 4 : API KEYS & CONSOLE ==================== -->
       <section id="tab-console" class="tab-pane">
-        <div class="glass-hero mini">
-          <div class="hero-content">
-            <div class="eyebrow">CONSOLE DÉVELOPPEUR</div>
-            <h1 class="hero-title">Vos clés <span class="gradient-text">OpenAI-compatible</span></h1>
-            <p class="hero-subtitle">Base URL <code>https://quota-hub.vercel.app/v1</code> — le champ model est sans effet, tout passe par le routeur auto.</p>
-          </div>
-          <button class="primary-btn" id="open-create-key-modal">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Nouvelle clé
-          </button>
-        </div>
-
-        <div class="grid-2-cols">
-          <div class="glass-card">
-            <h3>Votre abonnement</h3>
-            <div class="metrics-grid">
-              <div class="metric-box">
-                <span class="metric-val" id="metric-tokens-left">—</span>
-                <span class="metric-label">Tokens restants</span>
-              </div>
-              <div class="metric-box">
-                <span class="metric-val" id="metric-requests">—</span>
-                <span class="metric-label">Requêtes servies</span>
-              </div>
-              <div class="metric-box">
-                <span class="metric-val" id="metric-served-model">—</span>
-                <span class="metric-label">Dernier modèle servi</span>
-              </div>
-              <div class="metric-box">
-                <span class="metric-val" id="metric-gemini-left">—</span>
-                <span class="metric-label">Solde Gemini 100 M</span>
-              </div>
-              <div class="metric-box">
-                <span class="metric-val text-accent" id="metric-sub-status">—</span>
-                <span class="metric-label">Statut</span>
-              </div>
+        <div class="connect-container">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+            <div>
+              <h2 style="font-family:var(--font-title);font-size:24px;color:#fff;">API Keys</h2>
+              <p style="color:var(--soft);font-size:13.5px;">Manage your access tokens for CLI agents and scripts.</p>
             </div>
-            <div class="code-block-wrapper">
-              <div class="code-header">
-                <span>Export Bash (Hermes / Linux / Mac)</span>
-                <button class="copy-btn" id="btn-copy-export" data-copy="export OPENAI_BASE_URL=https://quota-hub.vercel.app/v1">Copier</button>
-              </div>
-              <pre><code id="code-snippet-export">export OPENAI_BASE_URL="https://quota-hub.vercel.app/v1"
-export OPENAI_API_KEY="sk-qh-…votre clé…"</code></pre>
-            </div>
+            <button class="btn-primary" id="open-create-key-modal">+ New API Key</button>
           </div>
 
-          <div class="glass-card">
-            <h3>Consommation</h3>
-            <div class="metrics-grid">
-              <div class="metric-box">
-                <span class="metric-val" id="metric-prompt-tokens">—</span>
-                <span class="metric-label">Tokens prompt</span>
-              </div>
-              <div class="metric-box">
-                <span class="metric-val" id="metric-completion-tokens">—</span>
-                <span class="metric-label">Tokens completion</span>
-              </div>
-            </div>
-            <div class="progress-bar-container">
-              <div class="progress-header">
-                <span>Avancement du quota</span>
-                <span id="label-quota-detail">—</span>
-              </div>
-              <div class="progress-track">
-                <div class="progress-fill" id="track-quota-detail" style="width:0%"></div>
-              </div>
-            </div>
-            <p class="card-tip">Chaque réponse contient <code>quota_hub.tokens_remaining</code> : vos agents peuvent s'auto-surveiller. Rate-limit : 60 req/min par clé (409 si dépassé).</p>
-          </div>
-        </div>
-
-        <div class="glass-card mt-16">
-          <div class="card-header-flex">
-            <h3>Vos clés actives</h3>
-            <span class="badge-subtle" id="keys-count-badge">0 clé</span>
-          </div>
-          <table class="simple-table">
-            <thead>
-              <tr>
-                <th>Nom</th>
-                <th>Clé</th>
-                <th>Création</th>
-                <th>Dernier usage</th>
-                <th>Statut</th>
-                <th style="text-align: right;">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="keys-table-body"></tbody>
-          </table>
-          <p class="card-tip" id="keys-login-hint" style="padding:12px 4px;">Connectez-vous pour voir et créer vos clés.</p>
-        </div>
-      </section>
-
-      <!-- TAB 3 : ACTIVER UN CODE -->
-      <section id="tab-redeem" class="tab-pane">
-        <div class="glass-hero mini">
-          <div class="hero-content">
-            <div class="eyebrow">ACTIVATION D'ABONNEMENT</div>
-            <h1 class="hero-title">Activer un <span class="gradient-text">code</span></h1>
-            <p class="hero-subtitle">Chaque code ajoute son quota de tokens à votre compte (cumulable). Format : QH-XXXXXXXX-XXXXXXXX.</p>
-          </div>
-        </div>
-
-        <div class="grid-2-cols">
-          <div class="glass-card">
-            <h3>Votre code d'abonnement</h3>
-            <div class="redeem-box">
-              <input type="text" id="redeem-input" class="glass-input" placeholder="QH-XXXXXXXX-XXXXXXXX" autocomplete="off" spellcheck="false">
-              <button class="secondary-btn" id="btn-redeem">Activer</button>
-            </div>
-            <div id="redeem-msg" class="feedback-msg" hidden></div>
-            <hr class="glass-divider">
-            <p class="card-tip">Le paiement d'un code se fait hors ligne (virement/contact direct) : vous recevez le code par email une fois le règlement confirmé. Un code = 1 Md de tokens (30 jours de validité après activation).</p>
+          <div id="keys-login-hint" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:24px;text-align:center;">
+            <p style="color:var(--soft);margin-bottom:12px;">Sign in to create and manage your API keys.</p>
+            <button class="btn-primary" onclick="triggerAuth('login')">Sign in</button>
           </div>
 
-          <div class="glass-card">
-            <h3>Après activation</h3>
-            <p class="card-tip">Votre quota devient immédiatement :</p>
-            <div class="metrics-grid">
-              <div class="metric-box">
-                <span class="metric-val" id="redeem-total">—</span>
-                <span class="metric-label">Tokens totaux</span>
-              </div>
-              <div class="metric-box">
-                <span class="metric-val" id="redeem-status">—</span>
-                <span class="metric-label">Statut</span>
-              </div>
+          <div class="th-table-card" style="margin-top:16px;">
+            <table class="th-table">
+              <thead>
+                <tr>
+                  <th>Key Name</th>
+                  <th>Secret</th>
+                  <th>Created</th>
+                  <th>Last used</th>
+                  <th>Status</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="keys-table-body">
+                <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);">No keys found.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Activer un code d'abonnement -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:24px;margin-top:32px;">
+            <h3 style="font-family:var(--font-title);font-size:16px;color:#fff;margin-bottom:6px;">Redeem Code / Top-up</h3>
+            <p style="color:var(--soft);font-size:13px;margin-bottom:16px;">Activate an subscription code or top-up card to add usage credits.</p>
+            <div style="display:flex;gap:10px;max-width:440px;">
+              <input type="text" id="redeem-input" class="th-input" placeholder="QH-AUTO-..." style="text-transform:uppercase;">
+              <button class="btn-primary" id="btn-redeem">Activate</button>
             </div>
-            <div class="docs-callout">
-              <h4>Compteur à l'usage, sans surprise</h4>
-              <p>Seuls les tokens réellement consommés sont décomptés (prompt + completion, données renvoyées par l'amont). Une requête qui échoue = 0 token décompté.</p>
-            </div>
+            <div id="redeem-msg" style="margin-top:10px;font-size:12.5px;" hidden></div>
           </div>
         </div>
       </section>
 
-      <!-- TAB 4 : PLAYGROUND -->
+      <!-- ==================== TAB 5 : PLAYGROUND & DOCS ==================== -->
       <section id="tab-playground" class="tab-pane">
-        <div class="glass-hero mini">
-          <div class="hero-content">
-            <div class="eyebrow">TESTEUR LIVE</div>
-            <h1 class="hero-title">Playground & <span class="gradient-text">snippets d'intégration</span></h1>
-            <p class="hero-subtitle">Test réel via votre clé : la réponse vient du routeur auto (modèle choisi seul, facturé à l'usage).</p>
-          </div>
-        </div>
+        <div class="connect-container">
+          <h2 style="font-family:var(--font-title);font-size:24px;color:#fff;margin-bottom:6px;">Playground & Interactive Testing</h2>
+          <p style="color:var(--soft);font-size:13.5px;margin-bottom:24px;">Test live requests against the gateway. The router ignores the requested model and automatically serves the cheapest live channel.</p>
 
-        <div class="grid-2-cols">
-          <div class="glass-card">
-            <h3>Requête de test</h3>
-            <div class="field-group">
-              <label for="play-key-select">Clé à utiliser :</label>
-              <select id="play-key-select" class="glass-select"></select>
-            </div>
-            <div class="field-group">
-              <label for="play-user-prompt">Invite :</label>
-              <textarea id="play-user-prompt" class="glass-textarea" rows="4">Réponds en une phrase : pourquoi un routeur automatique est-il moins cher ?</textarea>
-            </div>
-            <div class="action-row">
-              <button class="primary-btn" id="btn-run-playground">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                Exécuter
-              </button>
-              <button class="secondary-btn" id="btn-reset-playground">Réinitialiser</button>
-            </div>
-            <div class="response-box mt-16">
-              <div class="response-header">
-                <span>Sortie réelle</span>
-                <span class="response-meta" id="response-meta">Prêt</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+            <div>
+              <div class="field-group">
+                <label>Prompt</label>
+                <textarea id="play-user-prompt" class="th-input" rows="5" placeholder="Say hello or ask a question..."></textarea>
               </div>
-              <div class="response-body" id="playground-output">Connectez-vous, générez une clé, puis exécutez.</div>
+              <div style="display:flex;gap:10px;align-items:center;">
+                <button class="btn-primary" id="btn-run-playground">Run Inference</button>
+                <button class="btn-secondary" id="btn-reset-playground">Clear</button>
+                <span id="response-meta" style="font-size:11px;color:var(--soft);">Ready</span>
+              </div>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11.5px;font-weight:600;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Response Output</label>
+              <div id="playground-output" style="background:#000;border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;font-family:var(--font-mono);font-size:12px;color:#e4e4e7;min-height:160px;white-space:pre-wrap;">Ready.</div>
             </div>
           </div>
 
-          <div class="glass-card">
-            <div class="card-header-flex">
-              <h3>Code prêt à l'emploi</h3>
-              <div class="snippet-lang-tabs" id="snippet-lang-tabs">
-                <button class="mini-tab active" data-lang="curl">cURL</button>
-                <button class="mini-tab" data-lang="python">Python</button>
-                <button class="mini-tab" data-lang="node">Node.js</button>
+          <!-- Code Snippets -->
+          <div style="margin-top:40px;">
+            <h3 style="font-family:var(--font-title);font-size:16px;color:#fff;margin-bottom:12px;">cURL / Python Integration</h3>
+            <div class="terminal-mockup">
+              <div class="terminal-body" style="padding:14px;">
+                <pre id="snippet-code-content" style="margin:0;font-family:var(--font-mono);color:#a1a1aa;font-size:12px;">curl https://quota-hub.vercel.app/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-qh-YOUR_KEY" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "max_tokens": 500
+  }'</pre>
               </div>
-            </div>
-            <div class="code-block-wrapper">
-              <div class="code-header">
-                <span id="snippet-header-title">Appel cURL direct</span>
-                <button class="copy-btn" id="btn-copy-snippet">Copier</button>
-              </div>
-              <pre><code id="snippet-code-content"></code></pre>
-            </div>
-            <div class="docs-callout mt-16">
-              <h4>Compatibilité 100% drop-in</h4>
-              <p>Remplacez <code>api.openai.com</code> par <code>quota-hub.vercel.app</code>. Le <code>model</code> que vous envoyez est ignoré (valeurs acceptées : toute chaîne). Streaming SSE, tool calls et JSON mode passent tels quels.</p>
             </div>
           </div>
         </div>
       </section>
+
     </main>
 
-    <!-- Modal auth -->
+    <!-- ── AUTH SPLIT-SCREEN MODAL (TOKEN HARBOR /login VIBE) ── -->
     <dialog id="modal-auth">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h2 id="auth-modal-title">Espace membre</h2>
-          <button class="close-modal-btn" id="btn-close-auth-modal">&times;</button>
-        </div>
-        <div class="oauth-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
-          <button class="ghost-btn" id="btn-oauth-google" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 10px;border-radius:10px;border:1px solid var(--edge);background:rgba(255,255,255,0.55);font-size:12.5px;font-weight:600;cursor:pointer;">
-            <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.66-.22-2.45H12v4.64h6.45a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.1 3.57-5.17 3.57-8.81z"/><path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.91l-3.88-3c-1.08.72-2.45 1.15-4.06 1.15-3.12 0-5.76-2.11-6.7-4.94H1.29v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.29a12 12 0 0 0 0 10.8l4.01-3.1z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.96 1.19 15.24 0 12 0A12 12 0 0 0 1.29 6.6l4.01 3.1C6.24 6.86 8.88 4.75 12 4.75z"/></svg>
-            Google
-          </button>
-          <button class="ghost-btn" id="btn-oauth-github" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 10px;border-radius:10px;border:1px solid var(--edge);background:rgba(255,255,255,0.55);font-size:12.5px;font-weight:600;cursor:pointer;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.16c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.75 2.69 1.25 3.35.95.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14v3.17c0 .3.2.67.8.55A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
-            GitHub
-          </button>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:11px;color:var(--soft);">
-          <span style="flex:1;height:1px;background:var(--edge);"></span>ou par email<span style="flex:1;height:1px;background:var(--edge);"></span>
-        </div>
-        <div class="snippet-lang-tabs" style="margin-bottom:14px;">
-          <button class="mini-tab active" id="tab-auth-login">Connexion</button>
-          <button class="mini-tab" id="tab-auth-register">Créer un compte</button>
-        </div>
-        <form id="form-auth">
-          <div class="field-group">
-            <label for="auth-username">Email :</label>
-            <input type="email" id="auth-username" class="glass-input" placeholder="vous@exemple.com" required autocomplete="email">
+      <div class="auth-split">
+        <!-- Panneau Gauche : Hero Brand -->
+        <div class="auth-hero-panel">
+          <div>
+            <div class="brand" style="margin-bottom:16px;">
+              <div class="brand-mark">⚓</div>
+              <div class="brand-name">Quota<span class="brand-dot">.Hub</span></div>
+            </div>
+            <h2>One harbor<br>for every AI.</h2>
+            <p>Pay once in usage credits, spend across every coding assistant. Wholesale AI router at −90% with 6h prompt-cache retention.</p>
           </div>
-          <div class="field-group">
-            <label for="auth-password">Mot de passe :</label>
-            <input type="password" id="auth-password" class="glass-input" placeholder="10 caractères minimum" required minlength="10" autocomplete="current-password">
+
+          <div class="auth-stats-row">
+            <div class="auth-stat-box">
+              <span class="auth-stat-num">6+</span>
+              <span class="auth-stat-lbl">Models</span>
+            </div>
+            <div class="auth-stat-box">
+              <span class="auth-stat-num">−90%</span>
+              <span class="auth-stat-lbl">Savings</span>
+            </div>
+            <div class="auth-stat-box">
+              <span class="auth-stat-num">0¢</span>
+              <span class="auth-stat-lbl">Hidden Fees</span>
+            </div>
           </div>
-          <div id="auth-error-msg" class="feedback-msg" style="color:var(--danger);font-size:11.5px;margin-bottom:10px;" hidden></div>
-          <div class="modal-actions">
-            <button type="button" class="secondary-btn" id="btn-cancel-auth">Fermer</button>
-            <button type="submit" class="primary-btn" id="btn-submit-auth">Se connecter</button>
+        </div>
+
+        <!-- Panneau Droit : Formulaire -->
+        <div class="auth-form-panel">
+          <div class="auth-form-header">
+            <h3 id="auth-modal-title">Welcome back</h3>
+            <p style="color:var(--soft);font-size:13px;" id="auth-modal-subtitle">Sign in to pick up where you left off.</p>
           </div>
-        </form>
+
+          <!-- OAuth Social -->
+          <div class="oauth-grid">
+            <button class="oauth-btn" id="btn-oauth-google">
+              <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.66-.22-2.45H12v4.64h6.45a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.1 3.57-5.17 3.57-8.81z"/><path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.91l-3.88-3c-1.08.72-2.45 1.15-4.06 1.15-3.12 0-5.76-2.11-6.7-4.94H1.29v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.29a12 12 0 0 0 0 10.8l4.01-3.1z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.96 1.19 15.24 0 12 0A12 12 0 0 0 1.29 6.6l4.01 3.1C6.24 6.86 8.88 4.75 12 4.75z"/></svg>
+              Google
+            </button>
+            <button class="oauth-btn" id="btn-oauth-github">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.16c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.75 2.69 1.25 3.35.95.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14v3.17c0 .3.2.67.8.55A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+              GitHub
+            </button>
+          </div>
+
+          <div class="auth-divider">Or with email</div>
+
+          <form id="form-auth">
+            <div class="field-group">
+              <label for="auth-username">Email</label>
+              <input type="email" id="auth-username" class="th-input" placeholder="you@example.com" required autocomplete="email">
+            </div>
+            <div class="field-group">
+              <label for="auth-password">Password</label>
+              <input type="password" id="auth-password" class="th-input" placeholder="••••••••" required minlength="10" autocomplete="current-password">
+            </div>
+            <div id="auth-error-msg" style="color:var(--danger);font-size:12px;margin-bottom:12px;" hidden></div>
+            <button type="submit" class="btn-primary" id="btn-submit-auth" style="width:100%;">Sign in</button>
+          </form>
+
+          <div style="margin-top:18px;text-align:center;font-size:12.5px;color:var(--muted);">
+            <span id="auth-switch-text">New here? </span>
+            <a href="#" id="auth-switch-link" style="color:#fff;text-decoration:underline;">Create an account</a>
+            <br>
+            <button class="btn-ghost" id="btn-close-auth-modal" style="margin-top:12px;font-size:11.5px;">Close window</button>
+          </div>
+        </div>
       </div>
     </dialog>
 
-    <!-- Modal clé -->
+    <!-- Modal Create Key -->
     <dialog id="modal-create-key">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h2>Nouvelle clé d'accès</h2>
-          <button class="close-modal-btn" id="btn-close-modal">&times;</button>
-        </div>
+      <div class="dialog-box">
+        <h2>Generate API Key</h2>
         <form id="form-create-key">
           <div class="field-group">
-            <label for="key-name-input">Nom mnémonique :</label>
-            <input type="text" id="key-name-input" class="glass-input" placeholder="Ex: Agent CutBG / Cursor dev" required maxlength="60">
+            <label for="key-name-input">Mnemonic Name</label>
+            <input type="text" id="key-name-input" class="th-input" placeholder="e.g. Claude Code Mac / Cursor" required maxlength="60">
           </div>
           <div class="field-group">
-            <label for="key-plan-select">Plan de la clé :</label>
-            <select id="key-plan-select" class="glass-input">
-              <option value="auto" selected>Auto polyvalent (1 Md) — modèle toujours le moins cher</option>
-              <option value="gemini">Gemini 3.8 Flash (100 M) — qualité constante</option>
+            <label for="key-plan-select">Routing Pool</label>
+            <select id="key-plan-select" class="th-input">
+              <option value="auto" selected>Auto-Route Pool (cheapest live model)</option>
+              <option value="gemini">Gemini 3.8 Flash (constant quality)</option>
             </select>
           </div>
-          <div class="modal-actions">
-            <button type="button" class="secondary-btn" id="btn-cancel-key">Annuler</button>
-            <button type="submit" class="primary-btn">Générer</button>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+            <button type="button" class="btn-secondary" id="btn-cancel-key">Cancel</button>
+            <button type="submit" class="btn-primary">Generate</button>
           </div>
         </form>
       </div>
     </dialog>
 
+    <!-- Modal Key Created -->
     <dialog id="modal-key-created">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h2>🎉 Clé générée</h2>
-          <button class="close-modal-btn" id="btn-close-created-modal">&times;</button>
+      <div class="dialog-box">
+        <h2>🎉 API Key Generated</h2>
+        <p style="color:var(--soft);font-size:13px;margin-bottom:16px;">Copy this key now. For your security, it will never be displayed again.</p>
+        <div style="display:flex;gap:8px;margin-bottom:20px;">
+          <input type="text" readonly id="newly-created-key-val" class="th-input" style="font-family:var(--font-mono);font-size:12px;">
+          <button class="btn-primary" id="btn-copy-new-key">Copy</button>
         </div>
-        <p class="dialog-note">Copiez-la maintenant : elle ne sera JAMAIS réaffichée (stockée hachée côté serveur).</p>
-        <div class="generated-key-box">
-          <input type="text" readonly id="newly-created-key-val" class="glass-input key-display" value="">
-          <button class="copy-btn" id="btn-copy-new-key">Copier</button>
-        </div>
-        <div class="modal-actions">
-          <button class="primary-btn" id="btn-done-created">C'est noté</button>
-        </div>
+        <button class="btn-secondary" id="btn-done-created" style="width:100%;">I have saved it</button>
       </div>
     </dialog>
 
+    <!-- Footer -->
     <footer class="app-footer">
-      <div class="footer-left">
-        <span class="footer-brand">Quota.Hub</span>
-        <span class="footer-sep">·</span>
-        <span>Routeur auto : le moins cher vivant, toujours.</span>
-      </div>
-      <div class="footer-right">
-        <div class="glass-control">
-          <span class="control-icon" title="Opacité du verre">💧</span>
-          <label for="glass-alpha-slider">Verre :</label>
-          <input type="range" id="glass-alpha-slider" min="0.55" max="0.98" step="0.01" value="0.85">
-          <span id="glass-alpha-label">85%</span>
+      <div class="footer-inner">
+        <div>
+          <strong>Quota.Hub</strong> — One API for the world's leading models at wholesale prices.
+        </div>
+        <div class="footer-links">
+          <a href="#" onclick="switchTab('models')">Models</a>
+          <a href="#" onclick="switchTab('pricing')">Pricing</a>
+          <a href="#" onclick="switchTab('connect')">Connect</a>
+          <a href="#" onclick="switchTab('playground')">Playground</a>
         </div>
       </div>
     </footer>
+
   </div>
 
   <script src="app.js"></script>
