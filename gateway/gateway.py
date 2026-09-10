@@ -582,7 +582,12 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         # coût amont RÉEL : les tokens cachés sont au prix cache_read (12x moins cher sur qwen)
         est = round(((tin - cached) * b.get('in', 0) + cached * b.get('cache_read', b.get('in', 0))
                      + tout * b.get('out', 0)) / 1e6, 8)
-        data['a6_router'] = {'served_model': model_id, 'supplier': b.get('supplier'),
+        # noms de chaînes amont JAMAIS exposés au client (fuite concurrentielle) :
+        # l'identité du canal reste dans les journaux serveur, la réponse ne porte
+        # que le modèle publié + la règle de décision.
+        log(f'ROUTE {model_id} via {b.get("supplier")} src={b.get("src") or "instant"} '
+            f'lat={round(dt, 2)}s tok={tin}+{tout}')
+        data['a6_router'] = {'served_model': model_id,
                              'decision': (b.get('src') or 'instant'),
                              'note': 'modèle choisi automatiquement (le moins cher vivant)',
                              'requested_model': requested, 'ignored': True,
@@ -593,7 +598,10 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         return data, None, tin, tout, {'model': model_id, 'supplier': b.get('supplier'),
                                        'best': b, 'est': est, 'plan': plan,
                                        'requested': requested, 'cached': cached}
-    return None, (502, {'error': {'message': f'tous les canaux ont échoué: {last_err}',
+    # message client SANS le détail amont (qui pourrait nommer la chaîne) : le
+    # détail complet part dans les journaux du service, jamais dans la réponse.
+    log(f'502 tous canaux epuises: {last_err}')
+    return None, (502, {'error': {'message': 'aucun canal amont n\'a pu servir la requête — réessayez dans quelques secondes',
                                   'type': 'server_error', 'code': 'all_channels_failed'}}), 0, 0, None
 
 # ── Sécurité : HMAC front, sessions, clés, rate-limit ───────────────────────
