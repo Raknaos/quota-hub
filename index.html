@@ -1,560 +1,94 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quota.Hub — Une API, tous les modèles IA</title>
-  <meta name="description" content="Une seule clé pour tous les meilleurs modèles d'IA au monde à −90% du prix officiel. Intégration en une commande pour Claude Code, Cursor, Codex.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quota.Hub — L’IA, au juste prix</title>
+  <meta name="description" content="Une API OpenAI-compatible pour accéder aux modèles IA modernes, avec routage automatique et prix transparents.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="quota-glass.css">
 </head>
 <body>
-  <div class="top-loader" id="top-loader"></div>
-
-  <div class="app-shell">
-
-    <!-- ── Topbar (Token Harbor Navigation) ── -->
-    <header class="th-header">
-      <div class="th-header-inner">
-        <a href="#" class="th-logo" onclick="switchTab('home'); return false;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="5" r="3"></circle>
-            <line x1="12" y1="22" x2="12" y2="8"></line>
-            <path d="M5 12H2a10 10 0 0 0 20 0h-3"></path>
-          </svg>
-          <span>Quota.Hub</span>
-        </a>
-
-        <nav class="th-nav" id="main-nav">
-          <button class="th-nav-link active" data-tab="home">Accueil</button>
-          <button class="th-nav-link" data-tab="chat">Chat</button>
-          <button class="th-nav-link" data-tab="models">Modèles</button>
-          <button class="th-nav-link" data-tab="pricing">Tarifs</button>
-          <button class="th-nav-link" data-tab="connect">Connecter</button>
-          <button class="th-nav-link" data-tab="docs">Docs</button>
-          <button class="th-nav-link" data-tab="console">API Keys</button>
-          <button class="th-nav-link" data-tab="playground">Tester</button>
-        </nav>
-        <button class="mobile-menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false">☰</button>
-
-        <div class="th-actions">
-          <!-- Non connecté -->
-          <div id="auth-guest-view" style="display:flex;align-items:center;gap:8px;">
-            <button class="btn-signin" onclick="openAuth('login')">Sign in</button>
-            <button class="btn-tryfree" onclick="openAuth('signup')">Try free</button>
-          </div>
-
-          <!-- Connecté -->
-          <div id="auth-user-view" style="display:none;align-items:center;gap:12px;">
-            <div class="user-balance-pill" onclick="switchTab('console')">
-              <span class="user-balance-label">BALANCE</span>
-              <span class="user-balance-amount" id="user-tokens">$0.00</span>
-            </div>
-            <div class="user-avatar-circle" id="user-avatar-initial" title="Compte connecté">B</div>
-            <button class="btn-signin" style="padding:4px 8px;color:var(--muted);" onclick="logout()" title="Déconnexion">✕</button>
-          </div>
-        </div>
-      </div>
-    </header>
-
-    <!-- ── Main Content ── -->
-    <main class="app-content">
-
-      <!-- ==================== TAB 1 : PRICING ==================== -->
-      <section id="tab-home" class="tab-pane active">
-        <div class="qh-home-hero">
-          <div class="qh-announcement"><span>✦</span><span>Quota.Hub · 2× votre crédit d’usage</span><span class="announcement-sub">Des tarifs simples, sans engagement.</span><b>→</b></div>
-          <h1>One API for<br><span class="gradient-text">every model.</span></h1>
-          <p>Les meilleurs modèles dans une seule API. Payez un abonnement clair, recevez deux fois sa valeur en usage et laissez le routage choisir le canal le plus efficace.</p>
-          <div class="qh-prompt-bar"><span>Ask Quota.Hub</span><input id="home-prompt" placeholder="Why Quota.Hub?" aria-label="Ask Quota.Hub"><button onclick="switchTab('playground')" aria-label="Open playground">→</button></div>
-          <div class="provider-orbit"><span class="provider provider-anthropic">AI</span><span class="provider provider-openai">✳</span><span class="provider provider-google">✦</span><span class="provider provider-qwen">✣</span><span class="provider provider-xai">K</span></div>
-          <button class="hero-connect-link" onclick="switchTab('connect')">Using Claude Code, Cursor or Codex? <u>Connect your agent in one command →</u></button>
-        </div>
-        <div class="trust-grid"><div><b>Call what you see</b><span>No silent model swaps. The model you select is exactly what runs.</span></div><div><b>Your data, your control</b><span>No training on your prompts. Clear retention and routing policies.</span></div><div><b>Full transparency</b><span>Live market pricing and observable routing, without black boxes.</span></div></div>
-      </section>
-
-      <!-- ==================== TAB 1 : PRICING ==================== -->
-      <section id="tab-pricing" class="tab-pane">
-        <div class="th-pricing-hero">
-          <div class="pill-eyebrow">
-            <span>One API · Every model at wholesale rate</span>
-          </div>
-          <h1>Choisissez votre rythme<br>et gardez le contrôle.</h1>
-          <p>Un abonnement, tous les modèles. Payez 10, 20 ou 50 $ et recevez deux fois cette valeur en crédit d’usage API.</p>
-          
-          <div class="pricing-value-note"><strong>Un forfait. Tous les modèles.</strong><span>Les abonnements seront activés par paiement sécurisé. En attendant, utilisez un code d’activation.</span></div>
-        </div>
-
-        <!-- 4 CARDS -->
-        <div class="th-cards-grid">
-          <!-- CARD 1 : FREE -->
-          <div class="th-card">
-            <div class="th-card-name">Free</div>
-            <div class="th-card-price">$0 <span>/ mois</span></div>
-            <div class="th-card-tagline">Pour découvrir le routage Quota.Hub sans carte bancaire.</div>
-            <div class="th-allowance-box"><span class="th-allowance-label">Crédit inclus</span><span class="th-allowance-val">$2 d’usage</span><span class="th-allowance-sub">Chaque mois</span></div>
-            <button class="btn-subscribe" onclick="openAuth('signup')">Commencer gratuitement</button>
-            <ul class="th-card-bullets">
-              <li class="th-bullet-item"><span>✓</span><span>Une clé compatible OpenAI</span></li>
-              <li class="th-bullet-item"><span>✓</span><span>Modèles gratuits disponibles</span></li>
-              <li class="th-bullet-item"><span>✓</span><span>Aucune carte requise</span></li>
-            </ul>
-          </div>
-
-          <!-- CARD 2 : ESSENTIEL -->
-          <div class="th-card">
-            <span class="th-card-badge">Pour commencer</span>
-            <div class="th-card-name">Essentiel</div>
-            <div class="th-card-price" id="price-agent">$10 <span>/ mois</span></div>
-            <div class="th-card-tagline">Pour les développeurs qui veulent une API simple et prévisible.</div>
-            <div class="th-allowance-box"><span class="th-allowance-label">Crédit API inclus</span><span class="th-allowance-val">$20 d’usage</span><span class="th-allowance-sub">2× votre abonnement, chaque mois</span></div>
-            <button class="btn-subscribe" onclick="openAuth('login')">Choisir Essentiel</button>
-
-            <ul class="th-card-bullets">
-              <li class="th-bullet-item"><span>✓</span><span>Routage automatique cache-first</span></li>
-              <li class="th-bullet-item"><span>✓</span><span>Modèles rapides et fiables</span></li>
-              <li class="th-bullet-item"><span>✓</span><span>Réduction sur chaque requête</span></li>
-              <li class="th-bullet-item"><span>✓</span><span>Votre crédit gratuit reste disponible</span></li>
-            </ul>
-          </div>
-
-          <!-- CARD 3 : PRO -->
-          <div class="th-card featured">
-            <span class="th-card-badge" style="background:#fff;color:#000;">Le plus choisi</span>
-            <div class="th-card-name">Pro</div>
-            <div class="th-card-price" id="price-office">$20 <span>/ mois</span></div>
-            <div class="th-card-tagline">Pour les équipes et les agents qui utilisent l’IA chaque semaine.</div>
-            <div class="th-allowance-box"><span class="th-allowance-label">Crédit API inclus</span><span class="th-allowance-val">$40 d’usage</span><span class="th-allowance-sub">2× votre abonnement, chaque mois</span></div>
-            <button class="btn-subscribe" onclick="openAuth('login')">Choisir Pro</button>
-
-            <ul class="th-card-bullets">
-              <li class="th-bullet-item"><span>✓</span><span>Accès à toute la bibliothèque</span></li>
-              <li class="th-bullet-item"><span>✓</span><span>2× votre crédit en usage API</span></li>
-              <li class="th-bullet-item"><span>✓</span><span>Routage automatique priorisé</span></li>
-              <li class="th-bullet-item"><span>✓</span><span>Support des agents et SDK OpenAI</span></li>
-            </ul>
-          </div>
-
-          <!-- CARD 4 : SCALE -->
-          <div class="th-card">
-            <div class="th-card-name">Scale</div>
-            <div class="th-card-price" id="price-frontier">$50 <span>/ mois</span></div>
-            <div class="th-card-tagline">Pour les produits et équipes qui ont besoin d’un volume régulier.</div>
-            <div class="th-allowance-box"><span class="th-allowance-label">Crédit API inclus</span><span class="th-allowance-val">$100 d’usage</span><span class="th-allowance-sub">2× votre abonnement, chaque mois</span></div>
-            <button class="btn-subscribe" onclick="openAuth('login')">Choisir Scale</button>
-
-            <ul class="th-card-bullets">
-              <li class="th-bullet-item"><span>✓</span><span>Accès à toute la bibliothèque</span></li>
-              <li class="th-bullet-item"><span>✓</span><span>2× votre crédit en usage API</span></li>
-              <li class="th-bullet-item"><span>✓</span><span>Capacité et priorité renforcées</span></li>
-              <li class="th-bullet-item"><span>✓</span><span>Conçu pour les usages intensifs</span></li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- 3 BOTTOM PROMISES -->
-        <div class="th-promises-box">
-          <div class="th-promises-grid">
-            <div class="th-promise">
-              <h3>Usage value, not credit</h3>
-              <p>Measured at published per-token prices — what the same traffic would have cost without a pass. A month here is 4 windows of 7 days, so your usage resets smoothly.</p>
-            </div>
-            <div class="th-promise">
-              <h3>Your free allowance carries over</h3>
-              <p>Subscribing does not replace the free allowance you already have. It is added on top of the pass, in one pool with one progress bar on your dashboard.</p>
-            </div>
-            <div class="th-promise">
-              <h3>Nothing stops at the limit</h3>
-              <p>Use the month’s value up and calls keep working, billed from your balance at your pass’s discounted per-token rate. A pass is included usage, not a cap.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="tab-chat" class="tab-pane"><div class="qh-chat-shell"><div class="qh-chat-header"><span class="live-dot"></span><span>Quota.Hub Chat</span><span class="chat-model-label">Auto routing · cache-first</span></div><div id="chat-messages" class="chat-messages"><div class="chat-empty"><div class="chat-orb">✦</div><h2>What are you building?</h2><p>Ask anything. Quota.Hub routes your request to the best live model.</p></div></div><form id="chat-form" class="chat-input-wrap"><input id="chat-input" placeholder="Message Quota.Hub…" autocomplete="off"><button type="submit">↑</button></form></div></section>
-
-      <!-- ==================== TAB 2 : MODELS ==================== -->
-      <section id="tab-models" class="tab-pane">
-        <div class="models-page-intro"><span class="pill-eyebrow">Bibliothèque de modèles</span><h2>Tous les modèles, une seule clé.</h2><p>Comparez les tarifs officiels et les tarifs Quota.Hub. Le routage automatique choisit le meilleur canal disponible, sans configuration complexe.</p></div>
-        <div class="th-models-toolbar">
-          <div class="th-filter-pills">
-            <button class="th-filter-btn active" onclick="filterModels('all', this)">Tous</button>
-            <button class="th-filter-btn" onclick="filterModels('frontier', this)">Raisonnement</button>
-            <button class="th-filter-btn" onclick="filterModels('value', this)">Rapides</button>
-            <button class="th-filter-btn" onclick="filterModels('free', this)">Gratuits</button>
-          </div>
-
-          <div class="th-search-box">
-            <span class="th-search-icon">🔍</span>
-            <input type="text" placeholder="Search models..." oninput="searchModels(this.value)">
-          </div>
-        </div>
-
-        <div class="th-table-container">
-          <table class="th-models-table">
-            <thead>
-              <tr>
-                <th>Rang</th>
-                <th>Modèle</th>
-                <th>Capacités</th>
-                <th>Contexte</th>
-                <th>Prix / 1M · entrée / sortie</th>
-                <th>Réduction</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Grok 4.6 -->
-              <tr class="model-row" data-cat="frontier" data-name="grok 4.6 xai">
-                <td><strong style="color:var(--foreground);">#9</strong></td>
-                <td>
-                  <div class="model-entry">
-                    <div class="model-avatar-sq sq-xai">X</div>
-                    <div>
-                      <div class="model-name-text">Grok 4.6 <span class="pill-discount" style="font-size:9.5px;">BEST SPREAD</span></div>
-                      <div class="model-sub-text">grok-4.6 · xAI</div>
-                    </div>
-                  </div>
-                </td>
-                <td><span style="font-size:12px;color:var(--muted);">T · 📎</span></td>
-                <td>500K</td>
-                <td><span style="text-decoration:line-through;color:var(--muted-soft);margin-right:6px;">$2.00 · $6.00</span><strong>$0.0036 · $0.011</strong></td>
-                <td><span class="pill-discount">−99.8%</span></td>
-              </tr>
-
-              <!-- Claude Opus 5 -->
-              <tr class="model-row" data-cat="frontier" data-name="claude opus 5 anthropic">
-                <td><strong style="color:var(--foreground);">#3</strong></td>
-                <td>
-                  <div class="model-entry">
-                    <div class="model-avatar-sq sq-anthropic">A</div>
-                    <div>
-                      <div class="model-name-text">Claude Opus 5</div>
-                      <div class="model-sub-text">claude-opus-5 · Anthropic</div>
-                    </div>
-                  </div>
-                </td>
-                <td><span style="font-size:12px;color:var(--muted);">T · 🖼️ · 📎</span></td>
-                <td>1.0M</td>
-                <td><span style="text-decoration:line-through;color:var(--muted-soft);margin-right:6px;">$5.00 · $25.00</span><strong>$3.15 · $15.75</strong></td>
-                <td><span class="pill-discount">−37%</span></td>
-              </tr>
-
-              <!-- DeepSeek V4.1 Flash -->
-              <tr class="model-row" data-cat="free" data-name="deepseek v4.1 flash">
-                <td><strong style="color:var(--foreground);">#12</strong></td>
-                <td>
-                  <div class="model-entry">
-                    <div class="model-avatar-sq sq-openai">D</div>
-                    <div>
-                      <div class="model-name-text">DeepSeek V4.1 Flash <span class="pill-discount" style="font-size:9.5px;background:#fef3c7;color:#92400e;">FREE TIER</span></div>
-                      <div class="model-sub-text">deepseek-v4.1-flash</div>
-                    </div>
-                  </div>
-                </td>
-                <td><span style="font-size:12px;color:var(--muted);">T · 📎</span></td>
-                <td>1.0M</td>
-                <td><span style="text-decoration:line-through;color:var(--muted-soft);margin-right:6px;">$0.15 · $0.60</span><strong>$0.00 · Free</strong></td>
-                <td><span class="pill-discount">100% OFF</span></td>
-              </tr>
-
-              <!-- Qwen3.8 Flash -->
-              <tr class="model-row" data-cat="value" data-name="qwen 3.8 flash alibaba">
-                <td><strong style="color:var(--foreground);">#18</strong></td>
-                <td>
-                  <div class="model-entry">
-                    <div class="model-avatar-sq sq-qwen">Q</div>
-                    <div>
-                      <div class="model-name-text">Qwen3.8 Flash</div>
-                      <div class="model-sub-text">qwen3.8-flash · Alibaba</div>
-                    </div>
-                  </div>
-                </td>
-                <td><span style="font-size:12px;color:var(--muted);">T · 🖼️ · 📹</span></td>
-                <td>1.0M</td>
-                <td><span style="text-decoration:line-through;color:var(--muted-soft);margin-right:6px;">$0.15 · $0.47</span><strong>$0.0024 · $0.007</strong></td>
-                <td><span class="pill-discount">−98%</span></td>
-              </tr>
-
-              <!-- GLM-5.3 Flash -->
-              <tr class="model-row" data-cat="value" data-name="glm 5.3 flash zhipu z.ai">
-                <td><strong style="color:var(--foreground);">#13</strong></td>
-                <td>
-                  <div class="model-entry">
-                    <div class="model-avatar-sq sq-zhipu">Z</div>
-                    <div>
-                      <div class="model-name-text">GLM-5.3 Flash</div>
-                      <div class="model-sub-text">glm-5.3-flash · Z.ai</div>
-                    </div>
-                  </div>
-                </td>
-                <td><span style="font-size:12px;color:var(--muted);">T · 📎</span></td>
-                <td>1.0M</td>
-                <td><span style="text-decoration:line-through;color:var(--muted-soft);margin-right:6px;">$0.15 · $0.50</span><strong>$0.0083 · $0.028</strong></td>
-                <td><span class="pill-discount">−94%</span></td>
-              </tr>
-
-              <!-- Gemini 3.8 Flash -->
-              <tr class="model-row" data-cat="value" data-name="gemini 3.8 flash google">
-                <td><strong style="color:var(--foreground);">#14</strong></td>
-                <td>
-                  <div class="model-entry">
-                    <div class="model-avatar-sq sq-google">G</div>
-                    <div>
-                      <div class="model-name-text">Gemini 3.8 Flash</div>
-                      <div class="model-sub-text">gemini-3.8-flash · Google</div>
-                    </div>
-                  </div>
-                </td>
-                <td><span style="font-size:12px;color:var(--muted);">T · 🖼️ · 🎙️ · 📹</span></td>
-                <td>1.0M</td>
-                <td><span style="text-decoration:line-through;color:var(--muted-soft);margin-right:6px;">$0.75 · $3.75</span><strong>$0.018 · $0.088</strong></td>
-                <td><span class="pill-discount">−98%</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ==================== TAB 3 : CONNECT ==================== -->
-      <section id="tab-connect" class="tab-pane">
-        <div style="max-width:760px;margin:0 auto;">
-          <h2 style="font-size:32px;font-weight:700;letter-spacing:-0.03em;margin-bottom:12px;">Connect your agent</h2>
-          <p style="color:var(--muted);font-size:16px;line-height:1.6;margin-bottom:32px;">Run this command in your terminal. We automatically detect Claude Code, Codex, Cursor and configure your routing.</p>
-
-          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;margin-bottom:40px;">
-            <code style="font-size:14px;color:var(--foreground);font-weight:600;">curl -fsSL https://quota-hub.vercel.app/connect.sh | sh</code>
-            <button class="btn-tryfree" onclick="copyCli()">Copy</button>
-          </div>
-
-          <h3 style="font-size:18px;font-weight:700;margin-bottom:16px;">Client compatibility</h3>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));gap:12px;">
-            <div style="background:var(--card);border:1px solid var(--border);padding:14px;border-radius:8px;display:flex;justify-content:space-between;font-size:13px;font-weight:600;">
-              <span>Claude Code</span><span style="color:#10b981;font-size:11px;">auto</span>
-            </div>
-            <div style="background:var(--card);border:1px solid var(--border);padding:14px;border-radius:8px;display:flex;justify-content:space-between;font-size:13px;font-weight:600;">
-              <span>Codex CLI</span><span style="color:#10b981;font-size:11px;">auto</span>
-            </div>
-            <div style="background:var(--card);border:1px solid var(--border);padding:14px;border-radius:8px;display:flex;justify-content:space-between;font-size:13px;font-weight:600;">
-              <span>Cursor</span><span style="color:var(--muted);font-size:11px;">guided</span>
-            </div>
-            <div style="background:var(--card);border:1px solid var(--border);padding:14px;border-radius:8px;display:flex;justify-content:space-between;font-size:13px;font-weight:600;">
-              <span>OpenCode</span><span style="color:#10b981;font-size:11px;">auto</span>
-            </div>
-            <div style="background:var(--card);border:1px solid var(--border);padding:14px;border-radius:8px;display:flex;justify-content:space-between;font-size:13px;font-weight:600;">
-              <span>Hermes Agent</span><span style="color:#10b981;font-size:11px;">native</span>
-            </div>
-            <div style="background:var(--card);border:1px solid var(--border);padding:14px;border-radius:8px;display:flex;justify-content:space-between;font-size:13px;font-weight:600;">
-              <span>Aider</span><span style="color:var(--muted);font-size:11px;">env</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ==================== TAB 4 : API KEYS & CONSOLE ==================== -->
-      <section id="tab-console" class="tab-pane">
-        <div style="max-width:860px;margin:0 auto;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-            <div>
-              <h2 style="font-size:28px;font-weight:700;letter-spacing:-0.03em;">API Keys</h2>
-              <p style="color:var(--muted);font-size:14px;">Your keys function as bearer tokens for your developer agents.</p>
-            </div>
-            <button class="btn-tryfree" onclick="openKeyModal()">+ Create Key</button>
-          </div>
-
-          <div id="keys-login-box" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:36px;text-align:center;">
-            <p style="color:var(--muted);margin-bottom:16px;">Sign in to generate and view your API keys.</p>
-            <button class="btn-tryfree" onclick="openAuth('login')">Sign in</button>
-          </div>
-
-          <div class="th-table-container" id="keys-table-container" style="display:none;margin-top:16px;">
-            <table class="th-models-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Key Prefix</th>
-                  <th>Created</th>
-                  <th>Status</th>
-                  <th style="text-align:right;">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="keys-table-body"></tbody>
-            </table>
-          </div>
-
-          <!-- Top-up / Redeem -->
-          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;margin-top:40px;">
-            <h3 style="font-size:16px;font-weight:700;margin-bottom:8px;">Ajouter du crédit</h3>
-            <p style="color:var(--muted);font-size:13px;margin-bottom:18px;">Entrez un code d’activation pour ajouter du crédit à votre compte.</p>
-            <div style="display:flex;gap:10px;max-width:440px;">
-              <input type="text" id="redeem-input" class="form-input" placeholder="QH-CODE-..." style="text-transform:uppercase;">
-              <button class="btn-tryfree" id="btn-redeem">Activer</button>
-            </div>
-            <div id="redeem-msg" style="margin-top:12px;font-size:13px;" hidden></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ==================== TAB 5 : PLAYGROUND ==================== -->
-      <section id="tab-playground" class="tab-pane">
-        <div style="max-width:860px;margin:0 auto;">
-          <h2 style="font-size:28px;font-weight:700;letter-spacing:-0.03em;margin-bottom:8px;">Interactive Playground</h2>
-          <p style="color:var(--muted);font-size:14px;margin-bottom:28px;">Live API testing. The router serves the cheapest live model while holding your prompt cache warm.</p>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-            <div>
-              <label class="form-label"><span>Prompt input</span></label>
-              <textarea id="play-user-prompt" class="form-input" rows="6" style="height:auto;padding:12px;font-family:inherit;" placeholder="Ask anything..."></textarea>
-              <div style="display:flex;gap:10px;margin-top:12px;align-items:center;">
-                <button class="btn-tryfree" id="btn-run-playground">Run Inference</button>
-                <span id="response-meta" style="font-size:12px;color:var(--muted);">Ready</span>
-              </div>
-            </div>
-
-            <div>
-              <label class="form-label"><span>Response stream</span></label>
-              <div id="playground-output" style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:14px;min-height:160px;font-family:monospace;font-size:13px;white-space:pre-wrap;color:var(--foreground);">Ready.</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ==================== TAB DOCS ==================== -->
-      <section id="tab-docs" class="tab-pane"><div class="simple-page"><span class="pill-eyebrow">Developer docs</span><h2>Build once. Route everywhere.</h2><p>Quota.Hub is OpenAI-compatible. Use your API key with standard SDKs and keep your existing code unchanged.</p><div class="docs-snippet"><span>BASE URL</span><code>https://quota-hub.vercel.app/v1</code><span>AUTHENTICATION</span><code>Authorization: Bearer sk-qh-…</code></div></div></section>
-
-    </main>
-
-    <!-- ── AUTH SPLIT-SCREEN MODAL (EXACT TOKEN HARBOR /login) ── -->
-    <div class="split-screen-auth" id="auth-modal" style="display:none;">
-      <!-- Aside Gauche -->
-      <aside class="auth-left-aside">
-        <a href="#" class="auth-aside-logo" onclick="closeAuth()">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2">
-            <circle cx="12" cy="5" r="3"></circle>
-            <line x1="12" y1="22" x2="12" y2="8"></line>
-            <path d="M5 12H2a10 10 0 0 0 20 0h-3"></path>
-          </svg>
-          <span>Quota.Hub</span>
-        </a>
-
-        <div class="auth-aside-content">
-          <h1>One harbor<br>for every AI.</h1>
-          <p>Pay once in credits, spend across every assistant. DeepSeek V4 Flash and MiMo V2.5 are free on every account.</p>
-
-          <div class="auth-stats-grid">
-            <div>
-              <div class="auth-stat-val">9+</div>
-              <div class="auth-stat-lbl">Premium models</div>
-            </div>
-            <div>
-              <div class="auth-stat-val">2</div>
-              <div class="auth-stat-lbl">Free models</div>
-            </div>
-            <div>
-              <div class="auth-stat-val">0¢</div>
-              <div class="auth-stat-lbl">Monthly fees</div>
-            </div>
-          </div>
-        </div>
-
-        <div style="font-size:12px;color:var(--ink-on-ink);">
-          © 2026 Quota.Hub
-        </div>
-      </aside>
-
-      <!-- Formulaire Droite -->
-      <div class="auth-right-form">
-        <div style="margin-bottom:28px;">
-          <h2 style="font-size:28px;font-weight:800;letter-spacing:-0.03em;" id="auth-title">Welcome back</h2>
-          <p style="color:var(--muted);font-size:14.5px;margin-top:6px;" id="auth-subtitle">Sign in to pick up where you left off.</p>
-        </div>
-
-        <div class="auth-tab-switch">
-          <button class="auth-tab-btn active" id="tab-auth-signin" onclick="setAuthMode('login')">Sign in</button>
-          <button class="auth-tab-btn" id="tab-auth-signup" onclick="setAuthMode('signup')">Sign up</button>
-        </div>
-
-        <!-- Boutons OAuth -->
-        <div class="oauth-row-buttons">
-          <button class="btn-oauth-provider" id="btn-oauth-google" title="Continue with Google">
-            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>
-          </button>
-          <button class="btn-oauth-provider" id="btn-oauth-github" title="Continue with GitHub">
-            <svg stroke="currentColor" fill="currentColor" viewBox="0 0 496 512" height="20" width="20"><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8z"></path></svg>
-          </button>
-        </div>
-
-        <div class="or-divider"><span>or</span></div>
-
-        <form id="form-auth">
-          <label class="form-label">
-            <span>Email</span>
-            <input type="email" id="auth-email" class="form-input" placeholder="you@example.com" required autocomplete="email">
-          </label>
-          <label class="form-label">
-            <span>Password</span>
-            <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required minlength="10" autocomplete="current-password">
-          </label>
-
-          <div id="auth-error" style="color:#ef4444;font-size:12.5px;margin-bottom:12px;" hidden></div>
-          <button type="submit" class="btn-submit-auth" id="btn-auth-submit">Sign in</button>
-        </form>
-
-        <div style="margin-top:20px;text-align:center;">
-          <button class="btn-signin" style="color:var(--muted);font-size:12px;" onclick="closeAuth()">Cancel</button>
-        </div>
+<div class="top-loader" id="top-loader"></div>
+<div class="app-shell">
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#" onclick="switchTab('home');return false" aria-label="Quota.Hub accueil"><span class="brand-mark">q</span><span>Quota<span class="brand-dot">.</span>Hub</span></a>
+      <nav class="main-nav" id="main-nav" aria-label="Navigation principale">
+        <button class="nav-link active" data-tab="home">Accueil</button>
+        <button class="nav-link" data-tab="models">Modèles</button>
+        <button class="nav-link" data-tab="pricing">Tarifs</button>
+        <button class="nav-link" data-tab="connect">Intégrer</button>
+        <button class="nav-link" data-tab="docs">Docs</button>
+      </nav>
+      <div class="header-actions">
+        <div id="auth-guest-view"><button class="text-button" onclick="openAuth('login')">Connexion</button><button class="primary-button compact" onclick="openAuth('signup')">Créer un compte</button></div>
+        <div id="auth-user-view" style="display:none"><button class="secondary-button compact header-balance" onclick="switchTab('console')">$0.00</button><button class="user-avatar" onclick="switchTab('console')" aria-label="Ouvrir la console">Q</button><button class="text-button logout-button" onclick="logout()">Quitter</button></div>
+        <button class="menu-button" id="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">☰</button>
       </div>
     </div>
+  </header>
 
-    <!-- Modal Create Key -->
-    <dialog id="modal-key" style="border:none;background:transparent;margin:auto;">
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:440px;width:90vw;box-shadow:0 24px 64px rgba(0,0,0,0.15);">
-        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px;">Create API Key</h3>
-        <form id="form-create-key">
-          <label class="form-label">
-            <span>Key Name</span>
-            <input type="text" id="key-name-input" class="form-input" placeholder="e.g. Claude Code Mac" required maxlength="60">
-          </label>
-          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
-            <button type="button" class="btn-signin" onclick="$('modal-key').close()">Cancel</button>
-            <button type="submit" class="btn-tryfree">Generate</button>
-          </div>
-        </form>
-      </div>
-    </dialog>
-
-    <!-- Modal Key Created -->
-    <dialog id="modal-key-success" style="border:none;background:transparent;margin:auto;">
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:480px;width:90vw;box-shadow:0 24px 64px rgba(0,0,0,0.15);">
-        <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">🎉 Key Generated</h3>
-        <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Copy your secret key now. It will never be shown again.</p>
-        <div style="display:flex;gap:8px;margin-bottom:20px;">
-          <input type="text" readonly id="new-key-val" class="form-input" style="font-family:monospace;font-size:12.5px;">
-          <button class="btn-tryfree" id="btn-copy-key">Copy</button>
+  <main class="page-content">
+    <section id="tab-home" class="tab-pane active">
+      <div class="home-grid">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="status-dot"></span>Une API. Un routage intelligent.</div>
+          <h1>L’IA moderne,<br><em>sans le prix fort.</em></h1>
+          <p class="hero-lead">Quota.Hub réunit les modèles les plus utiles dans une API simple. Une clé, des prix clairs et un routeur qui cherche le meilleur rapport qualité-coût.</p>
+          <div class="hero-actions"><button class="primary-button" onclick="openAuth('signup')">Commencer gratuitement <span>↗</span></button><button class="secondary-button" onclick="switchTab('models')">Voir les modèles <span>→</span></button></div>
+          <div class="hero-note"><span>✓</span> $2 de crédit offert · aucune carte bancaire</div>
         </div>
-        <button class="btn-signin" style="width:100%;background:var(--raised);border:1px solid var(--border);border-radius:6px;" onclick="$('modal-key-success').close()">Done</button>
-      </div>
-    </dialog>
-
-    <!-- Footer -->
-    <footer class="th-footer">
-      <div class="th-footer-inner">
-        <div>
-          <strong>Quota.Hub</strong> · One API for the world's leading models.
-        </div>
-        <div style="display:flex;gap:20px;">
-          <a href="#" onclick="switchTab('pricing')" style="color:var(--muted);text-decoration:none;">Pricing</a>
-          <a href="#" onclick="switchTab('models')" style="color:var(--muted);text-decoration:none;">Models</a>
-          <a href="#" onclick="switchTab('connect')" style="color:var(--muted);text-decoration:none;">Connect</a>
-          <a href="#" onclick="switchTab('playground')" style="color:var(--muted);text-decoration:none;">Playground</a>
+        <div class="hero-console" aria-label="Aperçu du routeur Quota.Hub">
+          <div class="console-top"><span class="window-dots"><i></i><i></i><i></i></span><span class="console-title">quota / route</span><span class="live-badge"><b></b> LIVE</span></div>
+          <div class="route-prompt"><span class="prompt-icon">✦</span><div><small>VOTRE REQUÊTE</small><strong>Construis-moi une stratégie claire.</strong></div></div>
+          <div class="route-line"><span class="line-label">Analyse du marché</span><span class="line-value">6 modèles <b>✓</b></span></div>
+          <div class="route-card selected"><div class="model-orb orb-blue">q</div><div class="route-info"><strong>qwen3.8-flash</strong><span>Rapide · fiable · cache disponible</span></div><span class="route-price">$0.0024<span>/1M</span></span></div>
+          <div class="route-card"><div class="model-orb orb-violet">g</div><div class="route-info"><strong>glm-5.3-flash</strong><span>Alternative disponible</span></div><span class="route-muted">en attente</span></div>
+          <div class="console-footer"><span><i class="tiny-dot"></i> Routage automatique</span><span>cache-first · 6 h</span></div>
         </div>
       </div>
-    </footer>
+      <div class="proof-strip"><div><strong>1 clé</strong><span>pour tous vos outils</span></div><div><strong>−90%</strong><span>en moyenne sur les modèles</span></div><div><strong>OpenAI</strong><span>compatible dès maintenant</span></div><div><strong>0 surprise</strong><span>facturation à l’usage réel</span></div></div>
+      <div class="section-heading"><div><span class="section-kicker">Pourquoi Quota.Hub</span><h2>Simple à comprendre.<br>Puissant à utiliser.</h2></div><p>Nous avons retiré le bruit entre vous et votre requête. Le bon modèle, au bon prix, au bon moment.</p></div>
+      <div class="feature-grid"><article class="feature-card feature-wide"><span class="feature-number">01</span><div><h3>Une seule clé pour avancer</h3><p>Branchez vos agents, SDK et outils compatibles OpenAI sans réécrire votre stack.</p><button class="inline-link" onclick="switchTab('connect')">Voir l’intégration →</button></div><div class="mini-code"><span>BASE_URL</span><b>quota-hub.vercel.app/v1</b><span>MODEL</span><b>auto</b></div></article><article class="feature-card"><span class="feature-icon">↯</span><h3>Auto, sans deviner</h3><p>Le routeur choisit un canal vivant et conserve le cache utile à vos conversations.</p></article><article class="feature-card"><span class="feature-icon">◈</span><h3>Votre budget reste lisible</h3><p>Des prix officiels barrés, nos prix actuels et une consommation visible.</p></article></div>
+      <div class="final-cta"><div><span class="section-kicker">Prêt quand vous l’êtes</span><h2>Votre prochaine requête<br>peut commencer maintenant.</h2></div><button class="primary-button" onclick="openAuth('signup')">Créer mon espace <span>↗</span></button></div>
+    </section>
 
-  </div>
+    <section id="tab-models" class="tab-pane">
+      <div class="page-intro"><span class="section-kicker">Bibliothèque</span><h1>Les modèles,<br><em>sans le catalogue illisible.</em></h1><p>Comparez le prix officiel au prix Quota.Hub. Filtrez, choisissez votre usage, puis branchez une seule clé.</p></div>
+      <div class="model-toolbar"><div class="filter-pills"><button class="filter-btn active" onclick="filterModels('all',this)">Tous <small>6</small></button><button class="filter-btn" onclick="filterModels('frontier',this)">Raisonnement</button><button class="filter-btn" onclick="filterModels('value',this)">Rapides</button><button class="filter-btn" onclick="filterModels('free',this)">Gratuits</button></div><label class="search-field">⌕<input placeholder="Rechercher un modèle" oninput="searchModels(this.value)"></label></div>
+      <div class="models-list"><div class="models-list-head"><span>Modèle</span><span>Contexte</span><span>Entrée / sortie · par 1M</span><span>Économie</span></div>
+        <div class="model-row" data-cat="frontier" data-name="grok 4.6 xai"><div class="model-identity"><span class="model-avatar avatar-x">X</span><div><strong>Grok 4.6</strong><small>xAI · texte, fichiers</small></div></div><span>500K</span><span><del>$2.00 · $6.00</del><b>$0.0036 · $0.011</b></span><span class="discount">−99,8%</span></div>
+        <div class="model-row" data-cat="frontier" data-name="claude opus 5 anthropic"><div class="model-identity"><span class="model-avatar avatar-a">A</span><div><strong>Claude Opus 5</strong><small>Anthropic · texte, image</small></div></div><span>1M</span><span><del>$5.00 · $25.00</del><b>$3.15 · $15.75</b></span><span class="discount">−37%</span></div>
+        <div class="model-row" data-cat="free" data-name="deepseek v4.1 flash"><div class="model-identity"><span class="model-avatar avatar-d">D</span><div><strong>DeepSeek V4.1 Flash</strong><small>DeepSeek · texte, fichiers</small></div></div><span>1M</span><span><del>$0.15 · $0.60</del><b>$0.00 · gratuit</b></span><span class="discount free">100% offert</span></div>
+        <div class="model-row" data-cat="value" data-name="qwen 3.8 flash alibaba"><div class="model-identity"><span class="model-avatar avatar-q">q</span><div><strong>Qwen3.8 Flash</strong><small>Alibaba · texte, image, vidéo</small></div></div><span>1M</span><span><del>$0.15 · $0.47</del><b>$0.0024 · $0.007</b></span><span class="discount">−98%</span></div>
+        <div class="model-row" data-cat="value" data-name="glm 5.3 flash z.ai"><div class="model-identity"><span class="model-avatar avatar-g">Z</span><div><strong>GLM-5.3 Flash</strong><small>Z.ai · texte, fichiers</small></div></div><span>1M</span><span><del>$0.15 · $0.50</del><b>$0.0083 · $0.028</b></span><span class="discount">−94%</span></div>
+        <div class="model-row" data-cat="value" data-name="gemini 3.8 flash google"><div class="model-identity"><span class="model-avatar avatar-google">✦</span><div><strong>Gemini 3.8 Flash</strong><small>Google · texte, image, audio</small></div></div><span>1M</span><span><del>$0.75 · $3.75</del><b>$0.018 · $0.088</b></span><span class="discount">−98%</span></div>
+      </div>
+      <div class="catalog-note"><span>✦</span><div><strong>Le choix automatique est inclus.</strong><p>Si vous ne savez pas quel modèle utiliser, envoyez simplement <code>model: auto</code>. Quota.Hub s’occupe du reste.</p></div><button class="inline-link" onclick="switchTab('docs')">Lire la doc →</button></div>
+    </section>
 
-  <script src="app.js"></script>
+    <section id="tab-pricing" class="tab-pane"><div class="page-intro centered"><span class="section-kicker">Tarifs transparents</span><h1>Payez moins.<br><em>Construisez plus.</em></h1><p>Chaque abonnement devient deux fois sa valeur en crédit d’usage API. Pas de points artificiels, pas de fonctionnalités cachées.</p></div><div class="pricing-grid"><article class="price-card"><span class="price-label">Pour découvrir</span><h3>Free</h3><div class="price">$0 <small>/ mois</small></div><p>$2 de crédit d’usage inclus.</p><button class="secondary-button full" onclick="openAuth('signup')">Commencer gratuitement</button><ul><li>✓ Une clé OpenAI-compatible</li><li>✓ Modèles gratuits</li><li>✓ Aucune carte bancaire</li></ul></article><article class="price-card"><span class="price-label">Pour construire</span><h3>Essentiel</h3><div class="price">$10 <small>/ mois</small></div><p><b>$20</b> de crédit d’usage.</p><button class="secondary-button full" onclick="openAuth('login')">Choisir Essentiel</button><ul><li>✓ Routage automatique</li><li>✓ Modèles rapides et fiables</li><li>✓ Crédit utilisable sur tout le catalogue</li></ul></article><article class="price-card popular"><span class="popular-badge">Le plus choisi</span><span class="price-label">Pour aller plus loin</span><h3>Pro</h3><div class="price">$20 <small>/ mois</small></div><p><b>$40</b> de crédit d’usage.</p><button class="primary-button full" onclick="openAuth('login')">Choisir Pro <span>↗</span></button><ul><li>✓ Toute la bibliothèque</li><li>✓ Routage priorisé</li><li>✓ Pour agents et équipes</li></ul></article><article class="price-card"><span class="price-label">Pour scaler</span><h3>Scale</h3><div class="price">$50 <small>/ mois</small></div><p><b>$100</b> de crédit d’usage.</p><button class="secondary-button full" onclick="openAuth('login')">Choisir Scale</button><ul><li>✓ Toute la bibliothèque</li><li>✓ Volume régulier</li><li>✓ Pour les usages intensifs</li></ul></article></div><div class="pricing-footnote"><strong>Pas encore de paiement automatique.</strong><span>Les crédits sont activés par code pendant la phase de lancement. Votre compte et votre clé API restent entièrement fonctionnels.</span></div></section>
+
+    <section id="tab-connect" class="tab-pane"><div class="page-intro"><span class="section-kicker">Intégration</span><h1>Branchez-vous<br><em>en quelques minutes.</em></h1><p>Une base URL, une clé et vos outils habituels continuent de fonctionner.</p></div><div class="connect-layout"><div class="connect-main"><div class="code-panel"><div class="code-panel-head"><span>Terminal</span><button onclick="copyCli()">Copier</button></div><pre><code>curl -fsSL https://quota-hub.vercel.app/connect.sh | sh</code></pre></div><div class="compat-grid"><div><b>Claude Code</b><span>Configuration automatique</span></div><div><b>Codex CLI</b><span>Configuration automatique</span></div><div><b>Cursor</b><span>Configuration guidée</span></div><div><b>OpenCode</b><span>Compatible nativement</span></div></div></div><aside class="connect-aside"><span class="aside-icon">⌘</span><h3>Compatible OpenAI</h3><p>Conservez vos bibliothèques et changez uniquement la base URL.</p><code>https://quota-hub.vercel.app/v1</code><button class="inline-link" onclick="switchTab('docs')">Voir la documentation →</button></aside></div></section>
+
+    <section id="tab-chat" class="tab-pane"><div class="workspace-head"><div><span class="section-kicker">Espace de travail</span><h1>Chat Quota.Hub</h1><p>Une interface légère pour tester votre clé et vos prompts.</p></div><button class="secondary-button" onclick="switchTab('console')">Gérer mes clés →</button></div><div class="chat-shell"><div class="chat-head"><span class="status-dot"></span><strong>Auto routing</strong><span>cache-first · modèle choisi automatiquement</span></div><div id="chat-messages" class="chat-messages"><div class="chat-empty"><div class="empty-orb">✦</div><h2>Que voulez-vous construire ?</h2><p>Écrivez un message pour commencer.</p></div></div><form id="chat-form" class="chat-form"><input id="chat-input" placeholder="Écrivez votre message…" autocomplete="off"><button>↑</button></form></div></section>
+
+    <section id="tab-console" class="tab-pane"><div class="workspace-head"><div><span class="section-kicker">Espace privé</span><h1>Votre console</h1><p>Clés API, solde et activation de crédit au même endroit.</p></div><button class="primary-button" onclick="openKeyModal()">Nouvelle clé <span>+</span></button></div><div id="keys-login-box" class="login-box"><div class="empty-orb">⌁</div><h2>Connectez-vous pour continuer</h2><p>Créez et gérez vos clés API depuis votre espace sécurisé.</p><button class="primary-button" onclick="openAuth('login')">Se connecter</button></div><div class="console-table-wrap" id="keys-table-container" style="display:none"><div class="table-title"><strong>Clés API</strong><span>Les clés complètes ne sont affichées qu’une fois.</span></div><table><thead><tr><th>Nom</th><th>Préfixe</th><th>Créée le</th><th>État</th><th></th></tr></thead><tbody id="keys-table-body"></tbody></table></div><div class="credit-panel"><div><span class="section-kicker">Crédit</span><h3>Ajouter du crédit</h3><p>Entrez un code d’activation fourni par Quota.Hub.</p></div><div class="credit-form"><input id="redeem-input" class="form-input" placeholder="QH-XXXXXXXX-XXXXXXXX"><button class="primary-button" id="btn-redeem">Activer</button></div><div id="redeem-msg" hidden></div></div></section>
+
+    <section id="tab-playground" class="tab-pane"><div class="workspace-head"><div><span class="section-kicker">Test en direct</span><h1>Playground</h1><p>Envoyez une requête réelle à l’API Quota.Hub.</p></div></div><div class="playground-grid"><div class="play-card"><label>Votre prompt</label><textarea id="play-user-prompt" class="form-input" rows="8" placeholder="Explique-moi Quota.Hub en trois phrases."></textarea><div class="play-actions"><button class="primary-button" id="btn-run-playground">Lancer la requête <span>↗</span></button><span id="response-meta">Prêt</span></div></div><div class="play-card"><label>Réponse</label><pre id="playground-output">La réponse apparaîtra ici.</pre></div></div></section>
+    <section id="tab-docs" class="tab-pane"><div class="page-intro"><span class="section-kicker">Documentation</span><h1>Une API claire,<br><em>des intégrations durables.</em></h1><p>Quota.Hub suit le format OpenAI. Vous pouvez utiliser vos clients et SDK habituels.</p></div><div class="docs-grid"><article><span>01</span><h3>Base URL</h3><code>https://quota-hub.vercel.app/v1</code><p>Remplacez l’URL de votre fournisseur actuel.</p></article><article><span>02</span><h3>Authentification</h3><code>Authorization: Bearer sk-qh-…</code><p>Votre clé reste privée et n’est affichée qu’à sa création.</p></article><article><span>03</span><h3>Modèle automatique</h3><code>{ model: "auto" }</code><p>Laissez le routeur sélectionner le meilleur modèle vivant.</p></article></div></section>
+  </main>
+
+  <footer class="site-footer"><div><a class="brand" href="#" onclick="switchTab('home');return false"><span class="brand-mark">q</span><span>Quota<span class="brand-dot">.</span>Hub</span></a><p>Une API plus simple pour les modèles qui comptent.</p></div><div class="footer-links"><button onclick="switchTab('models')">Modèles</button><button onclick="switchTab('pricing')">Tarifs</button><button onclick="switchTab('docs')">Docs</button><button onclick="switchTab('connect')">Intégrer</button></div><small>© 2026 Quota.Hub</small></footer>
+</div>
+
+<div class="auth-modal" id="auth-modal" style="display:none"><div class="auth-card"><button class="modal-close" onclick="closeAuth()">×</button><div class="auth-brand"><span class="brand-mark">q</span> Quota.Hub</div><div class="auth-heading"><span class="section-kicker">Votre espace</span><h2 id="auth-title">Bienvenue.</h2><p id="auth-subtitle">Connectez-vous pour retrouver votre console.</p></div><div class="auth-switch"><button id="tab-auth-signin" class="active" onclick="setAuthMode('login')">Connexion</button><button id="tab-auth-signup" onclick="setAuthMode('signup')">Créer un compte</button></div><div class="oauth-buttons"><button id="btn-oauth-google"><b>G</b> Continuer avec Google</button><button id="btn-oauth-github"><b>◖</b> Continuer avec GitHub</button></div><div class="or-divider"><span>ou avec votre email</span></div><form id="form-auth"><label>Email<input type="email" id="auth-email" class="form-input" placeholder="vous@exemple.com" required></label><label>Mot de passe<input type="password" id="auth-password" class="form-input" placeholder="10 caractères minimum" minlength="10" required></label><div id="auth-error" class="form-error" hidden></div><button type="submit" class="primary-button full" id="btn-auth-submit">Se connecter</button></form><p class="auth-legal">En continuant, vous acceptez les conditions de Quota.Hub.</p></div></div>
+<dialog id="modal-key"><div class="dialog-card"><h3>Créer une clé API</h3><p>Donnez-lui un nom pour la retrouver facilement.</p><form id="form-create-key"><input id="key-name-input" class="form-input" placeholder="Mon agent" required maxlength="60"><div class="dialog-actions"><button type="button" class="secondary-button" onclick="$('modal-key').close()">Annuler</button><button type="submit" class="primary-button">Créer la clé</button></div></form></div></dialog>
+<dialog id="modal-key-success"><div class="dialog-card"><span class="success-mark">✓</span><h3>Clé créée.</h3><p>Copiez-la maintenant, elle ne sera plus affichée ensuite.</p><div class="key-copy"><input id="new-key-val" class="form-input" readonly><button class="primary-button" id="btn-copy-key">Copier</button></div><button class="secondary-button full" onclick="$('modal-key-success').close()">Terminé</button></div></dialog>
+<script src="app.js"></script>
 </body>
 </html>
