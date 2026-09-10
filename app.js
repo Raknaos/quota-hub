@@ -210,6 +210,7 @@ function renderKeys() {
   $('keys-login-box').style.display = logged ? 'none' : 'block';
   $('keys-table-container').style.display = logged ? 'block' : 'none';
 
+  const keys = APP_STATE.keys || [];
   if (!keys.length) {
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted);">No API keys yet. Click '+ Create Key' above.</td></tr>`;
     return;
@@ -225,6 +226,34 @@ function renderKeys() {
         ${k.revoked ? '' : `<button class="btn-signin" style="color:#ef4444;padding:2px 6px;" onclick="revokeKey(${k.id})">Revoke</button>`}
       </td>
     </tr>`).join('');
+}
+
+async function sendChatMessage(text) {
+  const messages = $('chat-messages');
+  if (!messages) return;
+  const empty = messages.querySelector('.chat-empty');
+  if (empty) empty.remove();
+  const user = document.createElement('div');
+  user.className = 'chat-bubble chat-user';
+  user.textContent = text;
+  messages.appendChild(user);
+  const assistant = document.createElement('div');
+  assistant.className = 'chat-bubble chat-assistant';
+  assistant.textContent = APP_STATE.me ? 'Le Chat est prêt. Pour une réponse réelle, utilise le Playground avec ta clé API.' : 'Connecte-toi pour lancer une requête réelle depuis le Chat.';
+  messages.appendChild(assistant);
+}
+
+function initChat() {
+  const form = $('chat-form');
+  if (!form) return;
+  form.onsubmit = e => {
+    e.preventDefault();
+    const input = $('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    sendChatMessage(text);
+    input.value = '';
+  };
 }
 
 window.openKeyModal = function() {
@@ -348,6 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initAuth();
   initKeyCreation();
   initPlayground();
+  initChat();
   initRedeem();
   if (APP_STATE.session) refreshMe();
 });

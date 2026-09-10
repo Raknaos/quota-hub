@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="quota-glass.css">
 </head>
 <body>
   <div class="top-loader" id="top-loader"></div>
@@ -28,9 +29,12 @@
         </a>
 
         <nav class="th-nav">
-          <button class="th-nav-link active" data-tab="pricing">Pricing</button>
+          <button class="th-nav-link active" data-tab="home">Home</button>
+          <button class="th-nav-link" data-tab="chat">Chat</button>
           <button class="th-nav-link" data-tab="models">Models</button>
-          <button class="th-nav-link" data-tab="connect">Connect</button>
+          <button class="th-nav-link" data-tab="pricing">Pricing</button>
+          <button class="th-nav-link" data-tab="connect">Connect <span class="nav-chevron">⌄</span></button>
+          <button class="th-nav-link" data-tab="docs">Docs</button>
           <button class="th-nav-link" data-tab="console">API Keys</button>
           <button class="th-nav-link" data-tab="playground">Playground</button>
         </nav>
@@ -59,7 +63,20 @@
     <main class="app-content">
 
       <!-- ==================== TAB 1 : PRICING ==================== -->
-      <section id="tab-pricing" class="tab-pane active">
+      <section id="tab-home" class="tab-pane">
+        <div class="qh-home-hero">
+          <div class="qh-announcement"><span>✦</span><span>Agent Pass is live · $0.99 for your first month</span><span class="announcement-sub">Get up to $20 on select models.</span><b>→</b></div>
+          <h1>One API for<br><span class="gradient-text">every model.</span></h1>
+          <p>Frontier AI, routed intelligently. One key, transparent pricing, and up to 98% less than official API rates.</p>
+          <div class="qh-prompt-bar"><span>Ask Quota.Hub</span><input id="home-prompt" placeholder="Why Quota.Hub?" aria-label="Ask Quota.Hub"><button onclick="switchTab('playground')" aria-label="Open playground">→</button></div>
+          <div class="provider-orbit"><span class="provider provider-anthropic">AI</span><span class="provider provider-openai">✳</span><span class="provider provider-google">✦</span><span class="provider provider-qwen">✣</span><span class="provider provider-xai">K</span></div>
+          <button class="hero-connect-link" onclick="switchTab('connect')">Using Claude Code, Cursor or Codex? <u>Connect your agent in one command →</u></button>
+        </div>
+        <div class="trust-grid"><div><b>Call what you see</b><span>No silent model swaps. The model you select is exactly what runs.</span></div><div><b>Your data, your control</b><span>No training on your prompts. Clear retention and routing policies.</span></div><div><b>Full transparency</b><span>Live market pricing and observable routing, without black boxes.</span></div></div>
+      </section>
+
+      <!-- ==================== TAB 1 : PRICING ==================== -->
+      <section id="tab-pricing" class="tab-pane">
         <div class="th-pricing-hero">
           <div class="pill-eyebrow">
             <span>One API · Every model at wholesale rate</span>
@@ -232,6 +249,8 @@
           </div>
         </div>
       </section>
+
+      <section id="tab-chat" class="tab-pane"><div class="qh-chat-shell"><div class="qh-chat-header"><span class="live-dot"></span><span>Quota.Hub Chat</span><span class="chat-model-label">Auto routing · cache-first</span></div><div id="chat-messages" class="chat-messages"><div class="chat-empty"><div class="chat-orb">✦</div><h2>What are you building?</h2><p>Ask anything. Quota.Hub routes your request to the best live model.</p></div></div><form id="chat-form" class="chat-input-wrap"><input id="chat-input" placeholder="Message Quota.Hub…" autocomplete="off"><button type="submit">↑</button></form></div></section>
 
       <!-- ==================== TAB 2 : MODELS ==================== -->
       <section id="tab-models" class="tab-pane">
@@ -477,6 +496,9 @@
         </div>
       </section>
 
+      <!-- ==================== TAB DOCS ==================== -->
+      <section id="tab-docs" class="tab-pane"><div class="simple-page"><span class="pill-eyebrow">Developer docs</span><h2>Build once. Route everywhere.</h2><p>Quota.Hub is OpenAI-compatible. Use your API key with standard SDKs and keep your existing code unchanged.</p><div class="docs-snippet"><span>BASE URL</span><code>https://quota-hub.vercel.app/v1</code><span>AUTHENTICATION</span><code>Authorization: Bearer sk-qh-…</code></div></div></section>
+
     </main>
 
     <!-- ── AUTH SPLIT-SCREEN MODAL (EXACT TOKEN HARBOR /login) ── -->
@@ -489,7 +511,7 @@
             <line x1="12" y1="22" x2="12" y2="8"></line>
             <path d="M5 12H2a10 10 0 0 0 20 0h-3"></path>
           </svg>
-          <span>Token Harbor</span>
+          <span>Quota.Hub</span>
         </a>
 
         <div class="auth-aside-content">
@@ -513,7 +535,7 @@
         </div>
 
         <div style="font-size:12px;color:var(--ink-on-ink);">
-          © 2026 Token Harbor PTE. LTD.
+          © 2026 Quota.Hub
         </div>
       </aside>
 
