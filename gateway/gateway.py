@@ -921,6 +921,156 @@ def api_chat(auth_header, payload, ip):
                          'tokens_remaining': max(0, remaining), 'served_model': served['model']}
     return 200, data
 
+# ── Connexion sociale : Google / GitHub (10-09) ─────────────────────────────
+# Credentials uniquement dans le .env de la passerelle : QH_GOOGLE_CLIENT_ID /
+# QH_GOOGLE_CLIENT_SECRET / QH_GITHUB_CLIENT_ID / QH_GITHUB_CLIENT_SECRET.
+# Le callback est public (le navigateur revient de Google/GitHub sans HMAC) ;
+# le state (anti-CSRF) est stocké en mémoire, TTL 10 min, usage unique.
+OAUTH_CB_BASE = os.environ.get('QH_OAUTH_CB_BASE',
+    'https://quota-hub.vercel.app/gw/api/auth/oauth/callback/')
+FRONT_URL = os.environ.get('QH_FRONT_URL', 'https://quota-hub.vercel.app').rstrip('/')
+GOOGLE_CID = os.environ.get('QH_GOOGLE_CLIENT_ID', '')
+GOOGLE_CSEC = os.environ.get('QH_GOOGLE_CLIENT_SECRET', '')
+GITHUB_CID = os.environ.get('QH_GITHUB_CLIENT_ID', '')
+GITHUB_CSEC = os.environ.get('QH_GITHUB_CLIENT_SECRET', '')
+OAUTH_STATES = {}                     # state -> {'ts', 'return_to'} (mémoire)
+OAUTH_STATE_TTL = 600
+
+def oauth_start(provider):
+    provider = (provider or '').lower()
+    if provider == 'google' and not GOOGLE_CID:
+        return err(503, 'connexion Google non configurée (QH_GOOGLE_CLIENT_ID)')
+    if provider == 'github' and not GITHUB_CID:
+        return err(503, 'connexion GitHub non configurée (QH_GITHUB_CLIENT_ID)')
+    if provider not in ('google', 'github'):
+        return err(400, 'provider inconnu (google|github)')
+    state = secrets.token_urlsafe(24)
+    with LOCK:
+        OAUTH_STATES[state] = {'ts': time.time(), 'return_to': '/'}
+    if provider == 'google':
+        url = ('https://accounts.google.com/o/oauth2/v2/auth?client_id='
+               + urllib.parse.quote(GOOGLE_CID, safe='')
+               + '&redirect_uri=' + urllib.parse.quote(OAUTH_CB_BASE + 'google', safe='')
+               + '&response_type=code&scope=openid%20email%20profile&state=' + state
+               + '&prompt=select_account')
+    else:
+        url = ('https://github.com/login/oauth/authorize?client_id='
+               + urllib.parse.quote(GITHUB_CID, safe='') + '&scope=user:email&state=' + state)
+    return 200, {'url': url}
+
+def _oauth_gate(provider, code):
+    """Échange le code d'autorisation contre l'identité (email vérifié + sub)."""
+    if provider == 'google':
+        data = urllib.parse.urlencode({
+            'code': code, 'client_id': GOOGLE_CID, 'client_secret': GOOGLE_CSEC,
+            'redirect_uri': OAUTH_CB_BASE + 'google', 'grant_type': 'authorization_code'}).encode()
+        req = urllib.request.Request('https://oauth2.googleapis.com/token', data=data, method='POST',
+                                     headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            tok = json.loads(r.read().decode())
+        access = tok.get('access_token')
+        if not access:
+            raise RuntimeError('token Google absent')
+        req = urllib.request.Request('https://openidconnect.googleapis.com/v1/userinfo',
+                                     headers={'Authorization': 'Bearer ' + access})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            info = json.loads(r.read().decode())
+        return {'provider': 'google', 'sub': str(info.get('sub', '')),
+                'email': (info.get('email') or '').lower(),
+                'verified': bool(info.get('email_verified')),
+                'name': info.get('name') or ''}
+    data = urllib.parse.urlencode({'client_id': GITHUB_CID, 'client_secret': GITHUB_CSEC,
+                                   'code': code}).encode()
+    req = urllib.request.Request('https://github.com/login/oauth/access_token', data=data,
+                                 method='POST', headers={'Accept': 'application/json',
+                                                         'Content-Type': 'application/x-www-form-urlencoded'})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        tok = json.loads(r.read().decode())
+    access = tok.get('access_token')
+    if not access:
+        raise RuntimeError('token GitHub absent')
+    req = urllib.request.Request('https://api.github.com/user',
+                                 headers={'Authorization': 'Bearer ' + access, 'User-Agent': 'quota-hub'})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        info = json.loads(r.read().decode())
+    email = (info.get('email') or '').lower()
+    if not email:
+        try:
+            req = urllib.request.Request('https://api.github.com/user/emails',
+                                         headers={'Authorization': 'Bearer ' + access, 'User-Agent': 'quota-hub'})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                for e in json.loads(r.read().decode()):
+                    if e.get('primary') and e.get('verified') and e.get('email'):
+                        email = e['email'].lower()
+                        break
+        except Exception:
+            pass
+    return {'provider': 'github', 'sub': str(info.get('id', '')),
+            'email': email, 'verified': bool(email),
+            'name': info.get('name') or info.get('login') or ''}
+
+def oauth_upsert_user(idt):
+    """Compte lié (provider, sub) ; sinon compte email existant LIÉ (identité
+    confirmée par le fournisseur) ; sinon création."""
+    c = db()
+    try:
+        row = c.execute('SELECT id FROM users WHERE oauth_provider=? AND oauth_sub=?',
+                        (idt['provider'], idt['sub'])).fetchone()
+        if row:
+            return row['id']
+        if idt['email']:
+            row = c.execute('SELECT id FROM users WHERE email=?', (idt['email'],)).fetchone()
+            if row:
+                c.execute('UPDATE users SET oauth_provider=?, oauth_sub=? WHERE id=?',
+                          (idt['provider'], idt['sub'], row['id']))
+                c.commit()
+                return row['id']
+        cur = c.execute('INSERT INTO users(email, pw_hash, created_at, oauth_provider, oauth_sub) '
+                        'VALUES(?,?,?,?,?)',
+                        (idt['email'] or (idt['provider'] + '-' + idt['sub'] + '@oauth.local'),
+                         '', int(time.time()), idt['provider'], idt['sub']))
+        c.commit()
+        return cur.lastrowid
+    finally:
+        c.close()
+
+def oauth_callback(provider, state, code):
+    provider = (provider or '').lower()
+    now = time.time()
+    with LOCK:
+        st = OAUTH_STATES.pop(state, None)
+    if not st:
+        return err(400, 'état OAuth inconnu ou déjà utilisé — rechargez la page et réessayez')
+    if now - st['ts'] > OAUTH_STATE_TTL:
+        return err(400, 'état OAuth expiré (10 min) — réessayez')
+    try:
+        idt = _oauth_gate(provider, code)
+    except Exception as e:
+        log(f'OAuth {provider} échange échoué: {str(e)[:90]}')
+        return err(502, 'échange avec le fournisseur échoué')
+    if not idt['sub']:
+        return err(400, 'identité fournisseur absente')
+    if provider == 'google' and not (idt['verified'] and idt['email']):
+        return err(400, 'email Google non vérifié — connexion impossible')
+    user_id = oauth_upsert_user(idt)
+    if not user_id:
+        return err(500, 'impossible de créer/lier le compte')
+    sess = session_token(user_id)
+    log(f'OAuth {provider} connecte user {user_id}')
+    return 302, {'location': FRONT_URL + '/?oauth_session=' + sess + '&oauthed=1'}
+
+def migrate_oauth():
+    """Colonnes de liaison sociale sur users (idempotente)."""
+    c = db()
+    cols = [r[1] for r in c.execute('PRAGMA table_info(users)').fetchall()]
+    if 'oauth_provider' not in cols:
+        c.execute('ALTER TABLE users ADD COLUMN oauth_provider TEXT')
+        c.execute('ALTER TABLE users ADD COLUMN oauth_sub TEXT')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_users_oauth ON users(oauth_provider,oauth_sub)')
+        c.commit()
+        log('migration OAuth appliquée (oauth_provider/oauth_sub)')
+    c.close()
+
 def admin_codes(admin_token, payload):
     if not ADMIN_TOKEN or not hmac.compare_digest(admin_token, ADMIN_TOKEN):
         return err(403, 'admin token invalide')
@@ -1029,6 +1179,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', '0')
         self.end_headers()
 
+    def _redirect(self, location):
+        self.send_response(302)
+        self.send_header('Location', location)
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('Content-Length', '0')
+        self.end_headers()
+
     def _read_body(self):
         n = int(self.headers.get('Content-Length', 0) or 0)
         if n > 3_200_000:
@@ -1049,6 +1206,19 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        # OAuth social : public (le navigateur revient de Google/GitHub sans HMAC)
+        if path == '/api/auth/oauth/start':
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            status, obj = oauth_start((q.get('provider') or [''])[0])
+            return self._json(status, obj)
+        m = re.fullmatch(r'/api/auth/oauth/callback/([a-z]+)', path)
+        if m:
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            status, obj = oauth_callback(m.group(1), (q.get('state') or [''])[0],
+                                          (q.get('code') or [''])[0])
+            if status == 302:
+                return self._redirect(obj['location'])
+            return self._json(status, obj)
         if path == '/api/me':
             if not check_sig(self.headers, path, b''):
                 return self._json(403, {'error': {'message': 'signature invalide'}})
@@ -1140,6 +1310,7 @@ def main():
     if not SECRET:
         log('AVERTISSEMENT : QH_INTERNAL_SECRET absent — aucune requête signée ne passera')
     init_db()
+    migrate_oauth()
     cooldowns_load()
     warm_market()
     srv = ThreadingHTTPServer(('0.0.0.0', PORT), Handler)

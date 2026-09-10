@@ -387,8 +387,31 @@ function initGlassControl() {
   });
 }
 
+function initOAuth() {
+  const go = async provider => {
+    const { status, data } = await apiCall('/api/auth/oauth/start?provider=' + provider, { method: 'GET' });
+    if (status === 200 && data.url) {
+      window.location.href = data.url; // redirection vers Google/GitHub
+    } else {
+      alert((data.error && data.error.message) || 'Connexion sociale indisponible');
+    }
+  };
+  $('btn-oauth-google').onclick = () => go('google');
+  $('btn-oauth-github').onclick = () => go('github');
+  // retour du flow : la session arrive en paramètre d'URL (jetée immédiatement)
+  const q = new URLSearchParams(window.location.search);
+  const s = q.get('oauth_session');
+  if (s) {
+    history.replaceState({}, '', window.location.pathname); // retire le jeton de l'URL
+    APP_STATE.session = s;
+    sessionStorage.setItem('qh_session', s);
+    refreshMe();
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initAuth();
+  initOAuth();
   initTabs();
   initKeyCreation();
   initRedeem();

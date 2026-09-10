@@ -35,6 +35,9 @@ export default async function handler(req, res) {
   if (!/^\/[a-z0-9/.-]*$/i.test(path)) {
     return res.status(400).json({ error: { message: 'chemin invalide' } });
   }
+  // query restante (OAuth : code, state...) forwardée telle quelle à la passerelle
+  const qsExtra = [];
+  qp.forEach((v, k) => { if (k !== 'path') qsExtra.push(`${k}=${encodeURIComponent(v)}`); });
 
   const headers = {};
   for (const h of FORWARD) {
@@ -67,6 +70,7 @@ export default async function handler(req, res) {
     .digest('hex');
 
   const target = new URL(GW_BASE.replace(/\/$/, '') + path);
+  if (qsExtra.length) target.search = '?' + qsExtra.join('&');
   const isHttps = target.protocol === 'https:';
   const lib = isHttps ? https : await import('node:http');
 
@@ -106,6 +110,11 @@ export default async function handler(req, res) {
           urs.on('end', () => { res.send(Buffer.concat(bufs)); resolve(); });
           urs.on('error', reject);
         }
+        // redirections OAuth (Location) et cookies : indispensables au flow social
+        const loc = urs.headers['location'];
+        if (loc) res.setHeader('Location', loc);
+        const sc = urs.headers['set-cookie'];
+        if (sc) res.setHeader('Set-Cookie', Array.isArray(sc) ? sc : [sc]);
       });
       up.on('timeout', () => { up.destroy(new Error('timeout passerelle')); });
       up.on('error', reject);
