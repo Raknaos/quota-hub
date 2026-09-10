@@ -239,7 +239,7 @@ async function sendChatMessage(text) {
   messages.appendChild(user);
   const assistant = document.createElement('div');
   assistant.className = 'chat-bubble chat-assistant';
-  assistant.textContent = APP_STATE.me ? 'Le Chat est prêt. Pour une réponse réelle, utilise le Playground avec ta clé API.' : 'Connecte-toi pour lancer une requête réelle depuis le Chat.';
+  assistant.textContent = APP_STATE.me ? 'Crée une clé API dans API Keys pour lancer une conversation réelle.' : 'Connecte-toi puis crée une clé API pour lancer une conversation réelle.';
   messages.appendChild(assistant);
 }
 
