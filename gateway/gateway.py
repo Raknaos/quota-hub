@@ -87,7 +87,14 @@ PLAN_DEFAULT = {'auto': 1_000_000_000, 'gemini': 100_000_000}   # tokens par cod
 SUCCESS_SCALE = 10000
 MIN_SUCCESS_RAW = int(80 * SUCCESS_SCALE / 100)   # floor fiabilité 80 %
 HYSTERESIS = 0.15                                  # pin canal chaud (cache prompts)
-MARKET_TTL = 60                                    # s
+MARKET_TTL = 60                                    # s (marché instantané, 24 h)
+MKT30_URL = 'http://127.0.0.1:8891/api/prices'     # marché 30 j — worker local (même VPS)
+MKT30_TTL = 120                                    # s — cache mémoire de la vue 30 j
+MKT30_MAX_AGE_S = 900                              # fraîcheur exigée du worker (age_s)
+MKT30_FLOOR_WORST = 80.0                           # floor fiabilité « pire heure » (moy30)
+MKT30_MIN_SAMPLES = 200                            # volume minimal pour juger un canal
+COOLDOWN_WAIT_MAX_S = 15                           # anti-503 : attente bornée avant refus
+                                                   # (budget front Vercel : 120 s hard)
 MAX_TOKENS_CAP = 4000                              # plafond par requête
 RATE_RPM = 60                                      # requêtes/min par clé
 RATE_BURST = 10
@@ -96,6 +103,7 @@ SESSION_TTL = 30 * 86400
 LOCK = threading.Lock()
 MKT = {}                 # model -> {'r': ..., 'ts': ...}
 MKT_BUSY = set()
+MKT30 = {'d': None, 'ts': 0.0, 'busy': False}   # vue marché 30 j (worker local)
 COOLDOWN = {}
 COOLDOWN_PATH = os.path.join(DIR, 'cooldowns.json')
 
@@ -285,8 +293,69 @@ def market_get(model_id, max_age=MARKET_TTL):
     threading.Thread(target=_bg, daemon=True).start()
     return (ent or {}).get('r')
 
+# ── Marché 30 jours (worker local) : source de DÉCISION ─────────────────────
+# Le worker quota-market publie en loopback la moyenne 30 j PONDÉRÉE PAR LE TEMPS
+# (in/out/cache) et la fiabilité « pire heure » de chaque canal. On décide dessus :
+# un canal stable sur 30 j vaut mieux qu'un pic de prix instantané. Les prix
+# instantanés du worker servent, eux, à facturer le coût RÉEL de la requête.
+def _mkt30_fetch():
+    req = urllib.request.Request(MKT30_URL, headers={'User-Agent': 'quota-hub-gateway'})
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        d = json.loads(resp.read().decode())
+    if not d.get('ok') or d.get('stale'):
+        return None
+    if float(d.get('age_s') or 0) > MKT30_MAX_AGE_S:
+        return None
+    return d
+
+def market30_all(max_age=MKT30_TTL):
+    """Dernière vue 30 j connue ; rafraîchie en tâche de fond, jamais bloquante."""
+    now = time.time()
+    with LOCK:
+        ent = MKT30['d']
+        if (ent and now - MKT30['ts'] < max_age) or MKT30['busy']:
+            return ent
+        MKT30['busy'] = True
+    def _bg():
+        try:
+            d = _mkt30_fetch()
+            if d:
+                with LOCK:
+                    MKT30['d'] = d
+                    MKT30['ts'] = time.time()
+        except Exception as e:
+            log(f'MOY30 indisponible: {str(e)[:70]}')
+        finally:
+            MKT30['busy'] = False
+    threading.Thread(target=_bg, daemon=True).start()
+    return ent
+
+def market30_best(model_id):
+    """Meilleur canal 30 j d'un modèle (même forme que marketplace_best), ou None
+    si la vue 30 j est absente/périmée -> repli marché instantané."""
+    d = market30_all() or {}
+    ent = (d.get('models') or {}).get(model_id) or {}
+    top = ent.get('top') or []
+    if not top:
+        return None
+    t = top[0]
+    if not t.get('available') or t.get('disabled'):
+        return None
+    if (t.get('worst') or 0) < MKT30_FLOOR_WORST or (t.get('n24') or 0) < MKT30_MIN_SAMPLES:
+        return None
+    return {'best': {'supplier': t.get('supplier'),
+                     'in': t.get('in_now', 0), 'out': t.get('out_now', 0),
+                     'cache_read': t.get('cache_now', 0),
+                     'cache24': t.get('cache'),
+                     'success': t.get('sr24', 0),
+                     'cost30': t.get('cost30'), 'worst': t.get('worst'),
+                     'n24': t.get('n24'), 'src': 'moy30'},
+            'n_alive': ent.get('n_robust', 0), 'n_total': ent.get('n_listings', 0),
+            'src': 'moy30'}
+
 def warm_market():
     def _all():
+        market30_all(max_age=0)      # vue 30 j (worker local) — décision
         for m in MODELS:
             for attempt in range(5):
                 try:
@@ -319,12 +388,22 @@ def on_failure(model_id, msg):
 def pick_model(models):
     """Choix cache-first : 1) même modèle qu'avant (cache) dans l'hystérésis 15 % ;
     2) sinon même FOURNISSEUR qu'avant sur un autre modèle (cache partiel) tant que
-    le surcoût reste < 25 % ; 3) sinon le moins cher espéré."""
+    le surcoût reste < 25 % ; 3) sinon le moins cher espéré.
+
+    Coût espéré : moyenne 30 j pondérée temps du worker local quand elle est
+    disponible (stable, insensible aux pics), sinon marché instantané 24 h."""
     cand = []
     for m in models:
         cd, _ = in_cooldown(m)
         if cd:
             continue
+        # 1) DÉCISION sur la moyenne 30 j (cache-aware, fiabilité pire heure)
+        b = (market30_best(m) or {}).get('best')
+        if b and b.get('cost30'):
+            success = max(b['success'] / 100.0, 0.01)
+            cand.append((b['cost30'] / success, m, b))
+            continue
+        # 2) repli : marché instantané (24 h)
         r = market_get(m)
         b = (r or {}).get('best')
         if not b:
@@ -359,6 +438,44 @@ def pick_model(models):
         PIN['model'] = cand[0][1]
         PIN['supplier'] = cand[0][2].get('supplier')
     return cand[0][1], cand
+
+def wait_or_last_resort(models):
+    """ANTI-503 (repris du routeur v2.2.3) : « tous les canaux en cooldown » n'est
+    PAS une panne. Un 503 instantané tue le tour entier d'un agent (rapport, tâche
+    longue). On attend donc la fin du cooldown le plus proche (borné par
+    COOLDOWN_WAIT_MAX_S) en retentant le routage normal, puis, en véritable dernier
+    recours, on essaie le canal le moins cher malgré son cooldown — un essai réel
+    vaut mieux qu'un refus sec (le cooldown est un compteur interne, pas une preuve
+    que l'amont est mort)."""
+    t_dead = time.time() + COOLDOWN_WAIT_MAX_S
+    while True:
+        with LOCK:
+            ups = [u - time.time() for (u, _r) in list(COOLDOWN.values()) if u > time.time()]
+        if not ups:
+            break
+        soon = min(ups)
+        if soon > COOLDOWN_WAIT_MAX_S or time.time() >= t_dead:
+            break
+        log(f'ATTENTE cooldown {round(soon, 1)}s avant nouvel essai (anti-503)')
+        time.sleep(min(max(soon, 0.5), 3.0))
+        m, c = pick_model(models)
+        if m:
+            return m, c
+    lr = []
+    for m in models:
+        b = (market30_best(m) or {}).get('best') or (market_get(m) or {}).get('best')
+        if not b:
+            continue
+        s_ok = max(float(b.get('success', 100) or 100) / 100.0, 0.01)
+        base = b['cost30'] if b.get('cost30') else (b.get('in', 0) + b.get('out', 0)) / 2
+        lr.append((base / s_ok, m))
+    lr.sort(key=lambda x: x[0])
+    if not lr:
+        with LOCK:
+            pin = PIN.get('model')
+        lr = [(0.0, pin or models[0])]
+    log(f'DERNIER RECOURS {lr[0][1]} (cooldown ignoré) — essai unique')
+    return lr[0][1], []
 
 def forward_upstream(model_id, payload):
     body = dict(payload)
@@ -429,6 +546,11 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
     last_err = None
     for attempt in range(3):
         model_id, cand = pick_model(models)
+        chosen = cand[0][2] if cand else None
+        if not model_id and attempt == 0:
+            # anti-503 : attente bornée du cooldown le plus proche, puis dernier recours
+            model_id, cand = wait_or_last_resort(models)
+            chosen = cand[0][2] if cand else None
         if not model_id:
             return None, (503, {'error': {'message': 'aucun canal disponible (cooldowns ou marché inaccessible)',
                                           'type': 'server_error', 'code': 'no_model_available'}}), 0, 0, None
@@ -455,12 +577,13 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         tin = usage.get('prompt_tokens') or 0
         tout = usage.get('completion_tokens') or 0
         cached = ((usage.get('prompt_tokens_details') or {}).get('cached_tokens')) or 0
-        r = market_get(model_id) or {}
-        b = r.get('best') or {}
+        # prix du canal RÉELLEMENT servi (instantanés du worker) ; repli cache instantané
+        b = chosen or ((market_get(model_id) or {}).get('best') or {})
         # coût amont RÉEL : les tokens cachés sont au prix cache_read (12x moins cher sur qwen)
         est = round(((tin - cached) * b.get('in', 0) + cached * b.get('cache_read', b.get('in', 0))
                      + tout * b.get('out', 0)) / 1e6, 8)
         data['a6_router'] = {'served_model': model_id, 'supplier': b.get('supplier'),
+                             'decision': (b.get('src') or 'instant'),
                              'note': 'modèle choisi automatiquement (le moins cher vivant)',
                              'requested_model': requested, 'ignored': True,
                              'latency_s': round(dt, 2)}
@@ -468,8 +591,8 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
             PIN['model'] = model_id
             PIN['supplier'] = b.get('supplier')
         return data, None, tin, tout, {'model': model_id, 'supplier': b.get('supplier'),
-                                       'est': est, 'plan': plan, 'requested': requested,
-                                       'cached': cached}
+                                       'best': b, 'est': est, 'plan': plan,
+                                       'requested': requested, 'cached': cached}
     return None, (502, {'error': {'message': f'tous les canaux ont échoué: {last_err}',
                                   'type': 'server_error', 'code': 'all_channels_failed'}}), 0, 0, None
 
@@ -890,7 +1013,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/health':
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
-            body = b'{"ok":true,"service":"quota-hub-gateway"}'
+            d30 = market30_all() or {}
+            body = json.dumps({'ok': True, 'service': 'quota-hub-gateway',
+                               'market30': {'src': 'moy30' if d30 else 'instant',
+                                            'models': len(d30.get('models') or {}),
+                                            'age_s': d30.get('age_s')}}).encode()
             self.send_header('Content-Length', str(len(body)))
             self.end_headers()
             self.wfile.write(body)

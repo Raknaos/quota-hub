@@ -135,12 +135,14 @@
             <p class="card-tip">Le routeur interne, à chaque requête :</p>
             <div class="code-block-wrapper">
               <div class="code-header"><span>Sélection automatique (extrait réel)</span></div>
-              <pre><code>1. liste les canaux vivants (fiabilité ≥ 80 %, échantillon ≥ 20)
-2. coût espéré = prix ÷ probabilité de succès → tri ascendant
-3. hystérésis 15 % : on garde le canal courant (cache de prompts
+              <pre><code>1. marché 30 jours : moyenne pondérée par le temps (pas un pic de prix)
+2. canaux vivants : fiabilité « pire heure » ≥ 80 %, échantillon ≥ 200 req/24 h
+3. coût espéré = coût moyen 30 j ÷ probabilité de succès → tri ascendant
+4. hystérésis 15 % : on garde le canal courant (cache de prompts
    ~10× moins cher) sauf si un concurrent est nettement moins cher
-4. échec/timeout → cooldown 60-90 s, canal suivant immédiatement
-5. votre facturation : tokens réels consommés, jamais de simulation</code></pre>
+5. échec/timeout → cooldown 60-90 s, canal suivant immédiatement ;
+   si tous sont en cooldown : attente bornée puis dernier recours (pas de 503 sec)
+6. votre facturation : tokens réels consommés, jamais de simulation</code></pre>
             </div>
             <div class="docs-callout">
               <h4>Pourquoi pas de choix de modèle ?</h4>

@@ -5,6 +5,8 @@ gateway/hub.db
 gateway/_test_state.json
 gateway/*.log
 gateway/_*.py
+gateway/_*.sh
+gateway/_*_sample.json
 .env
 .env.*
 *.db
