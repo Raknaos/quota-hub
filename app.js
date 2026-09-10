@@ -310,8 +310,10 @@ function runPlay() {
     }
     const content = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '(vide)';
     const qh = j.quota_hub || {};
-    const srv = (j.a6_router && j.a6_router.served_model) || '?';
-    meta.textContent = `200 OK · ${dt.toFixed(1)}s · modèle servi: ${srv} · restant: ${fmtM(qh.tokens_remaining || 0)}`;
+    const ar = j.a6_router || {};
+    const srv = ar.served_model || '?';
+    const dec = ar.decision ? ` · ${ar.decision}` : '';
+    meta.textContent = `200 OK · ${dt.toFixed(1)}s · servi : ${srv}${dec} · restant : ${fmtM(qh.tokens_remaining || 0)}`;
     out.textContent = content;
     if (APP_STATE.me) refreshMe();
   }).catch(e => {

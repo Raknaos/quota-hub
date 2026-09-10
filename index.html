@@ -60,9 +60,9 @@
           </div>
         </div>
 
-        <div class="status-indicator" title="Routeur interne : le canal le moins cher vivant, floor fiabilité 80%">
+        <div class="status-indicator" title="Routeur interne : le canal le moins cher vivant, marché revérifié toutes les 20 min, canal conservé 6 h minimum pour garder le cache de prompts chaud">
           <span class="pulse-dot"></span>
-          <span class="status-text">Auto-route actif</span>
+          <span class="status-text">Auto-route actif · marché 20 min</span>
         </div>
       </div>
     </header>
@@ -90,8 +90,8 @@
                 <span class="stat-desc">requêtes par clé</span>
               </div>
               <div class="hero-stat-card">
-                <span class="stat-num">100%</span>
-                <span class="stat-desc">compatible OpenAI SDK</span>
+                <span class="stat-num">20 min</span>
+                <span class="stat-desc">prix des canaux revérifiés en continu</span>
               </div>
             </div>
           </div>
@@ -110,8 +110,12 @@
                 <span class="metric-label">validité après activation</span>
               </div>
               <div class="metric-box">
-                <span class="metric-val">3</span>
-                <span class="metric-label">canaux flash haut débit (qwen · glm · deepseek)</span>
+                <span class="metric-val">4</span>
+                <span class="metric-label">canaux flash haut débit (qwen · glm · deepseek · grok)</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-val">6 h</span>
+                <span class="metric-label">rétention minimale du même canal (cache de prompts chaud)</span>
               </div>
               <div class="metric-box">
                 <span class="metric-val text-accent">4 000</span>
@@ -135,11 +139,12 @@
             <p class="card-tip">Le routeur interne, à chaque requête :</p>
             <div class="code-block-wrapper">
               <div class="code-header"><span>Sélection automatique (extrait réel)</span></div>
-              <pre><code>1. marché 30 jours : moyenne pondérée par le temps (pas un pic de prix)
+              <pre><code>1. marché 30 jours : moyenne pondérée par le temps (pas un pic de prix),
+   revérifié toutes les 20 min — pas à chaque requête
 2. canaux vivants : fiabilité « pire heure » ≥ 80 %, échantillon ≥ 200 req/24 h
 3. coût espéré = coût moyen 30 j ÷ probabilité de succès → tri ascendant
-4. hystérésis 15 % : on garde le canal courant (cache de prompts
-   ~10× moins cher) sauf si un concurrent est nettement moins cher
+4. hystérésis 30 % + RETENUE MINIMALE 6 h : on garde le même fournisseur
+   et le même canal tant qu'il vit → cache de prompts chaud (2 à 10× moins cher)
 5. échec/timeout → cooldown 60-90 s, canal suivant immédiatement ;
    si tous sont en cooldown : attente bornée puis dernier recours (pas de 503 sec)
 6. votre facturation : tokens réels consommés, jamais de simulation</code></pre>
@@ -148,6 +153,64 @@
               <h4>Pourquoi pas de choix de modèle ?</h4>
               <p>C'est ce qui permet le prix : les modèles « vedettes » coûtent 30 à 300× plus cher. En fixant le routeur sur les canaux les plus économiques, le plan reste rentable pour vous comme pour nous. Besoin d'un modèle précis ? Les offres à l'usage arrivent ensuite.</p>
             </div>
+          </div>
+        </div>
+
+        <!-- CACHE DE PROMPTS : durée de vie officielle par fournisseur -->
+        <div class="glass-card mt-16">
+          <div class="card-header-flex">
+            <h3>Cache de prompts : combien de temps reste-t-il chaud ?</h3>
+            <span class="badge-subtle">durées publiées par les fournisseurs · sept. 2026</span>
+          </div>
+          <p class="card-tip">Un canal stable = préfixe identique (system prompt, outils, historique) = <strong>cache de prompts réutilisé</strong>, facturé 2 à 50× moins cher que le plein tarif. Voici la durée de vie réelle du cache, telle que documentée par chaque fournisseur :</p>
+          <table class="simple-table">
+            <thead>
+              <tr>
+                <th>Fournisseur (canaux du plan)</th>
+                <th>Durée de vie du cache</th>
+                <th>Prix du token en cache</th>
+                <th>Minimum pour cacher</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>DeepSeek</strong><div style="font-size:11px;color:var(--soft)">v4-flash · v4-pro</div></td>
+                <td>Aucun réglage : purge automatique <strong>de quelques heures à quelques jours</strong> après le dernier usage (mémoire disque, « best effort »)</td>
+                <td>≈ 2 % du prix normal</td>
+                <td>64 tokens (unité de stockage) — hits fiables dès ~1 024</td>
+              </tr>
+              <tr>
+                <td><strong>Qwen / Alibaba</strong><div style="font-size:11px;color:var(--soft)">qwen3.8-flash</div></td>
+                <td>Implicite (auto) : indéterminée, purge périodique des entrées froides · Explicite : <strong>5 min</strong>, réarmé à chaque hit</td>
+                <td>20 % (auto) · 10 % (explicite)</td>
+                <td>1 024 tokens</td>
+              </tr>
+              <tr>
+                <td><strong>GLM / Zhipu</strong><div style="font-size:11px;color:var(--soft)">glm-5.3-flash</div></td>
+                <td>Automatique, TTL non publié · stockage facturé (promo en cours : gratuit)</td>
+                <td>≈ 50 % de réduction</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td><strong>Grok / xAI</strong><div style="font-size:11px;color:var(--soft)">grok-4.6</div></td>
+                <td>Automatique entre requêtes consécutives partageant le même début de conversation</td>
+                <td>Token caché facturé à taux réduit</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td><strong>Kimi / Moonshot</strong></td>
+                <td>Automatique, cycle de vie géré par la plateforme (pas de TTL manuel)</td>
+                <td>Token caché facturé à taux réduit</td>
+                <td>256 tokens</td>
+              </tr>
+              <tr>
+                <td colspan="4" style="color:var(--soft);font-size:11.5px;">Hors plan, pour référence : OpenAI GPT-5.x — <strong>≥ 30 min</strong> garanti, jusqu'à <strong>24 h</strong> sur les modèles compatibles · Anthropic Claude — 5 min (option 1 h) · Google Gemini — 60 min par défaut, jusqu'à 24 h.</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="docs-callout">
+            <h4>Ce que ça change pour vous</h4>
+            <p>C'est le cœur du produit : le routeur <strong>garde le même fournisseur et le même canal</strong> — hystérésis 30 %, puis <strong>retenue minimale de 6 h</strong> — tant que ce canal vit et n'est pas nettement plus cher ailleurs. Votre préfixe reste identique, le cache amont tient, et vous payez le tarif « cache hit ». Un canal qui change toutes les 30 secondes ne casserait pas seulement le cache : il coûterait 5 à 50× plus cher.</p>
           </div>
         </div>
       </section>

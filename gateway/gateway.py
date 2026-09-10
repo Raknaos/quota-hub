@@ -86,11 +86,16 @@ PLANS = ('auto', 'gemini')
 PLAN_DEFAULT = {'auto': 1_000_000_000, 'gemini': 100_000_000}   # tokens par code
 SUCCESS_SCALE = 10000
 MIN_SUCCESS_RAW = int(80 * SUCCESS_SCALE / 100)   # floor fiabilité 80 %
-HYSTERESIS = 0.15                                  # pin canal chaud (cache prompts)
-MARKET_TTL = 60                                    # s (marché instantané, 24 h)
+HYSTERESIS = 0.30                                  # pin canal chaud (cache prompts)
+PIN_MIN_HOLD_S = 21600                             # 6 h de retenue mini du modèle élu
+PIN_SWITCH_PCT = 50                                # pendant la retenue : basculer seulement
+                                                    # si l'alternative est ≥ 50 % moins chère
+MARKET_TTL = 1200                                  # s (marché instantané, 24 h) : suit le
+                                                    # cycle du sondeur partagé (20 min)
 MKT30_URL = 'http://127.0.0.1:8891/api/prices'     # marché 30 j — worker local (même VPS)
-MKT30_TTL = 120                                    # s — cache mémoire de la vue 30 j
-MKT30_MAX_AGE_S = 900                              # fraîcheur exigée du worker (age_s)
+MKT30_TTL = 1200                                   # s — cache mémoire de la vue 30 j
+                                                    # (aligne sur le cycle du sondeur, 20 min)
+MKT30_MAX_AGE_S = 2700                             # fraîcheur exigée du worker (age_s)
 MKT30_FLOOR_WORST = 80.0                           # floor fiabilité « pire heure » (moy30)
 MKT30_MIN_SAMPLES = 200                            # volume minimal pour juger un canal
 COOLDOWN_WAIT_MAX_S = 15                           # anti-503 : attente bornée avant refus
@@ -126,7 +131,7 @@ def cooldowns_load():
                 COOLDOWN[m] = (v[0], v[1])
     except Exception:
         pass            # model -> (until_ts, reason)
-PIN = {'model': None}
+PIN = {'model': None, 'since': 0.0}
 NET_FAIL_TS = []         # détection de crise plateforme
 LOGIN_FAILS = {}         # (ip, email) -> [ts_list]
 RATE = {}                # key_id -> [ts_rolling]
@@ -419,22 +424,36 @@ def pick_model(models):
         return None, None
     cand.sort(key=lambda x: x[0])
     best_cost = cand[0][0]
-    # 1) pin modèle (hystérésis 15 %)
+    # 1) pin modèle (hystérésis + RETENUE MINIMALE : le cache de prompts vaut plus
+    #    qu'un gain de quelques pourcents ; pendant PIN_MIN_HOLD_S seule une
+    #    alternative ≥ PIN_SWITCH_PCT moins chère fait tourner le routeur)
     if PIN.get('model'):
         pc = next((c for c, m, _ in cand if m == PIN['model']), None)
-        if pc is not None and pc <= best_cost * (1 + HYSTERESIS):
-            cand.sort(key=lambda x: 0 if x[1] == PIN['model'] else 1)
-            with LOCK:
-                PIN['model'] = cand[0][1]
-            return cand[0][1], cand
+        if pc is not None:
+            marge = HYSTERESIS
+            since = PIN.get('since') or 0.0
+            if PIN_MIN_HOLD_S and (time.time() - since) < PIN_MIN_HOLD_S:
+                marge = max(marge, PIN_SWITCH_PCT / 100.0)
+            if pc <= best_cost * (1 + marge):
+                cand.sort(key=lambda x: 0 if x[1] == PIN['model'] else 1)
+                with LOCK:
+                    if PIN.get('model') != cand[0][1]:
+                        PIN['since'] = time.time()
+                    PIN['model'] = cand[0][1]
+                return cand[0][1], cand
     # 2) pin fournisseur (cache amont rattaché au supplier) tolérance 25 %
     if PIN.get('supplier'):
         ps = next((t for t, m, b in cand if b.get('supplier') == PIN['supplier']), None)
         if ps is not None and ps <= best_cost * 1.25:
             with LOCK:
-                PIN['model'] = next(m for c, m, b in cand if b.get('supplier') == PIN['supplier'])
+                newm = next(m for c, m, b in cand if b.get('supplier') == PIN['supplier'])
+                if PIN.get('model') != newm:
+                    PIN['since'] = time.time()
+                PIN['model'] = newm
             return PIN['model'], cand
     with LOCK:
+        if PIN.get('model') != cand[0][1]:
+            PIN['since'] = time.time()
         PIN['model'] = cand[0][1]
         PIN['supplier'] = cand[0][2].get('supplier')
     return cand[0][1], cand
