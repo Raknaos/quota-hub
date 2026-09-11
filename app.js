@@ -18,6 +18,7 @@ window.switchTab = function(tab) {
   document.querySelectorAll('.nav-link').forEach(x => x.classList.toggle('active', x.dataset.tab === tab));
   document.querySelectorAll('.tab-pane').forEach(x => x.classList.toggle('active', x.id === 'tab-' + tab));
   APP_STATE.currentTab = tab; window.scrollTo({top:0,behavior:'smooth'});
+  if (tab === 'usage') loadUsage();
 };
 let currentAuthMode = 'login';
 window.openAuth = mode => { currentAuthMode=mode; setAuthMode(mode); $('auth-modal').style.display='flex'; document.body.style.overflow='hidden'; };
@@ -82,4 +83,25 @@ function initAutoMix(){
   }).catch(()=>{ if(total) total.textContent='indisponible'; });
 }
 
+/* — Journaux (11-09) : historique requêtes / tokens / dépenses, sans état fictif — */
+async function loadUsage(){
+  const box=$('usage-login-box'), content=$('usage-content');
+  if(!box||!content)return;
+  if(!APP_STATE.session){ box.style.display='block'; content.style.display='none'; return; }
+  box.style.display='none'; content.style.display='block';
+  const r=await apiCall('/api/usage?limit=50',{method:'GET'});
+  if(r.status!==200){ $('usage-table-body').innerHTML='<tr><td colspan="6" class="empty-table">'+escapeHtml(r.data.error?.message||'Journaux indisponibles')+'</td></tr>'; return; }
+  const d=r.data||{}, nf=n=>Number(n||0).toLocaleString('fr-FR');
+  $('usage-stats').innerHTML =
+    `<div class="usage-stat"><b>${nf(d.totals?.requests)}</b><span>Requêtes au total</span></div>`+
+    `<div class="usage-stat"><b>${nf(d.totals?.tokens)}</b><span>Tokens facturés</span></div>`+
+    `<div class="usage-stat"><b>$${Number(d.totals?.cost_usd||0).toFixed(4)}</b><span>Coût réel des requêtes</span></div>`;
+  const days=d.per_day||[], mx=Math.max(1,...days.map(x=>x.tokens||0));
+  $('usage-chart').innerHTML = days.length ? days.map(x=>`<div class="usage-bar" title="${escapeHtml(x.d)} · ${nf(x.tokens)} tokens"><i style="height:${Math.max(3,Math.round(100*(x.tokens||0)/mx))}%"></i><span>${escapeHtml((x.d||'').slice(5))}</span></div>`).join('') : '<span class="auto-mix-hint">Aucune requête sur les 30 derniers jours.</span>';
+  const rows=d.rows||[];
+  $('usage-table-body').innerHTML = rows.length ? rows.map(x=>`<tr><td>${new Date((x.ts||0)*1000).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td><td><code>${escapeHtml(x.model)}</code></td><td>${nf(x.in)}</td><td>${nf(x.out)}</td><td><b>${nf(x.tokens)}</b></td><td>$${Number(x.cost_usd||0).toFixed(5)}</td></tr>`).join('') : '<tr><td colspan="6" class="empty-table">Aucune requête pour le moment — lancez-en une depuis le playground ou avec votre clé.</td></tr>';
+  const items=d.per_model||[], COLORS=['#61a8ff','#9876ff','#5de5e1','#6ef0b0','#ffd479','#ff8d9d','#7fb2ff','#b78cff','#8ef0e8','#9ff7c8'];
+  $('usage-models').innerHTML = items.length ? items.map((it,i)=>`<div class="usage-model-item"><i style="background:${COLORS[i%COLORS.length]}"></i><span>${escapeHtml(it.model)}</span><b>${nf(it.tokens)} tok · ${nf(it.n)} req</b></div>`).join('') : '<span class="auto-mix-hint">Pas encore de données.</span>';
+  $('usage-refresh-note').textContent='mis à jour à '+new Date().toLocaleTimeString('fr-FR');
+}
 document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.nav-link').forEach(x=>x.onclick=()=>switchTab(x.dataset.tab));initAuth();initKeyCreation();initChat();initPlayground();initRedeem();initRouterStatus();initAutoMix();const menu=$('mobile-menu-toggle'),nav=$('main-nav');menu.onclick=()=>{const open=nav.classList.toggle('open');menu.setAttribute('aria-expanded',open);menu.textContent=open?'×':'☰';};nav.querySelectorAll('.nav-link').forEach(x=>x.addEventListener('click',()=>{nav.classList.remove('open');menu.setAttribute('aria-expanded','false');menu.textContent='☰';}));if(APP_STATE.session)refreshMe();});
