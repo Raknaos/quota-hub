@@ -58,3 +58,23 @@
 #tab-usage .console-table-wrap{margin-top:22px}
 #tab-usage table td code{color:var(--cyan);font-size:11.5px}
 @media(max-width:760px){.usage-stats{grid-template-columns:1fr}.usage-models{grid-template-columns:1fr}.usage-chart{height:104px}}
+
+/* Page Auto (11-09) */
+.section-head{margin:34px 0 16px}
+.section-head h2{margin:6px 0;font-family:var(--display);font-size:clamp(1.5rem,2.6vw,2rem);letter-spacing:-.01em}
+.section-head p{margin:0;color:var(--muted);max-width:640px}
+.auto-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.auto-grid .feature-card{min-height:0}
+.auto-code-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:4px}
+.auto-code-grid .code-panel{margin:0}
+.auto-code-grid pre{overflow:auto}
+.auto-code-note{margin:10px 0 0;color:var(--muted);font-size:.95rem}
+.auto-faq{display:grid;gap:10px}
+.auto-faq details{border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.035)}
+.auto-faq summary{cursor:pointer;padding:15px 20px;font-weight:600;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.auto-faq summary::-webkit-details-marker{display:none}
+.auto-faq summary::after{content:'+';color:var(--cyan);font-size:1.15rem;line-height:1}
+.auto-faq details[open] summary::after{content:'–'}
+.auto-faq details p{margin:0;padding:0 20px 16px;color:var(--muted)}
+@media(max-width:980px){.auto-grid{grid-template-columns:1fr 1fr}.auto-code-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.auto-grid{grid-template-columns:1fr}}

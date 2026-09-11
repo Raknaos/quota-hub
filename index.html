@@ -20,6 +20,7 @@
       <nav class="main-nav" id="main-nav" aria-label="Navigation principale">
         <button class="nav-link active" data-tab="home">Accueil</button>
         <button class="nav-link" data-tab="models">Modèles</button>
+        <button class="nav-link" data-tab="auto">Auto</button>
         <button class="nav-link" data-tab="pricing">Tarifs</button>
         <button class="nav-link" data-tab="connect">Intégrer</button>
         <button class="nav-link" data-tab="usage">Journaux</button>
@@ -86,10 +87,76 @@
         <div class="model-row" data-cat="value" data-provider="xiaomi" data-name="mimo v2.5 xiaomi"><div class="model-identity"><span class="model-logo"><img src="assets/logos/xiaomi.svg" alt="Xiaomi" loading="lazy"></span><div><strong>MiMo v2.5</strong><small>Xiaomi · efficace · texte</small></div></div><span class="price-cell ours"><b>$0.12</b><del>$0.14</del></span><span class="price-cell ours"><b>$0.24</b><del>$0.28</del></span><span class="ctx-cell">1M</span><span class="discount">−14%</span></div>
         <div class="model-row" data-cat="frontier" data-provider="xiaomi" data-name="mimo v2.5 pro xiaomi"><div class="model-identity"><span class="model-logo"><img src="assets/logos/xiaomi.svg" alt="Xiaomi" loading="lazy"></span><div><strong>MiMo v2.5 Pro</strong><small>Xiaomi · efficace · texte</small></div></div><span class="price-cell ours"><b>$0.37</b><del>$0.43</del></span><span class="price-cell ours"><b>$0.74</b><del>$0.87</del></span><span class="ctx-cell">1M</span><span class="discount">−14%</span></div>
       </div>
-      <div class="catalog-note"><span>✦</span><div><strong>Le choix automatique est inclus.</strong><p>Si vous ne savez pas quel modèle utiliser, envoyez simplement <code>model: auto</code> — le routeur choisit, préserve votre cache et facture au réel.</p></div><button class="inline-link" onclick="switchTab('docs')">Lire la doc →</button></div>
+      <div class="catalog-note"><span>✦</span><div><strong>Le choix automatique est inclus.</strong><p>Si vous ne savez pas quel modèle utiliser, envoyez simplement <code>model: auto</code> — le routeur choisit, préserve votre cache et facture au réel.</p></div><button class="inline-link" onclick="switchTab('auto')">Tout sur le mode auto →</button></div>
     </section>
 
-        <section id="tab-pricing" class="tab-pane">
+        <section id="tab-auto" class="tab-pane">
+      <div class="page-intro"><span class="section-kicker">Mode automatique</span><h1>Le bon modèle,<br><em>automatiquement.</em></h1><p>Envoyez <code>model: "auto"</code> et le routeur fait le reste : à chaque requête, il choisit le modèle vivant le moins cher, protège le cache de vos conversations et garde vos échanges stables. Voici exactement comment il décide.</p></div>
+
+      <div class="router-panel">
+        <div class="router-panel-head"><div><span class="section-kicker">Le routeur</span><h3>Le parcours d’une requête</h3></div><span class="router-live" id="router-live-state"><i></i> vérification…</span></div>
+        <p class="router-lead">Vous envoyez <code>model: auto</code>. Le routeur interroge le marché, écarte les canaux fragiles, retient le moins cher puis colle au modèle de votre conversation — pour préserver votre cache, message après message.</p>
+                <div class="router-steps">
+          <div><span>01</span><b>Marché interrogé</b><p>Prix moyens pondérés sur 30 jours — un pic instantané ne suffit pas à faire basculer une décision.</p></div>
+          <div><span>02</span><b>Fiabilité filtrée</b><p>Un canal qui échoue est mis de côté le temps de se rétablir : vos requêtes ne s’en aperçoivent jamais.</p></div>
+          <div><span>03</span><b>Cache vérifié</b><p>Pour un vrai contexte, seuls les modèles avec cache restent en lice — et le cache annoncé doit être réellement servi.</p></div>
+          <div><span>04</span><b>Conversation stable</b><p>Même clé, même conversation : le routeur garde le même modèle tant que le cache reste chaud.</p></div>
+        </div>
+        <div class="router-metrics"><div><b id="router-metric-source">—</b><span>source de décision</span></div><div><b id="router-metric-models">—</b><span>canaux suivis</span></div><div><b id="router-metric-age">—</b><span>fraîcheur des données</span></div><div><b>2 h</b><span>stabilité de conversation</span></div></div>
+                <div class="auto-mix">
+          <div class="auto-mix-head"><div><span class="section-kicker">Mode auto</span><h3>Modèles servis ces dernières 24 h</h3></div><span class="auto-mix-total" id="automix-total">chargement…</span></div>
+          <div class="auto-mix-body">
+            <div class="auto-mix-donut"><svg id="automix-donut" viewBox="0 0 120 120" role="img" aria-label="Répartition des modèles servis sur 24 heures"></svg><div class="auto-mix-center"><b id="automix-count">—</b><span>requêtes</span></div></div>
+            <div class="auto-mix-legend" id="automix-legend"><span class="auto-mix-hint">Le routeur publie ici la répartition réelle des modèles qu’il a servis en mode auto.</span></div>
+          </div>
+        </div>
+
+        <p class="router-foot">Aucun nom de fournisseur amont n’est exposé : le routeur publie seulement le modèle servi. <button class="inline-link" onclick="switchTab('docs')">API et intégration →</button></p>
+      </div>
+      <div class="section-head"><span class="section-kicker">Les règles de décision</span><h2>Tout ce que le routeur regarde</h2><p>Six principes, appliqués à chaque requête — sans exception.</p></div>
+      <div class="auto-grid">
+        <article class="feature-card"><span class="feature-number">01</span><div><h3>Le prix d’abord</h3><p>Chaque requête part vers l’option la moins chère compatible. Un modèle plus cher ne gagne que si le moins cher est dégradé ou inadapté.</p></div></article>
+        <article class="feature-card"><span class="feature-number">02</span><div><h3>Le cache compte double</h3><p>Dès qu’une requête porte un vrai contexte, seuls les modèles avec cache restent en lice. Et un cache annoncé mais jamais servi sort du classement.</p></div></article>
+        <article class="feature-card"><span class="feature-number">03</span><div><h3>Vos conversations tiennent</h3><p>Même clé, même conversation : le modèle reste en place tant que le cache est chaud. Il ne change que si c’est réellement à votre avantage.</p></div></article>
+        <article class="feature-card"><span class="feature-number">04</span><div><h3>Rien ne casse</h3><p>Un canal qui échoue passe en quarantaine et la requête repart aussitôt sur un autre. Vous recevez votre réponse sans changer une ligne.</p></div></article>
+        <article class="feature-card"><span class="feature-number">05</span><div><h3>Vision incluse</h3><p>Envoyez des images : le routeur dirige automatiquement la requête vers un modèle capable de les lire.</p></div></article>
+        <article class="feature-card"><span class="feature-number">06</span><div><h3>Facturé au token réel</h3><p>Vous payez l’usage exact — entrée, sortie, lectures de cache — au prix public du modèle qui a répondu. Le modèle servi apparaît dans vos journaux.</p></div></article>
+      </div>
+
+      <div class="section-head"><span class="section-kicker">Intégration</span><h2>Une valeur, et c’est tout</h2><p>Le mode auto s’utilise comme n’importe quel modèle : remplacez simplement l’identifiant par <code>auto</code>.</p></div>
+      <div class="auto-code-grid">
+        <div class="code-panel"><div class="code-panel-head"><span>cURL</span><button onclick="copyBlock(this)">Copier</button></div><pre><code>curl https://smartapi.cheap/v1/chat/completions \
+  -H "Authorization: Bearer sk-sm-VOTRE_CLE" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "auto", "messages": [{"role": "user", "content": "Bonjour !"}]}'</code></pre></div>
+        <div class="code-panel"><div class="code-panel-head"><span>Python — SDK OpenAI</span><button onclick="copyBlock(this)">Copier</button></div><pre><code>from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://smartapi.cheap/v1",
+    api_key="sk-sm-VOTRE_CLE",
+)
+rep = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Bonjour !"}],
+)
+print(rep.choices[0].message.content)</code></pre></div>
+      </div>
+      <p class="auto-code-note">Pour épingler un modèle précis, remplacez <code>"auto"</code> par l’identifiant exact d’un modèle du catalogue — <button class="inline-link" onclick="switchTab('models')">voir les modèles →</button></p>
+
+      <div class="section-head"><span class="section-kicker">Questions fréquentes</span><h2>Ce qu’on nous demande le plus</h2></div>
+      <div class="auto-faq">
+        <details><summary>Puis-je forcer un modèle précis ?</summary><p>Oui — remplacez <code>"auto"</code> par l’identifiant exact d’un modèle du catalogue. Le mode auto n’est jamais obligatoire : c’est le réglage par défaut qui convient à la plupart des usages.</p></details>
+        <details><summary>Mon modèle peut-il changer en pleine conversation ?</summary><p>Jamais par surprise. Tant que votre conversation reste chaude, elle garde son modèle : le routeur ne change que si l’économie dépasse la perte de cache — et il privilégie alors le même fournisseur pour récupérer le cache le plus proche.</p></details>
+        <details><summary>Que se passe-t-il si un canal tombe ?</summary><p>La requête est automatiquement retentée ailleurs, dans la seconde. Vous ne changez rien, vous ne voyez rien — au pire quelques instants de plus.</p></details>
+        <details><summary>Qu’est-ce que le cache change pour moi ?</summary><p>Beaucoup : sur une longue conversation, l’essentiel du contexte est relu depuis le cache à un tarif très inférieur à l’entrée classique. C’est exactement pour ça que le routeur s’attache à garder le même modèle d’un message à l’autre.</p></details>
+        <details><summary>Et si j’envoie des images ?</summary><p>Elles sont prises en charge : la requête est dirigée automatiquement vers un modèle de vision vivant.</p></details>
+        <details><summary>Combien coûte une requête auto ?</summary><p>Le prix public du modèle qui a répondu, facturé au token réel — entrée, sortie et lectures de cache. Chaque requête apparaît dans vos journaux avec le modèle servi et son coût exact.</p></details>
+      </div>
+
+      <div class="final-cta"><div><span class="section-kicker">Prêt quand vous l’êtes</span><h2>Une clé,<br>et le routeur travaille.</h2></div><button class="primary-button" onclick="openAuth('signup')">Créer mon espace <span>↗</span></button></div>
+    </section>
+
+    <section id="tab-pricing" class="tab-pane">
       <div class="page-intro centered"><span class="section-kicker">Comment ça marche</span><h1>Vous payez $10.<br><em>Vous recevez $20 de crédit d’usage.</em></h1><p>Nos forfaits ne vendent aucun accès fermé : ils créditent votre compte pour consommer des APIs <strong>déjà en promotion</strong>. Chaque requête puise dans votre crédit au prix réel du marché — jusqu’à −99 % du prix officiel de l’éditeur.</p></div>
       <div class="pricing-grid">
         <article class="price-card">
@@ -117,26 +184,7 @@
       <div class="pricing-footnote"><strong>Ce n’est pas un abonnement à un seul service.</strong><span>Votre crédit fonctionne sur des APIs dont les prix sont déjà en promotion — votre solde dure donc bien plus longtemps qu’au prix officiel. Activation par code pendant le lancement.</span></div></section>
 
     <section id="tab-connect" class="tab-pane"><div class="page-intro"><span class="section-kicker">Intégration</span><h1>Branchez-vous<br><em>en quelques minutes.</em></h1><p>Une base URL, une clé et vos outils habituels continuent de fonctionner.</p></div><div class="connect-layout"><div class="connect-main"><div class="code-panel"><div class="code-panel-head"><span>Terminal</span><button onclick="copyCli()">Copier</button></div><pre><code>curl -fsSL https://smartapi.cheap/connect.sh | sh</code></pre></div><div class="compat-grid"><div><b>Claude Code</b><span>Configuration automatique</span></div><div><b>Codex CLI</b><span>Configuration automatique</span></div><div><b>Cursor</b><span>Configuration guidée</span></div><div><b>OpenCode</b><span>Compatible nativement</span></div></div></div><aside class="connect-aside"><span class="aside-icon">⌘</span><h3>Compatible OpenAI</h3><p>Conservez vos bibliothèques et changez uniquement la base URL.</p><code>https://smartapi.cheap/v1</code><button class="inline-link" onclick="switchTab('docs')">Voir la documentation →</button></aside></div>
-      <div class="router-panel">
-        <div class="router-panel-head"><div><span class="section-kicker">Le routeur</span><h3>Comment Smart API Cheap choisit votre modèle</h3></div><span class="router-live" id="router-live-state"><i></i> vérification…</span></div>
-        <p class="router-lead">Vous envoyez <code>model: auto</code>. Le routeur consulte le marché, élimine les canaux fragiles, garde le moins cher et conserve le même canal tant qu’il reste fiable — pour préserver votre cache.</p>
-        <div class="router-steps">
-          <div><span>01</span><b>Marché consulté</b><p>Prix moyens pondérés sur 30 jours, pas un pic instantané.</p></div>
-          <div><span>02</span><b>Fiabilité filtrée</b><p>Un canal qui échoue aux heures creuses est écarté.</p></div>
-          <div><span>03</span><b>Cache préservé</b><p>Le canal élu reste en place jusqu’à 6 h : vos conversations coûtent moins.</p></div>
-          <div><span>04</span><b>Usage facturé au réel</b><p>Les tokens servis depuis le cache vous sont facturés bien moins cher.</p></div>
-        </div>
-        <div class="router-metrics"><div><b id="router-metric-source">—</b><span>source de décision</span></div><div><b id="router-metric-models">—</b><span>canaux suivis</span></div><div><b id="router-metric-age">—</b><span>fraîcheur des données</span></div><div><b>6 h</b><span>rétention du canal</span></div></div>
-                <div class="auto-mix">
-          <div class="auto-mix-head"><div><span class="section-kicker">Mode auto</span><h3>Modèles servis ces dernières 24 h</h3></div><span class="auto-mix-total" id="automix-total">chargement…</span></div>
-          <div class="auto-mix-body">
-            <div class="auto-mix-donut"><svg id="automix-donut" viewBox="0 0 120 120" role="img" aria-label="Répartition des modèles servis sur 24 heures"></svg><div class="auto-mix-center"><b id="automix-count">—</b><span>requêtes</span></div></div>
-            <div class="auto-mix-legend" id="automix-legend"><span class="auto-mix-hint">Le routeur publie ici la répartition réelle des modèles qu’il a servis en mode auto.</span></div>
-          </div>
-        </div>
-
-        <p class="router-foot">Aucun nom de fournisseur amont n’est exposé : le routeur publie seulement le modèle servi. <button class="inline-link" onclick="switchTab('docs')">API et intégration →</button></p>
-      </div>
+      <div class="catalog-note"><span>✦</span><div><strong>Comment le modèle est-il choisi ?</strong><p>Prix, cache, stabilité de conversation : le routeur explique tout dans le détail.</p></div><button class="inline-link" onclick="switchTab('auto')">Comprendre le mode auto →</button></div>
     </section>
 
     <section id="tab-chat" class="tab-pane"><div class="workspace-head"><div><span class="section-kicker">Espace de travail</span><h1>Chat Smart API Cheap</h1><p>Une interface légère pour tester votre clé et vos prompts.</p></div><button class="secondary-button" onclick="switchTab('console')">Gérer mes clés →</button></div><div class="chat-shell"><div class="chat-head"><span class="status-dot"></span><strong>Auto routing</strong><span>cache-first · modèle choisi automatiquement</span></div><div id="chat-messages" class="chat-messages"><div class="chat-empty"><div class="empty-orb">✦</div><h2>Que voulez-vous construire ?</h2><p>Écrivez un message pour commencer.</p></div></div><form id="chat-form" class="chat-form"><input id="chat-input" placeholder="Écrivez votre message…" autocomplete="off"><button>↑</button></form></div></section>
@@ -148,7 +196,7 @@
     <section id="tab-docs" class="tab-pane"><div class="page-intro"><span class="section-kicker">Documentation</span><h1>Une API claire,<br><em>des intégrations durables.</em></h1><p>Smart API Cheap suit le format OpenAI. Vous pouvez utiliser vos clients et SDK habituels.</p></div><div class="docs-grid"><article><span>01</span><h3>Base URL</h3><code>https://smartapi.cheap/v1</code><p>Remplacez l’URL de votre fournisseur actuel.</p></article><article><span>02</span><h3>Authentification</h3><code>Authorization: Bearer sk-sm-...</code><p>Votre clé reste privée et n’est affichée qu’à sa création.</p></article><article><span>03</span><h3>Modèle automatique</h3><code>{ model: "auto" }</code><p>Laissez le routeur sélectionner le meilleur modèle vivant.</p></article></div></section>
   </main>
 
-  <footer class="site-footer"><div><a class="brand" href="#" onclick="switchTab('home');return false"><span class="brand-mark">s</span><span>Smart&nbsp;API&nbsp;<i class="brand-cheap">Cheap</i></span></a><p>Une API plus simple pour les modèles qui comptent.</p></div><div class="footer-links"><button onclick="switchTab('models')">Modèles</button><button onclick="switchTab('pricing')">Tarifs</button><button onclick="switchTab('docs')">Docs</button><button onclick="switchTab('connect')">Intégrer</button></div><small>© 2026 Smart API Cheap</small></footer>
+  <footer class="site-footer"><div><a class="brand" href="#" onclick="switchTab('home');return false"><span class="brand-mark">s</span><span>Smart&nbsp;API&nbsp;<i class="brand-cheap">Cheap</i></span></a><p>Une API plus simple pour les modèles qui comptent.</p></div><div class="footer-links"><button onclick="switchTab('models')">Modèles</button><button onclick="switchTab('auto')">Auto</button><button onclick="switchTab('pricing')">Tarifs</button><button onclick="switchTab('docs')">Docs</button><button onclick="switchTab('connect')">Intégrer</button></div><small>© 2026 Smart API Cheap</small></footer>
 </div>
 
 <div class="auth-modal" id="auth-modal" style="display:none"><div class="auth-card"><button class="modal-close" onclick="closeAuth()">×</button><div class="auth-brand"><span class="brand-mark">s</span> Smart API Cheap</div><div class="auth-heading"><span class="section-kicker">Votre espace</span><h2 id="auth-title">Bienvenue.</h2><p id="auth-subtitle">Connectez-vous pour retrouver votre console.</p></div><div class="auth-switch"><button id="tab-auth-signin" class="active" onclick="setAuthMode('login')">Connexion</button><button id="tab-auth-signup" onclick="setAuthMode('signup')">Créer un compte</button></div><div class="oauth-buttons"><button id="btn-oauth-google"><b>G</b> Continuer avec Google</button><button id="btn-oauth-github"><b>◖</b> Continuer avec GitHub</button></div><div id="oauth-note" class="form-error" hidden></div><div class="or-divider"><span>ou avec votre email</span></div><form id="form-auth"><label>Email<input type="email" id="auth-email" class="form-input" placeholder="vous@exemple.com" required></label><label>Mot de passe<input type="password" id="auth-password" class="form-input" placeholder="10 caractères minimum" minlength="10" required></label><div id="auth-error" class="form-error" hidden></div><button type="submit" class="primary-button full" id="btn-auth-submit">Se connecter</button></form><p class="auth-legal">En continuant, vous acceptez les conditions de Smart API Cheap.</p></div></div>
