@@ -77,4 +77,4 @@
 .auto-faq details[open] summary::after{content:'–'}
 .auto-faq details p{margin:0;padding:0 20px 16px;color:var(--muted)}
 @media(max-width:980px){.auto-grid{grid-template-columns:1fr 1fr}.auto-code-grid{grid-template-columns:1fr}}
-@media(max-width:760px){.auto-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.auto-grid{grid-template-columns:1fr}.router-steps{grid-template-columns:1fr}}
