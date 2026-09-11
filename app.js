@@ -45,4 +45,17 @@ function initChat(){ $('chat-form').onsubmit=e=>{e.preventDefault();const input=
 function initPlayground(){ $('btn-run-playground').onclick=async()=>{const prompt=$('play-user-prompt').value.trim();if(!prompt)return;let key=sessionStorage.getItem('qh_play_key');if(!key){key=promptForKey();if(!key)return;sessionStorage.setItem('qh_play_key',key);}const meta=$('response-meta'),out=$('playground-output');meta.textContent='Routage en cours…';out.textContent='';const t=performance.now();try{const r=await fetch('/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},body:JSON.stringify({model:'auto',messages:[{role:'user',content:prompt}],max_tokens:400})});const j=await r.json();meta.textContent=`${r.status} · ${((performance.now()-t)/1000).toFixed(1)} s`;out.textContent=r.ok?(j.choices?.[0]?.message?.content||'Réponse vide'):(j.error?.message||'Erreur');if(APP_STATE.me)refreshMe();}catch(e){meta.textContent='Erreur réseau';out.textContent=e.message;}};}
 function promptForKey(){return window.prompt('Votre clé Quota.Hub (sk-qh-…)');}
 function initRedeem(){ $('btn-redeem').onclick=async()=>{const msg=$('redeem-msg'),r=await apiCall('/api/redeem',{body:{code:$('redeem-input').value.trim().toUpperCase()}});msg.hidden=false;msg.textContent=r.status===200?'Crédit activé ✓':(r.data.error?.message||'Code invalide');msg.className=r.status===200?'success-message':'form-error';if(r.status===200){$('redeem-input').value='';refreshMe();}};}
-document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.nav-link').forEach(x=>x.onclick=()=>switchTab(x.dataset.tab));initAuth();initKeyCreation();initChat();initPlayground();initRedeem();const menu=$('mobile-menu-toggle'),nav=$('main-nav');menu.onclick=()=>{const open=nav.classList.toggle('open');menu.setAttribute('aria-expanded',open);menu.textContent=open?'×':'☰';};nav.querySelectorAll('.nav-link').forEach(x=>x.addEventListener('click',()=>{nav.classList.remove('open');menu.setAttribute('aria-expanded','false');menu.textContent='☰';}));if(APP_STATE.session)refreshMe();});
+function initRouterStatus(){
+  const dot=$('router-live-state'), src=$('router-metric-source'), mdl=$('router-metric-models'), age=$('router-metric-age');
+  const badge=document.querySelector('.live-badge');
+  fetch(API+'/health').then(r=>r.ok?r.json():null).then(d=>{
+    const m=d&&d.market30; if(!m) throw new Error('etat indisponible');
+    const minutes=Math.max(0,Math.round((m.age_s||0)/60));
+    if(src)src.textContent=m.src==='moy30'?'Marché 30 jours':'Marché instantané';
+    if(mdl)mdl.textContent=String(m.models||0);
+    if(age)age.textContent=minutes<=1?'à l’instant':minutes+' min';
+    if(dot){dot.classList.add('ok');dot.innerHTML='<i></i> routeur actif';}
+    if(badge)badge.innerHTML='<b></b> routeur actif';
+  }).catch(()=>{ if(dot){dot.classList.add('ko');dot.textContent='état indisponible';} if(badge)badge.innerHTML='<b></b> routeur'; });
+}
+document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.nav-link').forEach(x=>x.onclick=()=>switchTab(x.dataset.tab));initAuth();initKeyCreation();initChat();initPlayground();initRedeem();initRouterStatus();const menu=$('mobile-menu-toggle'),nav=$('main-nav');menu.onclick=()=>{const open=nav.classList.toggle('open');menu.setAttribute('aria-expanded',open);menu.textContent=open?'×':'☰';};nav.querySelectorAll('.nav-link').forEach(x=>x.addEventListener('click',()=>{nav.classList.remove('open');menu.setAttribute('aria-expanded','false');menu.textContent='☰';}));if(APP_STATE.session)refreshMe();});
