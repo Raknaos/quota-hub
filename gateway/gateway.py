@@ -125,12 +125,14 @@ CONV = {}                  # (key_id, sig) -> {'model','supplier','ts','tin','to
 CONV_LOCK = threading.Lock()
 
 def conv_signature(payload):
-    """Empreinte stable d'une conversation : début des messages (system tronqué
-    + premiers messages distinctifs). Une conversation qui s'allonge garde la
-    même empreinte, donc le même pin."""
+    """Empreinte stable d'une conversation : le system (tronqué) + le PREMIER
+    message non-system. Ces éléments existent dès le premier tour et ne changent
+    jamais quand la conversation s'allonge -> toute la vie de la conversation
+    partage la même empreinte (donc le même pin de modèle)."""
     msgs = payload.get('messages') or []
     parts = []
-    for m in msgs[:4]:
+    anchored = False
+    for m in msgs:
         if not isinstance(m, dict):
             continue
         role = str(m.get('role') or '')
@@ -138,12 +140,15 @@ def conv_signature(payload):
         if isinstance(cont, list):
             cont = ''.join(str(x.get('text') or '') for x in cont if isinstance(x, dict))
         cont = str(cont or '')
-        cont = cont[:256] if role == 'system' else cont[:1536]
-        if cont:
-            parts.append(role + ':' + cont)
-        if len(parts) >= 3:
+        if role == 'system':
+            if cont:
+                parts.append('system:' + cont[:256])
+            continue
+        if cont:                     # premier message non-system : l'ancre
+            parts.append(role + ':' + cont[:1536])
+            anchored = True
             break
-    if not parts:
+    if not anchored or not parts:
         return ''
     return hashlib.sha1('\n'.join(parts).encode('utf-8', 'ignore')).hexdigest()[:16]
 
