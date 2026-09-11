@@ -8,14 +8,14 @@ les boutons affichent « connexion Google/GitHub non configurée » (503). Parco
 2. (Si première fois) **Écran de consentement** : type *Externe*, nom « Quota.Hub »,
    e-mail d'assistance, enregistrer. Laisser en mode test ou publier — les deux marchent.
 3. **Créer des identifiants → ID client OAuth → Application Web**
-   - Origine JavaScript autorisée : `https://quota-hub.vercel.app`
-   - **URI de redirection autorisé** : `https://quota-hub.vercel.app/gw/api/auth/oauth/callback/google`
+   - Origine JavaScript autorisée : `https://smartapi.cheap`
+   - **URI de redirection autorisé** : `https://smartapi.cheap/gw/api/auth/oauth/callback/google`
 4. Récupérer **Client ID** + **Client secret**.
 
 ## 2. GitHub (2 min)
 1. https://github.com/settings/developers → **New OAuth App**
-   - Homepage URL : `https://quota-hub.vercel.app`
-   - **Authorization callback URL** : `https://quota-hub.vercel.app/gw/api/auth/oauth/callback/github`
+   - Homepage URL : `https://smartapi.cheap`
+   - **Authorization callback URL** : `https://smartapi.cheap/gw/api/auth/oauth/callback/github`
 2. Récupérer **Client ID** + **Client secret**.
 
 ## 3. Renseigner sur la passerelle (.66) — saisie locale, jamais dans un chat
@@ -29,8 +29,8 @@ QH_GITHUB_CLIENT_SECRET=...
 puis `systemctl restart quota-hub`.
 
 Optionnel (domaine custom plus tard) :
-`QH_FRONT_URL=https://quota-hub.vercel.app` et
-`QH_OAUTH_CB_BASE=https://quota-hub.vercel.app/gw/api/auth/oauth/callback/`.
+`QH_FRONT_URL=https://smartapi.cheap` et
+`QH_OAUTH_CB_BASE=https://smartapi.cheap/gw/api/auth/oauth/callback/`.
 
 ## Comportement
 - `GET /api/auth/oauth/start?provider=google|github` → `{url}` (state anti-CSRF, TTL 10 min, usage unique).
