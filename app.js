@@ -94,7 +94,7 @@ function initAutoMix(){
     if(count) count.textContent=String(totalN);
     if(total) total.textContent=totalN.toLocaleString('fr-FR')+' requêtes';
     const CUTS=modelCuts();
-    if(legend) legend.innerHTML=items.map((it,i)=>{const cut=CUTS[String(it.model||'').trim().toLowerCase().replace(/[\s_]+/g,'-')];return `<div class="auto-mix-item"><i style="background:${COLORS[i%COLORS.length]}"></i><span>${escapeHtml(it.model)}</span>${cut?`<em class="auto-mix-cut">${escapeHtml(cut)}</em>`:''}<b>${Math.round(100*it.n/totalN)}%</b></div>`;}).join('');
+    if(legend) legend.innerHTML=items.map((it,i)=>{const meta=CUTS[String(it.model||'').trim().toLowerCase().replace(/[\s_]+/g,'-')]||{};return `<div class="auto-mix-item"><i style="background:${COLORS[i%COLORS.length]}"></i><span>${escapeHtml(it.model)}</span>${meta.price?`<em class="auto-mix-price">${escapeHtml(meta.price)}</em>`:''}${meta.cut?`<em class="auto-mix-cut">${escapeHtml(meta.cut)}</em>`:''}<b>${Math.round(100*it.n/totalN)}%</b></div>`;}).join('');
   }).catch(()=>{ if(total) total.textContent='indisponible'; });
 }
 
