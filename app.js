@@ -56,7 +56,7 @@ function initRouterStatus(){
   fetch(API+'/health').then(r=>r.ok?r.json():null).then(d=>{
     const m=d&&d.market30; if(!m) throw new Error('etat indisponible');
     const minutes=Math.max(0,Math.round((m.age_s||0)/60));
-    if(src)src.textContent=m.src==='moy30'?'Marché 30 jours':'Marché instantané';
+    if(src)src.textContent=m.src==='moy30'?'30 j':'24 h';
     if(mdl)mdl.textContent=String(m.models||0);
     if(age)age.textContent=minutes<=1?'à l’instant':minutes+' min';
     if(dot){dot.classList.add('ok');dot.innerHTML='<i></i> routeur actif';}
