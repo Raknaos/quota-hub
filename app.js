@@ -64,6 +64,16 @@ function initRouterStatus(){
   }).catch(()=>{ if(dot){dot.classList.add('ko');dot.textContent='état indisponible';} if(badge)badge.innerHTML='<b></b> routeur'; });
 }
 
+function modelCuts(){
+  const m={};
+  document.querySelectorAll('.model-row').forEach(r=>{
+    const s=r.querySelector('.model-identity strong'),d=r.querySelector('.discount');
+    if(!s||!d)return;
+    m[s.textContent.trim().toLowerCase().replace(/[\s_]+/g,'-')]=d.textContent.trim();
+  });
+  return m;
+}
+
 function initAutoMix(){
   const svg=$('automix-donut'), legend=$('automix-legend'), total=$('automix-total'), count=$('automix-count');
   if(!svg) return;
@@ -83,7 +93,8 @@ function initAutoMix(){
     svg.innerHTML=segs;
     if(count) count.textContent=String(totalN);
     if(total) total.textContent=totalN.toLocaleString('fr-FR')+' requêtes';
-    if(legend) legend.innerHTML=items.map((it,i)=>`<div class="auto-mix-item"><i style="background:${COLORS[i%COLORS.length]}"></i><span>${escapeHtml(it.model)}</span><b>${Math.round(100*it.n/totalN)}%</b></div>`).join('');
+    const CUTS=modelCuts();
+    if(legend) legend.innerHTML=items.map((it,i)=>{const cut=CUTS[String(it.model||'').trim().toLowerCase().replace(/[\s_]+/g,'-')];return `<div class="auto-mix-item"><i style="background:${COLORS[i%COLORS.length]}"></i><span>${escapeHtml(it.model)}</span>${cut?`<em class="auto-mix-cut">${escapeHtml(cut)}</em>`:''}<b>${Math.round(100*it.n/totalN)}%</b></div>`;}).join('');
   }).catch(()=>{ if(total) total.textContent='indisponible'; });
 }
 
