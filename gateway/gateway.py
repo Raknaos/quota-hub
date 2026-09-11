@@ -112,6 +112,53 @@ MKT30 = {'d': None, 'ts': 0.0, 'busy': False}   # vue marché 30 j (worker local
 COOLDOWN = {}
 COOLDOWN_PATH = os.path.join(DIR, 'cooldowns.json')
 
+# ── Pins par conversation (V3 multi-utilisateurs) ───────────────────────────
+# Le pin historique était GLOBAL (un seul modèle élu pour tout le service) :
+# dès qu'il y a plusieurs clients, chaque conversation cassait le cache des
+# autres. V3 : l'état de routage vit PAR CLÉ API ET PAR CONVERSATION — chaque
+# client garde SA conversation sur SON modèle tant que le cache chaud le
+# justifie ; une conversation neuve part directement sur le moins cher.
+CONV_TTL = 7200            # s — durée de vie d'un pin de conversation (2 h d'activité)
+CONV_SWITCH_MARGIN = 0.15  # casser une conv chaude exige ≥15 % de gain réel
+CONV_MAX = 20000           # borne mémoire : prune TTL + LRU au-delà
+CONV = {}                  # (key_id, sig) -> {'model','supplier','ts','tin','tout','cached'}
+CONV_LOCK = threading.Lock()
+
+def conv_signature(payload):
+    """Empreinte stable d'une conversation : début des messages (system tronqué
+    + premiers messages distinctifs). Une conversation qui s'allonge garde la
+    même empreinte, donc le même pin."""
+    msgs = payload.get('messages') or []
+    parts = []
+    for m in msgs[:4]:
+        if not isinstance(m, dict):
+            continue
+        role = str(m.get('role') or '')
+        cont = m.get('content')
+        if isinstance(cont, list):
+            cont = ''.join(str(x.get('text') or '') for x in cont if isinstance(x, dict))
+        cont = str(cont or '')
+        cont = cont[:256] if role == 'system' else cont[:1536]
+        if cont:
+            parts.append(role + ':' + cont)
+        if len(parts) >= 3:
+            break
+    if not parts:
+        return ''
+    return hashlib.sha1('\n'.join(parts).encode('utf-8', 'ignore')).hexdigest()[:16]
+
+def conv_prune():
+    """Borne mémoire des pins de conversation : purge TTL puis LRU (jamais
+    appelée avec CONV_LOCK déjà pris)."""
+    now = time.time()
+    with CONV_LOCK:
+        dead = [k for k, v in CONV.items() if now - (v.get('ts') or 0) > CONV_TTL * 3]
+        for k in dead:
+            CONV.pop(k, None)
+        if len(CONV) > CONV_MAX:
+            for k, _v in sorted(CONV.items(), key=lambda kv: kv[1].get('ts') or 0)[:len(CONV) - CONV_MAX]:
+                CONV.pop(k, None)
+
 def cooldowns_save():
     try:
         with LOCK:
@@ -390,10 +437,12 @@ def on_failure(model_id, msg):
         COOLDOWN[model_id] = (now + dur, (msg or '')[:60])
     cooldowns_save()
 
-def pick_model(models):
-    """Choix cache-first : 1) même modèle qu'avant (cache) dans l'hystérésis 15 % ;
-    2) sinon même FOURNISSEUR qu'avant sur un autre modèle (cache partiel) tant que
-    le surcoût reste < 25 % ; 3) sinon le moins cher espéré.
+def pick_model(models, ctx=None):
+    """Choix cache-first MULTI-UTILISATEURS (V3) : le pin vit PAR CLÉ API ET
+    PAR CONVERSATION (ctx = {'key_id', 'sig'}). Tant que la conversation est
+    chaude, on garde son modèle sauf si le gain réel dépasse la perte de cache
+    estimée (marge CONV_SWITCH_MARGIN) ; une conversation neuve part au moins
+    cher. Sans contexte (appels internes), repli sur le pin global historique.
 
     Coût espéré : moyenne 30 j pondérée temps du worker local quand elle est
     disponible (stable, insensible aux pics), sinon marché instantané 24 h."""
@@ -424,10 +473,38 @@ def pick_model(models):
         return None, None
     cand.sort(key=lambda x: x[0])
     best_cost = cand[0][0]
-    # 1) pin modèle (hystérésis + RETENUE MINIMALE : le cache de prompts vaut plus
-    #    qu'un gain de quelques pourcents ; pendant PIN_MIN_HOLD_S seule une
-    #    alternative ≥ PIN_SWITCH_PCT moins chère fait tourner le routeur)
-    if PIN.get('model'):
+    # 1) PIN PAR CONVERSATION (V3) : chaque clé API garde SA conversation sur SON
+    #    modèle tant que le cache chaud vaut plus que le gain d'une bascule. Le
+    #    calcul oppose « rester » (la part cachée du contexte est au prix
+    #    cache_read) à « switcher » (tout au prix plein, cache froid).
+    if ctx and ctx.get('sig') and ctx.get('key_id') is not None:
+        st = None
+        with CONV_LOCK:
+            st = CONV.get((ctx['key_id'], ctx['sig']))
+        if st and time.time() - (st.get('ts') or 0) > CONV_TTL:
+            st = None
+        if st and st.get('model'):
+            hit = next((x for x in cand if x[1] == st['model']), None)
+            if hit is not None:
+                curb = hit[2]
+                tin = max(int(st.get('tin') or 0), 0)
+                tcas = min(int(st.get('cached') or 0), tin)
+                tout = max(int(st.get('tout') or 0), 0)
+                rester = ((tin - tcas) * curb.get('in', 0) + tcas * curb.get('cache_read', curb.get('in', 0))
+                          + tout * curb.get('out', 0))
+                newb = cand[0][2]
+                switcher = tin * newb.get('in', 0) + tout * newb.get('out', 0)
+                if tin <= 0 or switcher > rester * (1.0 - CONV_SWITCH_MARGIN):
+                    cand.sort(key=lambda x: 0 if x[1] == st['model'] else 1)
+                    return cand[0][1], cand
+                # bascule justifiée : préférer un modèle du MÊME fournisseur
+                # (cache amont rattaché au supplier) si le surcoût ≤ +25 %.
+                ps = next((x for x in cand if x[1] != st['model']
+                           and x[2].get('supplier') == st.get('supplier')), None)
+                if ps is not None and ps[0] <= best_cost * 1.25:
+                    cand.sort(key=lambda x: 0 if x[1] == ps[1] else 1)
+                    return cand[0][1], cand
+    if not (ctx and ctx.get('sig')) and PIN.get('model'):
         pc = next((c for c, m, _ in cand if m == PIN['model']), None)
         if pc is not None:
             marge = HYSTERESIS
@@ -441,8 +518,8 @@ def pick_model(models):
                         PIN['since'] = time.time()
                     PIN['model'] = cand[0][1]
                 return cand[0][1], cand
-    # 2) pin fournisseur (cache amont rattaché au supplier) tolérance 25 %
-    if PIN.get('supplier'):
+    # 2) pin fournisseur global (appels sans contexte de conversation)
+    if not (ctx and ctx.get('sig')) and PIN.get('supplier'):
         ps = next((t for t, m, b in cand if b.get('supplier') == PIN['supplier']), None)
         if ps is not None and ps <= best_cost * 1.25:
             with LOCK:
@@ -458,7 +535,7 @@ def pick_model(models):
         PIN['supplier'] = cand[0][2].get('supplier')
     return cand[0][1], cand
 
-def wait_or_last_resort(models):
+def wait_or_last_resort(models, ctx=None):
     """ANTI-503 (repris du routeur v2.2.3) : « tous les canaux en cooldown » n'est
     PAS une panne. Un 503 instantané tue le tour entier d'un agent (rapport, tâche
     longue). On attend donc la fin du cooldown le plus proche (borné par
@@ -477,7 +554,7 @@ def wait_or_last_resort(models):
             break
         log(f'ATTENTE cooldown {round(soon, 1)}s avant nouvel essai (anti-503)')
         time.sleep(min(max(soon, 0.5), 3.0))
-        m, c = pick_model(models)
+        m, c = pick_model(models, ctx)
         if m:
             return m, c
     lr = []
@@ -536,6 +613,7 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
     NOTE stream : l'amont est TOUJOURS interrogé en stream:false — la réponse
     JSON complète garantit une facturation exacte (usage réel) et un échec
     propre. Si le client demande stream:true, le handler re-sérialise en SSE."""
+    ctx = {'key_id': key_id, 'sig': conv_signature(payload)}
     requested = payload.get('model')
     body = dict(payload)
     body['stream'] = False
@@ -564,11 +642,11 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
     models = [GEMINI_MODEL] if plan == 'gemini' else pool
     last_err = None
     for attempt in range(3):
-        model_id, cand = pick_model(models)
+        model_id, cand = pick_model(models, ctx)
         chosen = cand[0][2] if cand else None
         if not model_id and attempt == 0:
             # anti-503 : attente bornée du cooldown le plus proche, puis dernier recours
-            model_id, cand = wait_or_last_resort(models)
+            model_id, cand = wait_or_last_resort(models, ctx)
             chosen = cand[0][2] if cand else None
         if not model_id:
             return None, (503, {'error': {'message': 'aucun canal disponible (cooldowns ou marché inaccessible)',
@@ -614,6 +692,16 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         with LOCK:
             PIN['model'] = model_id
             PIN['supplier'] = b.get('supplier')
+        # V3 : on mémorise le pin de CETTE conversation (par clé API) pour que
+        # les requêtes suivantes restent sur le même modèle tant que le cache
+        # chaud vaut plus qu'une bascule. Nouvelle conversation = nouvel état.
+        if ctx.get('key_id') is not None and ctx.get('sig'):
+            with CONV_LOCK:
+                CONV[(ctx['key_id'], ctx['sig'])] = {
+                    'model': model_id, 'supplier': b.get('supplier'),
+                    'ts': time.time(), 'tin': int(tin), 'tout': int(tout),
+                    'cached': int(cached)}
+            conv_prune()
         return data, None, tin, tout, {'model': model_id, 'supplier': b.get('supplier'),
                                        'best': b, 'est': est, 'plan': plan,
                                        'requested': requested, 'cached': cached}
@@ -1227,6 +1315,54 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(401, {'error': {'message': 'session absente ou expirée'}})
             status, obj = me(uid)
             return self._json(status, obj)
+        if path == '/api/usage':
+            # JOURNAUX du client : ses dernières requêtes + totaux 30 j (par jour,
+            # par modèle) + totaux globaux. Jamais de nom de canal amont exposé.
+            if not check_sig(self.headers, path, b''):
+                return self._json(403, {'error': {'message': 'signature invalide'}})
+            uid = session_user(self.headers.get('X-QH-Session', ''))
+            if not uid:
+                return self._json(401, {'error': {'message': 'session absente ou expirée'}})
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            try:
+                limit = max(1, min(200, int((q.get('limit') or ['50'])[0])))
+            except Exception:
+                limit = 50
+            try:
+                c = db()
+                rows = c.execute(
+                    'SELECT id, plan, model_served, model_requested, prompt_tokens, '
+                    'completion_tokens, tokens, cost_amont_usd, created_at FROM usage_logs '
+                    'WHERE user_id=? ORDER BY id DESC LIMIT ?', (uid, limit)).fetchall()
+                since = int(time.time()) - 30 * 86400
+                per_day = c.execute(
+                    "SELECT date(created_at,'unixepoch') d, COUNT(*) n, SUM(tokens) tok, "
+                    "SUM(cost_amont_usd) cost FROM usage_logs WHERE user_id=? AND created_at>=? "
+                    "GROUP BY d ORDER BY d", (uid, since)).fetchall()
+                per_model = c.execute(
+                    'SELECT model_served, COUNT(*) n, SUM(tokens) tok FROM usage_logs '
+                    'WHERE user_id=? AND created_at>=? GROUP BY model_served '
+                    'ORDER BY tok DESC LIMIT 12', (uid, since)).fetchall()
+                tot = c.execute(
+                    'SELECT COUNT(*) n, COALESCE(SUM(tokens),0) tok, '
+                    'COALESCE(SUM(cost_amont_usd),0) cost FROM usage_logs WHERE user_id=?',
+                    (uid,)).fetchone()
+                c.close()
+            except Exception as ex:
+                return self._json(500, {'error': {'message': f'journaux indisponibles: {str(ex)[:60]}'}})
+            return self._json(200, {
+                'ok': True,
+                'totals': {'requests': tot['n'], 'tokens': int(tot['tok']),
+                           'cost_usd': round(tot['cost'] or 0, 6)},
+                'rows': [{'id': r['id'], 'plan': r['plan'], 'model': r['model_served'],
+                          'requested': r['model_requested'], 'in': int(r['prompt_tokens'] or 0),
+                          'out': int(r['completion_tokens'] or 0), 'tokens': int(r['tokens'] or 0),
+                          'cost_usd': round(r['cost_amont_usd'] or 0, 6),
+                          'ts': int(r['created_at'] or 0)} for r in rows],
+                'per_day': [{'d': r['d'], 'n': r['n'], 'tokens': int(r['tok'] or 0),
+                             'cost_usd': round(r['cost'] or 0, 6)} for r in per_day],
+                'per_model': [{'model': r['model_served'], 'n': r['n'], 'tokens': int(r['tok'] or 0)}
+                              for r in per_model]})
         if path == '/admin/stats':
             if self.client_address[0] != '127.0.0.1':
                 return self._json(403, {'error': {'message': 'loopback uniquement'}})
@@ -1320,6 +1456,19 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(404, {'error': {'message': 'not found'}})
         self._json(status, obj)
 
+def refresh_loop():
+    """Le routeur rafraîchit le marché LUI-MÊME (jamais dans le chemin d'une
+    requête) et le partage à tous les clients : toutes les MARKET_TTL (20 min),
+    re-warm du marché instantané + de la vue 30 j. Les requêtes lisent ensuite
+    le snapshot — zéro vérification de prix par requête ou par utilisateur."""
+    while True:
+        time.sleep(MARKET_TTL)
+        try:
+            warm_market()
+        except Exception as e:
+            log(f'REFRESH marché: {str(e)[:80]}')
+
+
 def main():
     if not SESSION_SEC:
         raise SystemExit('QH_SESSION_SECRET requis (.env)')
@@ -1329,6 +1478,7 @@ def main():
     migrate_oauth()
     cooldowns_load()
     warm_market()
+    threading.Thread(target=refresh_loop, daemon=True).start()
     srv = ThreadingHTTPServer(('0.0.0.0', PORT), Handler)
     srv.daemon_threads = True
     cert_p, key_p = os.environ.get('QH_TLS_CERT', ''), os.environ.get('QH_TLS_KEY', '')
