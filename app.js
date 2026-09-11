@@ -1,4 +1,4 @@
-/* Quota.Hub — interface client, sans état fictif */
+/* SmartAPI — interface client, sans état fictif */
 const API = '/gw';
 const APP_STATE = { session: sessionStorage.getItem('qh_session') || '', me: null, keys: [], currentTab: 'home' };
 const $ = id => document.getElementById(id);
@@ -12,7 +12,7 @@ async function apiCall(path, opts = {}) {
     const data = await res.json().catch(() => ({error:{message:'Réponse serveur invalide'}}));
     if (loader) { loader.style.width = '100%'; setTimeout(() => { loader.style.opacity='0'; loader.style.width='0'; }, 220); }
     return {status:res.status, data};
-  } catch (_) { if (loader) loader.style.opacity='0'; return {status:500,data:{error:{message:'Impossible de joindre Quota.Hub'}}}; }
+  } catch (_) { if (loader) loader.style.opacity='0'; return {status:500,data:{error:{message:'Impossible de joindre SmartAPI'}}}; }
 }
 window.switchTab = function(tab) {
   document.querySelectorAll('.nav-link').forEach(x => x.classList.toggle('active', x.dataset.tab === tab));
@@ -43,7 +43,7 @@ window.copyCli=()=>{navigator.clipboard.writeText('curl -fsSL https://quota-hub.
 async function sendChatMessage(text){const box=$('chat-messages');box.querySelector('.chat-empty')?.remove();const u=document.createElement('div');u.className='chat-bubble chat-user';u.textContent=text;box.appendChild(u);const a=document.createElement('div');a.className='chat-bubble chat-assistant';a.textContent=APP_STATE.me?'Créez une clé dans Console pour lancer une requête réelle.':'Connectez-vous puis créez une clé API pour lancer une requête réelle.';box.appendChild(a);}
 function initChat(){ $('chat-form').onsubmit=e=>{e.preventDefault();const input=$('chat-input'),text=input.value.trim();if(text)sendChatMessage(text);input.value='';}; }
 function initPlayground(){ $('btn-run-playground').onclick=async()=>{const prompt=$('play-user-prompt').value.trim();if(!prompt)return;let key=sessionStorage.getItem('qh_play_key');if(!key){key=promptForKey();if(!key)return;sessionStorage.setItem('qh_play_key',key);}const meta=$('response-meta'),out=$('playground-output');meta.textContent='Routage en cours…';out.textContent='';const t=performance.now();try{const r=await fetch('/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},body:JSON.stringify({model:'auto',messages:[{role:'user',content:prompt}],max_tokens:400})});const j=await r.json();meta.textContent=`${r.status} · ${((performance.now()-t)/1000).toFixed(1)} s`;out.textContent=r.ok?(j.choices?.[0]?.message?.content||'Réponse vide'):(j.error?.message||'Erreur');if(APP_STATE.me)refreshMe();}catch(e){meta.textContent='Erreur réseau';out.textContent=e.message;}};}
-function promptForKey(){return window.prompt('Votre clé Quota.Hub (sk-qh-…)');}
+function promptForKey(){return window.prompt('Votre clé SmartAPI (sk-sm-…)');}
 function initRedeem(){ $('btn-redeem').onclick=async()=>{const msg=$('redeem-msg'),r=await apiCall('/api/redeem',{body:{code:$('redeem-input').value.trim().toUpperCase()}});msg.hidden=false;msg.textContent=r.status===200?'Crédit activé ✓':(r.data.error?.message||'Code invalide');msg.className=r.status===200?'success-message':'form-error';if(r.status===200){$('redeem-input').value='';refreshMe();}};}
 function initRouterStatus(){
   const dot=$('router-live-state'), src=$('router-metric-source'), mdl=$('router-metric-models'), age=$('router-metric-age');

@@ -679,7 +679,7 @@ def verify_pw(password, stored):
     return hmac.compare_digest(hash_pw(password, salt), stored)
 
 def new_api_key():
-    raw = 'sk-qh-' + secrets.token_hex(20)
+    raw = 'sk-sm-' + secrets.token_hex(20)
     return raw, hashlib.sha256(raw.encode()).hexdigest(), raw[:10]
 
 REGISTER_HITS = {}   # ip -> [ts]
@@ -842,7 +842,7 @@ def revoke_key(uid, key_id):
 
 def redeem(uid, payload):
     code = (payload.get('code') or '').strip().upper()
-    if not re.fullmatch(r'QH-[0-9A-F]{8}-[0-9A-F]{8}', code):
+    if not re.fullmatch(r'(?:QH|SM)-[0-9A-F]{8}-[0-9A-F]{8}', code):
         return err(400, 'format de code invalide')
     ch = hashlib.sha256(code.encode()).hexdigest()
     c = db()
@@ -866,8 +866,8 @@ def redeem(uid, payload):
     return 200, {'status': 'ok', 'plan': plan, 'subscription': sub}
 
 def api_chat(auth_header, payload, ip):
-    """Le cœur : clé sk-qh-* -> abonnement -> routage auto -> metering réel."""
-    if not auth_header.startswith('Bearer sk-qh-'):
+    """Le cœur : clé sk-sm-*/sk-qh-* -> abonnement -> routage auto -> metering réel."""
+    if not (auth_header.startswith('Bearer sk-qh-') or auth_header.startswith('Bearer sk-sm-')):
         return err(401, 'clé API manquante (Authorization: Bearer sk-qh-…)', 'auth_error', 'authentication_error')
     raw = auth_header.replace('Bearer ', '').strip()
     kh = hashlib.sha256(raw.encode()).hexdigest()
@@ -1082,7 +1082,7 @@ def admin_codes(admin_token, payload):
     out = []
     c = db()
     for _ in range(count):
-        code = 'QH-' + secrets.token_hex(4).upper() + '-' + secrets.token_hex(4).upper()
+        code = 'SM-' + secrets.token_hex(4).upper() + '-' + secrets.token_hex(4).upper()
         c.execute('INSERT INTO codes(code_hash,tokens,plan,created_at) VALUES(?,?,?,?)',
                   (hashlib.sha256(code.encode()).hexdigest(), tokens, plan, int(time.time())))
         out.append(code)
