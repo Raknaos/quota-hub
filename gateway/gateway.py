@@ -124,6 +124,26 @@ CONV_MAX = 20000           # borne mémoire : prune TTL + LRU au-delà
 CONV = {}                  # (key_id, sig) -> {'model','supplier','ts','tin','tout','cached'}
 CONV_LOCK = threading.Lock()
 
+# ── Cache prompt : critère INDISPENSABLE du choix (11-09) ───────────────────
+# Certains canaux amont ne proposent PAS de cache prompt. Sans cache, chaque tour
+# d'une conversation repaie l'input au prix plein (au lieu de ~0,1x) : le coût
+# réel explose. Dès qu'une requête porte un vrai contexte, les canaux sans cache
+# sont écartés du choix tant qu'un canal cache-capable existe dans le pool.
+CACHE_MIN_TOKENS = 1500    # taille de prompt au-delà de laquelle le cache pèse vraiment
+
+def has_cache(b):
+    """Le canal propose-t-il un VRAI cache prompt ? (remise cache_read effective
+    ou hit constaté ≥ 30 %)."""
+    cr = b.get('cache_read') or 0
+    i = b.get('in') or 0
+    hit = b.get('cache24') or 0
+    if cr > 0 and i > 0 and cr <= 0.5 * i:
+        return True
+    try:
+        return float(hit) >= 30
+    except Exception:
+        return False
+
 def conv_signature(payload):
     """Empreinte stable d'une conversation : le system (tronqué) + le PREMIER
     message non-system. Ces éléments existent dès le premier tour et ne changent
@@ -476,6 +496,15 @@ def pick_model(models, ctx=None):
         cand.append(((eff_in + b['out']) / 2 / success, m, b))
     if not cand:
         return None, None
+    # CACHE INDISPENSABLE (11-09) : pour une requête qui porte un vrai contexte,
+    # on écarte les canaux SANS cache prompt tant qu'un canal cache-capable
+    # existe. Sans cache, chaque tour repaie l'input plein : le prix affiché
+    # ment. Les petites requêtes (one-shot) gardent le classement par prix pur.
+    tin_need = int((ctx or {}).get('tin_est') or 0)
+    if tin_need >= CACHE_MIN_TOKENS:
+        with_cache = [x for x in cand if has_cache(x[2])]
+        if with_cache:
+            cand = with_cache
     cand.sort(key=lambda x: x[0])
     best_cost = cand[0][0]
     # 1) PIN PAR CONVERSATION (V3) : chaque clé API garde SA conversation sur SON
@@ -618,7 +647,11 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
     NOTE stream : l'amont est TOUJOURS interrogé en stream:false — la réponse
     JSON complète garantit une facturation exacte (usage réel) et un échec
     propre. Si le client demande stream:true, le handler re-sérialise en SSE."""
-    ctx = {'key_id': key_id, 'sig': conv_signature(payload)}
+    try:
+        _est_tok = len(json.dumps(payload.get('messages') or [])) // 4
+    except Exception:
+        _est_tok = 0
+    ctx = {'key_id': key_id, 'sig': conv_signature(payload), 'tin_est': _est_tok}
     requested = payload.get('model')
     body = dict(payload)
     body['stream'] = False

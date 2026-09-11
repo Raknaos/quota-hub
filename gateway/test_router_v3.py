@@ -119,5 +119,20 @@ time.sleep(0.30)
 gw.warm_market, gw.MARKET_TTL = _orig_warm, _orig_ttl
 check('refresh_loop rafraîchit périodiquement (sans requête client)', len(calls) >= 2, True)
 
+# 11-13) CACHE INDISPENSABLE : un canal sans cache prompt est écarté dès que la
+#        requête porte un vrai contexte ET qu'un canal cache-capable existe.
+SIM[M1].update(BASE[M1])                                # M1 redevient 1.5 (cache OK)
+SIM[M2]['cache_read'] = SIM[M2]['in']                   # M2 moins cher MAIS sans cache
+SIM[M2]['cache24'] = 0
+gw.CONV.clear()
+m, _ = gw.pick_model(MODELS, ctx={'key_id': 3, 'sig': 'conv-cache', 'tin_est': 5000})
+check('grand contexte -> canal cache-capable préféré (m3)', m, M3)
+m, _ = gw.pick_model(MODELS, ctx={'key_id': 3, 'sig': 'conv-one', 'tin_est': 200})
+check('one-shot -> prix seul (m2 sans cache accepté)', m, M2)
+SIM[M1]['cache_read'] = SIM[M1]['in']; SIM[M1]['cache24'] = 0
+SIM[M3]['cache_read'] = SIM[M3]['in']; SIM[M3]['cache24'] = 0
+m, _ = gw.pick_model(MODELS, ctx={'key_id': 3, 'sig': 'conv-none', 'tin_est': 5000})
+check('aucun cache dans le pool -> meilleur prix quand même', m, M2)
+
 print('RESULTAT:', 'TOUT VERT' if ok else 'ECHEC')
 sys.exit(0 if ok else 1)
