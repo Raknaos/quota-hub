@@ -17,3 +17,8 @@ node_modules/
 .vercel/
 __pycache__/
 *.pyc
+
+# scripts sensibles / temporaires
+_check_domains*.py
+_cdp_*.mjs
+gateway/set_oauth.sh
