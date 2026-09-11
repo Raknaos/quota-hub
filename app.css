@@ -100,9 +100,9 @@ body{display:flex;flex-direction:column;min-height:100vh}
 .docs-endpoints{margin-top:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.045);overflow:hidden}
 .docs-endpoints .code-panel-head{border-bottom:0}
 .ep{display:flex;align-items:center;gap:16px;padding:14px 17px;border-top:1px solid var(--line)}
-.ep code{color:var(--cyan);font:12px monospace;white-space:nowrap;flex:none}
+.ep code{color:var(--cyan);font:12px monospace;white-space:nowrap;flex:none;width:285px}
 .ep span{color:var(--muted);font-size:12px}
 .oauth-buttons button{padding:11px 10px;font-size:12px;gap:9px}
 .oauth-buttons svg{width:16px;height:16px;flex:none}
 input::placeholder,textarea::placeholder{color:#8ba0c0;opacity:1}
-@media(max-width:760px){.connect-steps{grid-template-columns:1fr}.ep{flex-direction:column;align-items:flex-start;gap:6px}.ep code{white-space:normal}}
+@media(max-width:760px){.connect-steps{grid-template-columns:1fr}.ep{flex-direction:column;align-items:flex-start;gap:6px}.ep code{white-space:normal;width:auto}}
