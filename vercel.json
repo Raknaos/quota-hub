@@ -5,6 +5,7 @@
     "api/gw.js": { "maxDuration": 120 }
   },
   "rewrites": [
+    { "source": "/api/auto-mix", "destination": "/api/gw?path=api/auto-mix" },
     { "source": "/gw/:path*", "destination": "/api/gw?path=:path*" },
     { "source": "/v1/:path*", "destination": "/api/gw?path=v1/:path*" }
   ]
