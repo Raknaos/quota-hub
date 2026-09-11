@@ -1232,6 +1232,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403, {'error': {'message': 'loopback uniquement'}})
             status, obj = admin_stats(self.headers.get('X-Admin-Token', ''))
             return self._json(status, obj)
+        if path == '/api/auto-mix':
+            # Répartition publique des modèles servis par le mode auto sur 24 h.
+            # Agrégée (% par modèle), sans aucune donnée client ni nom de canal amont.
+            try:
+                c = db()
+                since = int(time.time()) - 86400
+                rows = c.execute(
+                    "SELECT model_served, COUNT(*) n FROM usage_logs "
+                    "WHERE created_at>=? AND model_served IS NOT NULL AND model_served!='' "
+                    "GROUP BY model_served ORDER BY n DESC LIMIT 12", (since,)).fetchall()
+                total = sum((r[1] or 0) for r in rows)
+            except Exception:
+                rows, total = [], 0
+            return self._json(200, {'ok': True, 'window_s': 86400, 'total': total,
+                                    'mix': [{'model': r[0], 'n': r[1]} for r in rows]})
         if path == '/v1/models':
             # compat SDK OpenAI : la liste exposée est le pool auto (le client ne choisit pas)
             return self._json(200, {'object': 'list', 'data': [
