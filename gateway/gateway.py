@@ -927,8 +927,8 @@ def api_chat(auth_header, payload, ip):
 # Le callback est public (le navigateur revient de Google/GitHub sans HMAC) ;
 # le state (anti-CSRF) est stocké en mémoire, TTL 10 min, usage unique.
 OAUTH_CB_BASE = os.environ.get('QH_OAUTH_CB_BASE',
-    'https://quota-hub.vercel.app/gw/api/auth/oauth/callback/')
-FRONT_URL = os.environ.get('QH_FRONT_URL', 'https://quota-hub.vercel.app').rstrip('/')
+    'https://smartapi.cheap/gw/api/auth/oauth/callback/')
+FRONT_URL = os.environ.get('QH_FRONT_URL', 'https://smartapi.cheap').rstrip('/')
 GOOGLE_CID = os.environ.get('QH_GOOGLE_CLIENT_ID', '')
 GOOGLE_CSEC = os.environ.get('QH_GOOGLE_CLIENT_SECRET', '')
 GITHUB_CID = os.environ.get('QH_GITHUB_CLIENT_ID', '')
@@ -1173,7 +1173,7 @@ class Handler(BaseHTTPRequestHandler):
         # le front appelle son propre domaine (/gw/* via Vercel) : préflights gérés là-bas.
         # CORS minimal : autoriser GET/POST/DELETE sans exposer les en-têtes internes.
         self.send_response(204)
-        self.send_header('Access-Control-Allow-Origin', 'https://quota-hub.vercel.app')
+        self.send_header('Access-Control-Allow-Origin', 'https://smartapi.cheap')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-QH-Session')
         self.send_header('Content-Length', '0')
