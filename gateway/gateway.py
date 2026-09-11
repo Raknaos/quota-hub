@@ -702,7 +702,7 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         if isinstance(msg0.get('content'), str):
             content = msg0['content'].strip()
         finish = c0.get('finish_reason')
-        if not content and finish == 'length':
+        if not content and not (msg0.get('tool_calls')) and finish == 'length':
             # réponse vide tronquée par le raisonnement : inutilisable pour le client
             log(f'GW essai {attempt+1} {model_id}: reponse vide (length), canal ecarte')
             on_failure(model_id, 'reponse vide (length)')
@@ -1271,22 +1271,31 @@ class Handler(BaseHTTPRequestHandler):
         c0 = (obj.get('choices') or [{}])[0]
         msg = c0.get('message') or {}
         full = msg.get('content') or ''
-        reason = c0.get('finish_reason') or ('stop' if full else 'stop')
+        tool_calls = msg.get('tool_calls') or []
+        finish = c0.get('finish_reason') or ('tool_calls' if tool_calls else 'stop')
         def chunk(delta, fr=None, idx=0):
             ev = dict(base)
             ev['choices'] = [{'index': idx, 'delta': delta, 'finish_reason': fr}]
             return ('data: ' + json.dumps(ev, ensure_ascii=False) + '\n\n').encode()
         parts = []
-        role_sent = False
         if msg.get('role'):
             parts.append(chunk({'role': msg['role']}, None))
-            role_sent = True
         # découpe du contenu en morceaux lisibles (phrases <= 512 chars)
         import re as _re
         toks = _re.findall(r'.{1,512}(?:\s|$)', full) or ([full] if full else [])
         for t in toks:
             parts.append(chunk({'content': t}, None))
-        parts.append(chunk({}, 'stop'))  # dernier chunk : delta vide + finish_reason
+        # appels d'outils (function calling) : SANS eux le flux paraît vide quand
+        # le modèle appelle un outil au lieu de répondre (content souvent '').
+        for i, tc in enumerate(tool_calls):
+            f = tc.get('function') or {}
+            parts.append(chunk({'tool_calls': [{
+                'index': i,
+                'id': tc.get('id') or f'call_qh{i}',
+                'type': tc.get('type') or 'function',
+                'function': {'name': f.get('name') or '',
+                             'arguments': f.get('arguments') or ''}}]}, None))
+        parts.append(chunk({}, finish))  # dernier chunk : delta vide + finish_reason réel
         payload = b''.join(parts) + b'data: [DONE]\n\n'
         self.send_response(200)
         self.send_header('Content-Type', 'text/event-stream')
