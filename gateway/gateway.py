@@ -1248,9 +1248,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {'ok': True, 'window_s': 86400, 'total': total,
                                     'mix': [{'model': r[0], 'n': r[1]} for r in rows]})
         if path == '/v1/models':
-            # compat SDK OpenAI : la liste exposée est le pool auto (le client ne choisit pas)
+            # compat SDK OpenAI : 'auto' (routeur) en tête, puis le pool exposé
             return self._json(200, {'object': 'list', 'data': [
-                {'id': m, 'object': 'model', 'owned_by': 'quota-hub'} for m in MODELS]
+                {'id': 'auto', 'object': 'model', 'owned_by': 'quota-hub'}]
+                + [{'id': m, 'object': 'model', 'owned_by': 'quota-hub'} for m in MODELS]
                 + [{'id': GEMINI_MODEL, 'object': 'model', 'owned_by': 'quota-hub-gemini'}]})
         self._json(404, {'error': {'message': 'not found'}})
 
