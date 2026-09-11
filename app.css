@@ -37,8 +37,10 @@
 .auto-mix-item i{width:10px;height:10px;border-radius:3px;flex:none}
 .auto-mix-item span{color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .auto-mix-cut{flex:none;color:var(--success);font-size:11px;font-weight:600;border:1px solid rgba(110,240,176,.35);background:rgba(110,240,176,.08);border-radius:999px;padding:2px 8px;font-style:normal}
+.auto-mix-price{flex:none;color:var(--muted);font-size:11.5px;font-weight:500;font-style:normal}
 .auto-mix-item b{margin-left:auto;color:var(--muted);font-weight:600;font-size:12px;flex:none}
 .auto-mix-hint{color:var(--muted);font-size:12.5px;line-height:1.6}
+.router-foot .inline-link{margin-left:8px}
 @media(max-width:760px){.models-list-head,.model-row{min-width:860px}.model-logo{width:30px;height:30px}.model-logo img{width:15px;height:15px}.credit-amount{font-size:46px}.price-line em{margin-left:0}.auto-mix-donut{width:160px;height:160px}.auto-mix-donut svg{width:160px;height:160px}.auto-mix-legend{grid-template-columns:1fr}}
 
 /* ============ journaux (11-09) ============ */

@@ -93,69 +93,116 @@
         <section id="tab-auto" class="tab-pane">
       <div class="page-intro"><span class="section-kicker">Mode automatique</span><h1>Le bon modèle,<br><em>automatiquement.</em></h1><p>Envoyez <code>model: "auto"</code> et le routeur fait le reste : à chaque requête, il choisit le modèle vivant le moins cher, protège le cache de vos conversations et garde vos échanges stables. Voici exactement comment il décide.</p></div>
 
-      <div class="router-panel">
-        <div class="router-panel-head"><div><span class="section-kicker">Le routeur</span><h3>Le parcours d’une requête</h3></div><span class="router-live" id="router-live-state"><i></i> vérification…</span></div>
-        <p class="router-lead">Vous envoyez <code>model: auto</code>. Le routeur interroge le marché, écarte les canaux fragiles, retient le moins cher puis colle au modèle de votre conversation — pour préserver votre cache, message après message.</p>
-                <div class="router-steps">
-          <div><span>01</span><b>Marché interrogé</b><p>Prix moyens pondérés sur 30 jours — un pic instantané ne suffit pas à faire basculer une décision.</p></div>
-          <div><span>02</span><b>Fiabilité filtrée</b><p>Un canal qui échoue est mis de côté le temps de se rétablir : vos requêtes ne s’en aperçoivent jamais.</p></div>
-          <div><span>03</span><b>Cache vérifié</b><p>Pour un vrai contexte, seuls les modèles avec cache restent en lice — et le cache annoncé doit être réellement servi.</p></div>
-          <div><span>04</span><b>Conversation stable</b><p>Même clé, même conversation : le routeur garde le même modèle tant que le cache reste chaud.</p></div>
-        </div>
-        <div class="router-metrics"><div><b id="router-metric-source">—</b><span>source de décision</span></div><div><b id="router-metric-models">—</b><span>canaux suivis</span></div><div><b id="router-metric-age">—</b><span>fraîcheur des données</span></div><div><b>2 h</b><span>stabilité de conversation</span></div></div>
-                <div class="auto-mix">
-          <div class="auto-mix-head"><div><span class="section-kicker">Mode auto</span><h3>Modèles servis ces dernières 24 h</h3></div><span class="auto-mix-total" id="automix-total">chargement…</span></div>
-          <div class="auto-mix-body">
-            <div class="auto-mix-donut"><svg id="automix-donut" viewBox="0 0 120 120" role="img" aria-label="Répartition des modèles servis sur 24 heures"></svg><div class="auto-mix-center"><b id="automix-count">—</b><span>requêtes</span></div></div>
-            <div class="auto-mix-legend" id="automix-legend"><span class="auto-mix-hint">Le routeur publie ici la répartition réelle des modèles qu’il a servis en mode auto.</span></div>
-          </div>
-        </div>
-
-        <p class="router-foot">Aucun nom de fournisseur amont n’est exposé : le routeur publie seulement le modèle servi. <button class="inline-link" onclick="switchTab('docs')">API et intégration →</button></p>
-      </div>
-      <div class="section-head"><span class="section-kicker">Les règles de décision</span><h2>Tout ce que le routeur regarde</h2><p>Six principes, appliqués à chaque requête — sans exception.</p></div>
-      <div class="auto-grid">
-        <article class="feature-card"><span class="feature-number">01</span><div><h3>Le prix d’abord</h3><p>Chaque requête part vers l’option la moins chère compatible. Un modèle plus cher ne gagne que si le moins cher est dégradé ou inadapté.</p></div></article>
-        <article class="feature-card"><span class="feature-number">02</span><div><h3>Le cache compte double</h3><p>Dès qu’une requête porte un vrai contexte, seuls les modèles avec cache restent en lice. Et un cache annoncé mais jamais servi sort du classement.</p></div></article>
-        <article class="feature-card"><span class="feature-number">03</span><div><h3>Vos conversations tiennent</h3><p>Même clé, même conversation : le modèle reste en place tant que le cache est chaud. Il ne change que si c’est réellement à votre avantage.</p></div></article>
-        <article class="feature-card"><span class="feature-number">04</span><div><h3>Rien ne casse</h3><p>Un canal qui échoue passe en quarantaine et la requête repart aussitôt sur un autre. Vous recevez votre réponse sans changer une ligne.</p></div></article>
-        <article class="feature-card"><span class="feature-number">05</span><div><h3>Vision incluse</h3><p>Envoyez des images : le routeur dirige automatiquement la requête vers un modèle capable de les lire.</p></div></article>
-        <article class="feature-card"><span class="feature-number">06</span><div><h3>Facturé au token réel</h3><p>Vous payez l’usage exact — entrée, sortie, lectures de cache — au prix public du modèle qui a répondu. Le modèle servi apparaît dans vos journaux.</p></div></article>
-      </div>
-
-      <div class="section-head"><span class="section-kicker">Intégration</span><h2>Une valeur, et c’est tout</h2><p>Le mode auto s’utilise comme n’importe quel modèle : remplacez simplement l’identifiant par <code>auto</code>.</p></div>
-      <div class="auto-code-grid">
-        <div class="code-panel"><div class="code-panel-head"><span>cURL</span><button onclick="copyBlock(this)">Copier</button></div><pre><code>curl https://smartapi.cheap/v1/chat/completions \
-  -H "Authorization: Bearer sk-sm-VOTRE_CLE" \
-  -H "Content-Type: application/json" \
-  -d '{"model": "auto", "messages": [{"role": "user", "content": "Bonjour !"}]}'</code></pre></div>
-        <div class="code-panel"><div class="code-panel-head"><span>Python — SDK OpenAI</span><button onclick="copyBlock(this)">Copier</button></div><pre><code>from openai import OpenAI
-
-client = OpenAI(
-    base_url="https://smartapi.cheap/v1",
-    api_key="sk-sm-VOTRE_CLE",
-)
-rep = client.chat.completions.create(
-    model="auto",
-    messages=[{"role": "user", "content": "Bonjour !"}],
-)
-print(rep.choices[0].message.content)</code></pre></div>
-      </div>
-      <p class="auto-code-note">Pour épingler un modèle précis, remplacez <code>"auto"</code> par l’identifiant exact d’un modèle du catalogue — <button class="inline-link" onclick="switchTab('models')">voir les modèles →</button></p>
-
-      <div class="section-head"><span class="section-kicker">Questions fréquentes</span><h2>Ce qu’on nous demande le plus</h2></div>
-      <div class="auto-faq">
-        <details><summary>Puis-je forcer un modèle précis ?</summary><p>Oui — remplacez <code>"auto"</code> par l’identifiant exact d’un modèle du catalogue. Le mode auto n’est jamais obligatoire : c’est le réglage par défaut qui convient à la plupart des usages.</p></details>
-        <details><summary>Mon modèle peut-il changer en pleine conversation ?</summary><p>Jamais par surprise. Tant que votre conversation reste chaude, elle garde son modèle : le routeur ne change que si l’économie dépasse la perte de cache — et il privilégie alors le même fournisseur pour récupérer le cache le plus proche.</p></details>
-        <details><summary>Que se passe-t-il si un canal tombe ?</summary><p>La requête est automatiquement retentée ailleurs, dans la seconde. Vous ne changez rien, vous ne voyez rien — au pire quelques instants de plus.</p></details>
-        <details><summary>Qu’est-ce que le cache change pour moi ?</summary><p>Beaucoup : sur une longue conversation, l’essentiel du contexte est relu depuis le cache à un tarif très inférieur à l’entrée classique. C’est exactement pour ça que le routeur s’attache à garder le même modèle d’un message à l’autre.</p></details>
-        <details><summary>Et si j’envoie des images ?</summary><p>Elles sont prises en charge : la requête est dirigée automatiquement vers un modèle de vision vivant.</p></details>
-        <details><summary>Combien coûte une requête auto ?</summary><p>Le prix public du modèle qui a répondu, facturé au token réel — entrée, sortie et lectures de cache. Chaque requête apparaît dans vos journaux avec le modèle servi et son coût exact.</p></details>
-      </div>
-
-      <div class="final-cta"><div><span class="section-kicker">Prêt quand vous l’êtes</span><h2>Une clé,<br>et le routeur travaille.</h2></div><button class="primary-button" onclick="openAuth('signup')">Créer mon espace <span>↗</span></button></div>
-    </section>
-
+      <div class="router-panel">
+
+        <div class="router-panel-head"><div><span class="section-kicker">Le routeur</span><h3>Le parcours d’une requête</h3></div><span class="router-live" id="router-live-state"><i></i> vérification…</span></div>
+
+        <p class="router-lead">Vous envoyez <code>model: auto</code>. Le routeur interroge le marché, écarte les canaux fragiles, retient le moins cher puis colle au modèle de votre conversation — pour préserver votre cache, message après message.</p>
+
+                <div class="router-steps">
+
+          <div><span>01</span><b>Marché interrogé</b><p>Prix moyens pondérés sur 30 jours — un pic instantané ne suffit pas à faire basculer une décision.</p></div>
+
+          <div><span>02</span><b>Fiabilité filtrée</b><p>Un canal qui échoue est mis de côté le temps de se rétablir : vos requêtes ne s’en aperçoivent jamais.</p></div>
+
+          <div><span>03</span><b>Cache vérifié</b><p>Pour un vrai contexte, seuls les modèles avec cache restent en lice — et le cache annoncé doit être réellement servi.</p></div>
+
+          <div><span>04</span><b>Conversation stable</b><p>Même clé, même conversation : le routeur garde le même modèle tant que le cache reste chaud.</p></div>
+
+        </div>
+
+        <div class="router-metrics"><div><b id="router-metric-source">—</b><span>marché de référence</span></div><div><b id="router-metric-models">—</b><span>canaux suivis</span></div><div><b id="router-metric-age">—</b><span>fraîcheur des données</span></div><div><b>2 h</b><span>stabilité de conversation</span></div></div>
+
+                <div class="auto-mix">
+
+          <div class="auto-mix-head"><div><span class="section-kicker">Mode auto</span><h3>Modèles servis ces dernières 24 h</h3></div><span class="auto-mix-total" id="automix-total">chargement…</span></div>
+
+          <div class="auto-mix-body">
+
+            <div class="auto-mix-donut"><svg id="automix-donut" viewBox="0 0 120 120" role="img" aria-label="Répartition des modèles servis sur 24 heures"></svg><div class="auto-mix-center"><b id="automix-count">—</b><span>requêtes</span></div></div>
+
+            <div class="auto-mix-legend" id="automix-legend"><span class="auto-mix-hint">Le routeur publie ici la répartition réelle des modèles qu’il a servis en mode auto.</span></div>
+
+          </div>
+
+        </div>
+
+
+
+        <p class="router-foot">Aucun nom de fournisseur amont n’est exposé : le routeur publie seulement le modèle servi. <button class="inline-link" onclick="switchTab('docs')">API et intégration →</button></p>
+
+      </div>
+
+      <div class="section-head"><span class="section-kicker">Les règles de décision</span><h2>Tout ce que le routeur regarde</h2><p>Six principes, appliqués à chaque requête — sans exception.</p></div>
+
+      <div class="auto-grid">
+
+        <article class="feature-card"><span class="feature-number">01</span><div><h3>Le prix d’abord</h3><p>Chaque requête part vers l’option la moins chère compatible. Un modèle plus cher ne gagne que si le moins cher est dégradé ou inadapté.</p></div></article>
+
+        <article class="feature-card"><span class="feature-number">02</span><div><h3>Le cache compte double</h3><p>Dès qu’une requête porte un vrai contexte, seuls les modèles avec cache restent en lice. Et un cache annoncé mais jamais servi sort du classement.</p></div></article>
+
+        <article class="feature-card"><span class="feature-number">03</span><div><h3>Vos conversations tiennent</h3><p>Même clé, même conversation : le modèle reste en place tant que le cache est chaud. Il ne change que si c’est réellement à votre avantage.</p></div></article>
+
+        <article class="feature-card"><span class="feature-number">04</span><div><h3>Rien ne casse</h3><p>Un canal qui échoue passe en quarantaine et la requête repart aussitôt sur un autre. Vous recevez votre réponse sans changer une ligne.</p></div></article>
+
+        <article class="feature-card"><span class="feature-number">05</span><div><h3>Vision incluse</h3><p>Envoyez des images : le routeur dirige automatiquement la requête vers un modèle capable de les lire.</p></div></article>
+
+        <article class="feature-card"><span class="feature-number">06</span><div><h3>Facturé au token réel</h3><p>Vous payez l’usage exact — entrée, sortie, lectures de cache — au prix public du modèle qui a répondu. Le modèle servi apparaît dans vos journaux.</p></div></article>
+
+      </div>
+
+
+
+      <div class="section-head"><span class="section-kicker">Intégration</span><h2>Une valeur, et c’est tout</h2><p>Le mode auto s’utilise comme n’importe quel modèle : remplacez simplement l’identifiant par <code>auto</code>.</p></div>
+
+      <div class="auto-code-grid">
+
+        <div class="code-panel"><div class="code-panel-head"><span>cURL</span><button onclick="copyBlock(this)">Copier</button></div><pre><code>curl https://smartapi.cheap/v1/chat/completions \
+  -H "Authorization: Bearer sk-sm-VOTRE_CLE" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "auto", "messages": [{"role": "user", "content": "Bonjour !"}]}'</code></pre></div>
+
+        <div class="code-panel"><div class="code-panel-head"><span>Python — SDK OpenAI</span><button onclick="copyBlock(this)">Copier</button></div><pre><code>from openai import OpenAI
+
+client = OpenAI(base_url="https://smartapi.cheap/v1",
+                api_key="sk-sm-VOTRE_CLE")
+rep = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Bonjour !"}])
+print(rep.choices[0].message.content)</code></pre></div>
+
+      </div>
+
+      <p class="auto-code-note">Pour épingler un modèle précis, remplacez <code>"auto"</code> par l’identifiant exact d’un modèle du catalogue — <button class="inline-link" onclick="switchTab('models')">voir les modèles →</button></p>
+
+
+
+      <div class="section-head"><span class="section-kicker">Questions fréquentes</span><h2>Ce qu’on nous demande le plus</h2></div>
+
+      <div class="auto-faq">
+
+        <details><summary>Puis-je forcer un modèle précis ?</summary><p>Oui — remplacez <code>"auto"</code> par l’identifiant exact d’un modèle du catalogue. Le mode auto n’est jamais obligatoire : c’est le réglage par défaut qui convient à la plupart des usages.</p></details>
+
+        <details><summary>Mon modèle peut-il changer en pleine conversation ?</summary><p>Jamais par surprise. Tant que votre conversation reste chaude, elle garde son modèle : le routeur ne change que si l’économie dépasse la perte de cache — et il privilégie alors le même fournisseur pour récupérer le cache le plus proche.</p></details>
+
+        <details><summary>Que se passe-t-il si un canal tombe ?</summary><p>La requête est automatiquement retentée ailleurs, dans la seconde. Vous ne changez rien, vous ne voyez rien — au pire quelques instants de plus.</p></details>
+
+        <details><summary>Qu’est-ce que le cache change pour moi ?</summary><p>Beaucoup : sur une longue conversation, l’essentiel du contexte est relu depuis le cache à un tarif très inférieur à l’entrée classique. C’est exactement pour ça que le routeur s’attache à garder le même modèle d’un message à l’autre.</p></details>
+
+        <details><summary>Et si j’envoie des images ?</summary><p>Elles sont prises en charge : la requête est dirigée automatiquement vers un modèle de vision vivant.</p></details>
+
+        <details><summary>Combien coûte une requête auto ?</summary><p>Le prix public du modèle qui a répondu, facturé au token réel — entrée, sortie et lectures de cache. Chaque requête apparaît dans vos journaux avec le modèle servi et son coût exact.</p></details>
+
+      </div>
+
+
+
+      <div class="final-cta"><div><span class="section-kicker">Prêt quand vous l’êtes</span><h2>Une clé,<br>et le routeur travaille.</h2></div><button class="primary-button" onclick="openAuth('signup')">Créer mon espace <span>↗</span></button></div>
+
+    </section>
+
+
+
     <section id="tab-pricing" class="tab-pane">
       <div class="page-intro centered"><span class="section-kicker">Comment ça marche</span><h1>Vous payez $10.<br><em>Vous recevez $20 de crédit d’usage.</em></h1><p>Nos forfaits ne vendent aucun accès fermé : ils créditent votre compte pour consommer des APIs <strong>déjà en promotion</strong>. Chaque requête puise dans votre crédit au prix réel du marché — jusqu’à −99 % du prix officiel de l’éditeur.</p></div>
       <div class="pricing-grid">

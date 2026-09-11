@@ -67,9 +67,9 @@ function initRouterStatus(){
 function modelCuts(){
   const m={};
   document.querySelectorAll('.model-row').forEach(r=>{
-    const s=r.querySelector('.model-identity strong'),d=r.querySelector('.discount');
+    const s=r.querySelector('.model-identity strong'),d=r.querySelector('.discount'),p=r.querySelectorAll('.price-cell.ours b');
     if(!s||!d)return;
-    m[s.textContent.trim().toLowerCase().replace(/[\s_]+/g,'-')]=d.textContent.trim();
+    m[s.textContent.trim().toLowerCase().replace(/[\s_]+/g,'-')]={cut:d.textContent.trim(),price:(p.length>=2?p[0].textContent.trim()+' · '+p[1].textContent.trim()+' /M':'')};
   });
   return m;
 }
