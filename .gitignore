@@ -22,3 +22,5 @@ __pycache__/
 _check_domains*.py
 _cdp_*.mjs
 gateway/set_oauth.sh
+
+.env*
