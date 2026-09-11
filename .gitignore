@@ -24,3 +24,5 @@ _cdp_*.mjs
 gateway/set_oauth.sh
 
 .env*
+PROMPTS/
+*.bak-*

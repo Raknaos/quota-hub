@@ -84,7 +84,7 @@ function initAutoMix(){
       if(count) count.textContent='0';
       return;
     }
-    const COLORS=['#61a8ff','#9876ff','#5de5e1','#6ef0b0','#ffd479','#ff8d9d','#7fb2ff','#b78cff','#8ef0e8','#9ff7c8'];
+    const COLORS=['#5de5e1','#9876ff','#ffd479','#6ef0b0','#61a8ff','#ff8d9d','#8ef0e8','#b78cff','#7fb2ff','#9ff7c8'];
     const items=d.mix.slice(0,10), totalN=d.total, R=52, C=2*Math.PI*R;
     let acc=0, segs='';
     items.forEach((it,i)=>{ const frac=it.n/totalN, len=frac*C, col=COLORS[i%COLORS.length];
@@ -94,7 +94,9 @@ function initAutoMix(){
     if(count) count.textContent=String(totalN);
     if(total) total.textContent=totalN.toLocaleString('fr-FR')+' requêtes';
     const CUTS=modelCuts();
-    if(legend) legend.innerHTML=items.map((it,i)=>{const meta=CUTS[String(it.model||'').trim().toLowerCase().replace(/[\s_]+/g,'-')]||{};return `<div class="auto-mix-item"><i style="background:${COLORS[i%COLORS.length]}"></i><span>${escapeHtml(it.model)}</span>${meta.price?`<em class="auto-mix-price">${escapeHtml(meta.price)}</em>`:''}${meta.cut?`<em class="auto-mix-cut">${escapeHtml(meta.cut)}</em>`:''}<b>${Math.round(100*it.n/totalN)}%</b></div>`;}).join('');
+    const pcts=items.map(it=>Math.round(100*it.n/totalN));const ps=pcts.reduce((a,b)=>a+b,0);
+    if(pcts.length&&ps!==100)pcts[pcts.length-1]=Math.max(0,pcts[pcts.length-1]+100-ps);
+    if(legend) legend.innerHTML=items.map((it,i)=>{const meta=CUTS[String(it.model||'').trim().toLowerCase().replace(/[\s_]+/g,'-')]||{};return `<div class="auto-mix-item"><i style="background:${COLORS[i%COLORS.length]}"></i><span>${escapeHtml(it.model)}</span>${meta.price?`<em class="auto-mix-price">${escapeHtml(meta.price)}</em>`:''}${meta.cut?`<em class="auto-mix-cut">${escapeHtml(meta.cut)}</em>`:''}<b>${pcts[i]}%</b></div>`;}).join('');
   }).catch(()=>{ if(total) total.textContent='indisponible'; });
 }
 
@@ -115,7 +117,7 @@ async function loadUsage(){
   $('usage-chart').innerHTML = days.length ? days.map(x=>`<div class="usage-bar" title="${escapeHtml(x.d)} · ${nf(x.tokens)} tokens"><i style="height:${Math.max(3,Math.round(100*(x.tokens||0)/mx))}%"></i><span>${escapeHtml((x.d||'').slice(5))}</span></div>`).join('') : '<span class="auto-mix-hint">Aucune requête sur les 30 derniers jours.</span>';
   const rows=d.rows||[];
   $('usage-table-body').innerHTML = rows.length ? rows.map(x=>`<tr><td>${new Date((x.ts||0)*1000).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td><td><code>${escapeHtml(x.model)}</code></td><td>${nf(x.in)}</td><td>${nf(x.out)}</td><td><b>${nf(x.tokens)}</b></td><td>$${Number(x.cost_usd||0).toFixed(5)}</td></tr>`).join('') : '<tr><td colspan="6" class="empty-table">Aucune requête pour le moment — lancez-en une depuis le playground ou avec votre clé.</td></tr>';
-  const items=d.per_model||[], COLORS=['#61a8ff','#9876ff','#5de5e1','#6ef0b0','#ffd479','#ff8d9d','#7fb2ff','#b78cff','#8ef0e8','#9ff7c8'];
+  const items=d.per_model||[], COLORS=['#5de5e1','#9876ff','#ffd479','#6ef0b0','#61a8ff','#ff8d9d','#8ef0e8','#b78cff','#7fb2ff','#9ff7c8'];
   $('usage-models').innerHTML = items.length ? items.map((it,i)=>`<div class="usage-model-item"><i style="background:${COLORS[i%COLORS.length]}"></i><span>${escapeHtml(it.model)}</span><b>${nf(it.tokens)} tok · ${nf(it.n)} req</b></div>`).join('') : '<span class="auto-mix-hint">Pas encore de données.</span>';
   $('usage-refresh-note').textContent='mis à jour à '+new Date().toLocaleTimeString('fr-FR');
 }
