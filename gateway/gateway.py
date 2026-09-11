@@ -1470,6 +1470,7 @@ def refresh_loop():
         time.sleep(MARKET_TTL)
         try:
             warm_market()
+            log('REFRESH marché: re-warm lancé (snapshot partagé, 20 min)')
         except Exception as e:
             log(f'REFRESH marché: {str(e)[:80]}')
 

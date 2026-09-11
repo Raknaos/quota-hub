@@ -39,6 +39,18 @@ def check(label, got, want):
 
 now = time.time()
 
+# 0) conv_signature : la même conversation qui s'allonge garde SON empreinte
+s1 = gw.conv_signature({'messages': [{'role': 'user', 'content': 'premier prompt unique 42'}]})
+s2 = gw.conv_signature({'messages': [{'role': 'user', 'content': 'premier prompt unique 42'},
+                                     {'role': 'assistant', 'content': 'blabla'},
+                                     {'role': 'user', 'content': 'et la suite'}]})
+check('signature stable quand la conv s allonge', s2, s1)
+s3 = gw.conv_signature({'messages': [{'role': 'system', 'content': 'agent system prompt'},
+                                     {'role': 'user', 'content': 'premier prompt unique 42'}]})
+check('system different -> ancre differente', s3 != s1, True)
+s4 = gw.conv_signature({'messages': [{'role': 'system', 'content': 'x'}]})
+check('aucun message non-system -> pas de pin', s4, '')
+
 # 1) conversation NEUVE -> le moins cher (glm 0.75 < pro 1.25 < qwen 1.5)
 m, _ = gw.pick_model(MODELS, ctx={'key_id': 1, 'sig': 'conv-alice'})
 check('conv neuve -> moins cher', m, M2)
@@ -93,6 +105,19 @@ for i in range(100):
 gw.conv_prune()
 assert (99, 's0') not in gw.CONV, 'les entrées TTL expirées doivent être purgées'
 print('OK   prune TTL exécuté, entrées mortes purgées')
+
+# 10) refresh_loop : le routeur rafraîchit le marché LUI-MÊME, par période,
+#     sans aucune requête client (TTL raccourci pour le test).
+import threading as _th
+calls = []
+_orig_warm, _orig_ttl = gw.warm_market, gw.MARKET_TTL
+gw.warm_market = lambda: calls.append(1)
+gw.MARKET_TTL = 0.05
+th = _th.Thread(target=gw.refresh_loop, daemon=True)
+th.start()
+time.sleep(0.30)
+gw.warm_market, gw.MARKET_TTL = _orig_warm, _orig_ttl
+check('refresh_loop rafraîchit périodiquement (sans requête client)', len(calls) >= 2, True)
 
 print('RESULTAT:', 'TOUT VERT' if ok else 'ECHEC')
 sys.exit(0 if ok else 1)
