@@ -31,6 +31,7 @@ Loopback uniquement (ops SSH) :
 """
 import json, os, re, ssl, sys, time, hmac, hashlib, secrets, sqlite3, threading, traceback, urllib.request, urllib.error, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import queue
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -99,8 +100,13 @@ MKT30_MAX_AGE_S = 2700                             # fraîcheur exigée du worke
 MKT30_FLOOR_WORST = 80.0                           # floor fiabilité « pire heure » (moy30)
 MKT30_MIN_SAMPLES = 200                            # volume minimal pour juger un canal
 COOLDOWN_WAIT_MAX_S = 15                           # anti-503 : attente bornée avant refus
-                                                   # (budget front Vercel : 120 s hard)
-MAX_TOKENS_CAP = 4000                              # plafond par requête
+                                                   # (budget front Vercel : maxDuration 120 s)
+# ── Budget de temps (front Vercel : maxDuration 120 s) ──────────────────────
+REQUEST_BUDGET_S = 105                             # mur interne : on rend la main AVANT Vercel (120 s)
+FIRST_BYTE_MAX_S = 45                              # attente max du 1er chunk streaming avant bascule
+HEARTBEAT_S = 8                                    # keep-alive SSE pendant l'attente amont
+STREAM_TIMEOUT_S = 100                             # lecture amont bornée sous le plafond Vercel
+MAX_TOKENS_CAP = 8000                              # plafond par requête (résumés de compression)
 RATE_RPM = 60                                      # requêtes/min par clé
 RATE_BURST = 10
 SESSION_TTL = 30 * 86400
@@ -607,7 +613,112 @@ def wait_or_last_resort(models, ctx=None):
     log(f'DERNIER RECOURS {lr[0][1]} (cooldown ignoré) — essai unique')
     return lr[0][1], []
 
-def forward_upstream(model_id, payload):
+def upstream_timeout(tin_est):
+    """Budget d'attente amont adapté à la taille du prompt, borné sous le plafond Vercel (120 s)."""
+    if tin_est >= 8000:
+        return 75
+    return 45
+
+def parse_upstream_response(raw_bytes, requested_model, payload=None):
+    """Décode la réponse amont : accepte indifféremment un JSON pur ou un flux
+    SSE (text/event-stream) renvoyé par certains fournisseurs (ex: canal glm-5.3-flash).
+    Reconstitue un objet chat.completion OpenAI standard complet."""
+    text = raw_bytes.decode('utf-8', errors='replace').strip()
+    if not text:
+        raise ValueError("reponse amont vide")
+    if text.startswith('{'):
+        try:
+            data = json.loads(text)
+            if isinstance(data, dict) and 'choices' in data and data['choices']:
+                c0 = data['choices'][0]
+                if isinstance(c0, dict):
+                    fr = c0.get('finish_reason')
+                    msg = c0.get('message') or {}
+                    txt = msg.get('content') or ''
+                    # Si finish_reason == 'length' mais qu'un texte substantiel est présent,
+                    # normaliser en 'stop' pour éviter que Hermes rejette la compression.
+                    if fr == 'length' and len(txt) >= 200:
+                        c0['finish_reason'] = 'stop'
+            return data
+        except Exception:
+            pass
+
+    full_content = []
+    reasoning_content = []
+    finish_reason = None
+    usage = None
+    created = int(time.time())
+    res_id = f"chatcmpl-{secrets.token_hex(12)}"
+    model_ret = requested_model
+
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or not line.startswith('data:'):
+            continue
+        data_str = line[5:].strip()
+        if data_str == '[DONE]':
+            continue
+        try:
+            obj = json.loads(data_str)
+        except Exception:
+            continue
+
+        if 'id' in obj and obj['id']:
+            res_id = obj['id']
+        if 'created' in obj and obj['created']:
+            created = obj['created']
+        if 'model' in obj and obj['model']:
+            model_ret = obj['model']
+        if 'usage' in obj and obj['usage']:
+            usage = obj['usage']
+
+        choices = obj.get('choices') or []
+        if choices:
+            c = choices[0]
+            if c.get('finish_reason'):
+                finish_reason = c['finish_reason']
+            delta = c.get('delta') or {}
+            c_part = delta.get('content')
+            if c_part:
+                full_content.append(c_part)
+            r_part = delta.get('reasoning_content')
+            if r_part:
+                reasoning_content.append(r_part)
+
+    final_text = ''.join(full_content)
+    if not final_text and reasoning_content:
+        final_text = ''.join(reasoning_content)
+
+    if not usage:
+        ptok = len(json.dumps(payload.get('messages', []))) // 4 if payload else 0
+        ctok = len(final_text) // 4
+        usage = {
+            'prompt_tokens': ptok,
+            'completion_tokens': ctok,
+            'total_tokens': ptok + ctok
+        }
+
+    eff_finish = finish_reason or 'stop'
+    if eff_finish == 'length' and len(final_text) >= 200:
+        eff_finish = 'stop'
+
+    return {
+        'id': res_id,
+        'object': 'chat.completion',
+        'created': created,
+        'model': model_ret,
+        'choices': [{
+            'index': 0,
+            'message': {
+                'role': 'assistant',
+                'content': final_text
+            },
+            'finish_reason': eff_finish
+        }],
+        'usage': usage
+    }
+
+def forward_upstream(model_id, payload, timeout=None):
     body = dict(payload)
     body['model'] = model_id
     body.pop('stream_options', None)
@@ -616,8 +727,8 @@ def forward_upstream(model_id, payload):
                                 'Content-Type': 'application/json'})
     t0 = time.time()
     try:
-        with urllib.request.urlopen(req, timeout=90) as resp:
-            data = json.loads(resp.read().decode())
+        with urllib.request.urlopen(req, timeout=timeout or 65) as resp:
+            data = parse_upstream_response(resp.read(), model_id, body)
             return data, None, time.time() - t0
     except urllib.error.HTTPError as e:
         try:
@@ -628,6 +739,20 @@ def forward_upstream(model_id, payload):
         return None, (e.code, str(msg)[:150]), time.time() - t0
     except Exception as e:
         return None, (-1, str(e)[:150]), time.time() - t0
+
+def requested_model(payload):
+    """Modèle explicitement demandé par le client (API OpenAI-compatible).
+    'auto' (ou vide, ou un alias d'auto-routage) = le routeur décide ; tout autre
+    nom EST une demande ferme, servie si un canal du modèle vit."""
+    m = (payload.get('model') or '').strip()
+    if not m or m.lower() in ('auto', 'default', 'smart', 'router', 'qh-auto', 'smartapi'):
+        return None
+    # Normalisation : retire les préfixes de namespace (ex: 'z-ai/glm-5.3-flash' -> 'glm-5.3-flash')
+    clean = m.split('/')[-1].strip().lower()
+    for cand in MODELS + [GEMINI_MODEL]:
+        if clean == cand.lower():
+            return cand
+    return m
 
 def has_images(payload):
     for m in payload.get('messages') or []:
@@ -656,16 +781,21 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
     body = dict(payload)
     body['stream'] = False
     body.pop('stream_options', None)
+    if 'max_completion_tokens' in body and 'max_tokens' not in body:
+        body['max_tokens'] = body.pop('max_completion_tokens')
     mt = body.get('max_tokens')
     if mt is None:
-        body['max_tokens'] = 1000
-    # les modèles raisonneurs (deepseek-v4-pro, grok) consomment le budget en
-    # reasoning_tokens invisible : un max_tokens court donne un content VIDE
-    # (fini en length) que le client paie pour rien -> budget amont minimal.
-    if isinstance(body.get('max_tokens'), int) and body['max_tokens'] < 2048:
-        body['max_tokens'] = 2048
-    if isinstance(body.get('max_tokens'), int) and body['max_tokens'] > MAX_TOKENS_CAP:
+        # Si le client (ex: Hermes en compression de contexte) omet max_tokens,
+        # allouer le plafond complet pour ne jamais tronquer un résumé.
         body['max_tokens'] = MAX_TOKENS_CAP
+    elif isinstance(mt, int):
+        # les modèles raisonneurs (deepseek-v4-pro, grok) consomment le budget en
+        # reasoning_tokens invisible : un max_tokens court donne un content VIDE
+        # (fini en length) que le client paie pour rien -> budget amont minimal.
+        if mt < 2048:
+            body['max_tokens'] = 2048 if _est_tok < 4000 else MAX_TOKENS_CAP
+        elif mt > MAX_TOKENS_CAP:
+            body['max_tokens'] = MAX_TOKENS_CAP
     # détection d'images → cible vision si un canal existe (polyvalence auto)
     pool = list(MODELS)
     if plan == 'auto' and has_images(payload):
@@ -678,8 +808,32 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
             return None, (400, {'error': {'message': 'images reçues mais aucun canal vision actif pour le moment — réessayez plus tard ou retirer les images',
                                           'type': 'invalid_request_error', 'code': 'vision_unavailable'}}), 0, 0, None
     models = [GEMINI_MODEL] if plan == 'gemini' else pool
+    # MODÈLE DEMANDÉ (11-09) : l'API est OpenAI-compatible — quand le client nomme
+    # un modèle PUBLIÉ du catalogue et qu'un canal de ce modèle vit, on le sert
+    # LUI. Avant, tout choix client était ignoré en silence : aucun épinglage
+    # côté client ne pouvait tenir. Sans canal vivant : repli auto assumé, annoncé
+    # dans a6_router.ignored.
+    req = requested_model(payload)
+    honor = False
+    if req and plan != 'gemini' and (req in MODELS or req == GEMINI_MODEL):
+        rb = (market30_best(req) or {}).get('best') or (market_get(req) or {}).get('best')
+        if rb and not in_cooldown(req)[0]:
+            pool = [req]
+            models = [req]
+            honor = True
+    elif not honor and _est_tok >= 8000 and plan == 'auto':
+        # Prompt volumineux (résumé/compression) : privilégier les modèles véloces
+        # pour garantir une réponse < 40s et éviter le mur des 120s Vercel.
+        fast_preferred = [m for m in ['glm-5.3-flash', 'deepseek-v4-flash', 'deepseek-v4.1-flash'] if m in models]
+        live_fast = [m for m in fast_preferred if not in_cooldown(m)[0] and ((market30_best(m) or {}).get('best') or (market_get(m) or {}).get('best'))]
+        if live_fast:
+            models = live_fast
     last_err = None
+    deadline = time.time() + REQUEST_BUDGET_S
     for attempt in range(3):
+        if attempt and time.time() > deadline - 20:
+            log('BUDGET epuise avant essai suivant')
+            break
         model_id, cand = pick_model(models, ctx)
         chosen = cand[0][2] if cand else None
         if not model_id and attempt == 0:
@@ -689,7 +843,7 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         if not model_id:
             return None, (503, {'error': {'message': 'aucun canal disponible (cooldowns ou marché inaccessible)',
                                           'type': 'server_error', 'code': 'no_model_available'}}), 0, 0, None
-        data, err, dt = forward_upstream(model_id, body)
+        data, err, dt = forward_upstream(model_id, body, upstream_timeout(_est_tok))
         if err:
             status, msg = err
             log(f'GW essai {attempt+1} {model_id}: {status} {msg[:80]}')
@@ -722,10 +876,13 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         # que le modèle publié + la règle de décision.
         log(f'ROUTE {model_id} via {b.get("supplier")} src={b.get("src") or "instant"} '
             f'lat={round(dt, 2)}s tok={tin}+{tout}')
+        data['model'] = model_id
         data['a6_router'] = {'served_model': model_id,
-                             'decision': (b.get('src') or 'instant'),
-                             'note': 'modèle choisi automatiquement (le moins cher vivant)',
-                             'requested_model': requested, 'ignored': True,
+                             'decision': 'modele_demande' if (honor and model_id == req) else (b.get('src') or 'instant'),
+                             'note': ('modèle demandé servi (pin client respecté)' if (honor and model_id == req)
+                                      else 'modèle choisi automatiquement (le moins cher vivant)'),
+                             'requested_model': requested,
+                             'ignored': not (honor and model_id == req),
                              'latency_s': round(dt, 2)}
         with LOCK:
             PIN['model'] = model_id
@@ -925,7 +1082,11 @@ def me(uid):
     if not u:
         c.close()
         return err(401, 'session invalide')
-    keys = c.execute('SELECT id, prefix, name, created_at, revoked FROM api_keys WHERE user_id=? ORDER BY id DESC', (uid,)).fetchall()
+    keys = c.execute('''SELECT k.id, k.prefix, k.name, k.created_at, k.revoked,
+                        COUNT(u.id) n, COALESCE(SUM(u.tokens),0) tok,
+                        COALESCE(MAX(u.created_at), k.last_used, 0) seen
+                        FROM api_keys k LEFT JOIN usage_logs u ON u.key_id=k.id
+                        WHERE k.user_id=? GROUP BY k.id ORDER BY k.id DESC''', (uid,)).fetchall()
     sub = subscription_view(c, uid)
     usage_rows = c.execute('''SELECT plan, COUNT(*) n, COALESCE(SUM(tokens),0) tok,
                          COALESCE(SUM(prompt_tokens),0) pin, COALESCE(SUM(completion_tokens),0) pout
@@ -1378,9 +1539,11 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 c = db()
                 rows = c.execute(
-                    'SELECT id, plan, model_served, model_requested, prompt_tokens, '
-                    'completion_tokens, tokens, cost_amont_usd, created_at FROM usage_logs '
-                    'WHERE user_id=? ORDER BY id DESC LIMIT ?', (uid, limit)).fetchall()
+                    'SELECT u.id, u.plan, u.model_served, u.model_requested, u.prompt_tokens, '
+                    'u.completion_tokens, u.tokens, u.cost_amont_usd, u.created_at, '
+                    'k.name AS key_name FROM usage_logs u '
+                    'LEFT JOIN api_keys k ON k.id=u.key_id '
+                    'WHERE u.user_id=? ORDER BY u.id DESC LIMIT ?', (uid, limit)).fetchall()
                 since = int(time.time()) - 30 * 86400
                 per_day = c.execute(
                     "SELECT date(created_at,'unixepoch') d, COUNT(*) n, SUM(tokens) tok, "
@@ -1389,6 +1552,12 @@ class Handler(BaseHTTPRequestHandler):
                 per_model = c.execute(
                     'SELECT model_served, COUNT(*) n, SUM(tokens) tok FROM usage_logs '
                     'WHERE user_id=? AND created_at>=? GROUP BY model_served '
+                    'ORDER BY tok DESC LIMIT 12', (uid, since)).fetchall()
+                per_key = c.execute(
+                    'SELECT k.name AS name, COUNT(*) n, COALESCE(SUM(u.tokens),0) tok, '
+                    'COALESCE(SUM(u.cost_amont_usd),0) cost FROM usage_logs u '
+                    'LEFT JOIN api_keys k ON k.id=u.key_id '
+                    'WHERE u.user_id=? AND u.created_at>=? GROUP BY k.name '
                     'ORDER BY tok DESC LIMIT 12', (uid, since)).fetchall()
                 tot = c.execute(
                     'SELECT COUNT(*) n, COALESCE(SUM(tokens),0) tok, '
@@ -1405,11 +1574,15 @@ class Handler(BaseHTTPRequestHandler):
                           'requested': r['model_requested'], 'in': int(r['prompt_tokens'] or 0),
                           'out': int(r['completion_tokens'] or 0), 'tokens': int(r['tokens'] or 0),
                           'cost_usd': round(r['cost_amont_usd'] or 0, 6),
+                          'key': r['key_name'] or '',
                           'ts': int(r['created_at'] or 0)} for r in rows],
                 'per_day': [{'d': r['d'], 'n': r['n'], 'tokens': int(r['tok'] or 0),
                              'cost_usd': round(r['cost'] or 0, 6)} for r in per_day],
                 'per_model': [{'model': r['model_served'], 'n': r['n'], 'tokens': int(r['tok'] or 0)}
-                              for r in per_model]})
+                              for r in per_model],
+                'per_key': [{'key': r['name'] or 'clé supprimée', 'n': r['n'],
+                             'tokens': int(r['tok'] or 0), 'cost_usd': round(r['cost'] or 0, 6)}
+                            for r in per_key]})
         if path == '/admin/stats':
             if self.client_address[0] != '127.0.0.1':
                 return self._json(403, {'error': {'message': 'loopback uniquement'}})
