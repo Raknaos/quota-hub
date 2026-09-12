@@ -111,6 +111,11 @@ export default async function handler(req, res) {
           const ct = urs.headers['content-type'] || 'application/json';
           res.setHeader('Content-Type', ct);
           res.setHeader('Cache-Control', 'no-store');
+          // traçabilité du pin : le corps JSON porte déjà a6_router, on relaie AUSSI
+          // les en-têtes X-A6-* (modèle demandé / servi / pin honoré) au client.
+          for (const hk of Object.keys(urs.headers)) {
+            if (hk.toLowerCase().startsWith('x-a6-')) res.setHeader(hk, urs.headers[hk]);
+          }
           if (path.startsWith('/v1/')) {
             res.setHeader('Access-Control-Allow-Origin', '*');
             urs.pipe(res); // flux natif (SSE/JSON), back-pressure géré par Node

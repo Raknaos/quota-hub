@@ -584,6 +584,11 @@ def wait_or_last_resort(models, ctx=None):
     vaut mieux qu'un refus sec (le cooldown est un compteur interne, pas une preuve
     que l'amont est mort)."""
     t_dead = time.time() + COOLDOWN_WAIT_MAX_S
+    if len(models) == 1:
+        # PIN CLIENT FERME : faire patienter la fin d'un cooldown n'a pas de sens,
+        # le client a nommé CE modèle — essai immédiat, puis repli auto annoncé.
+        log(f'PIN {models[0]} : essai immédiat (cooldown ignoré)')
+        return models[0], []
     while True:
         with LOCK:
             ups = [u - time.time() for (u, _r) in list(COOLDOWN.values()) if u > time.time()]
@@ -609,7 +614,10 @@ def wait_or_last_resort(models, ctx=None):
     if not lr:
         with LOCK:
             pin = PIN.get('model')
-        lr = [(0.0, pin or models[0])]
+        # Liste à UN modèle = pin client ferme : le dernier recours doit servir CE
+        # modèle, jamais le pin global d'une autre conversation (bug « modèle
+        # demandé ignoré » quand la demande et le pin divergeaient).
+        lr = [(0.0, models[0] if len(models) == 1 else (pin or models[0]))]
     log(f'DERNIER RECOURS {lr[0][1]} (cooldown ignoré) — essai unique')
     return lr[0][1], []
 
@@ -808,20 +816,22 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
             return None, (400, {'error': {'message': 'images reçues mais aucun canal vision actif pour le moment — réessayez plus tard ou retirer les images',
                                           'type': 'invalid_request_error', 'code': 'vision_unavailable'}}), 0, 0, None
     models = [GEMINI_MODEL] if plan == 'gemini' else pool
-    # MODÈLE DEMANDÉ (11-09) : l'API est OpenAI-compatible — quand le client nomme
-    # un modèle PUBLIÉ du catalogue et qu'un canal de ce modèle vit, on le sert
-    # LUI. Avant, tout choix client était ignoré en silence : aucun épinglage
-    # côté client ne pouvait tenir. Sans canal vivant : repli auto assumé, annoncé
-    # dans a6_router.ignored.
+    # MODÈLE DEMANDÉ (11-09, durci 13-09) : l'API est OpenAI-compatible — quand le
+    # client nomme un modèle PUBLIÉ du catalogue, on le sert LUI, sans condition de
+    # marché. L'ancienne version exigeait « un canal de ce modèle vit » dans le cache
+    # LOCAL du nœud : sur un nœud froid (ou juste après un redémarrage), market30_best()
+    # et market_get() renvoient None et la passerelle retombait EN SILENCE sur l'auto —
+    # c'était le « modèle demandé ignoré » signalé dans les Paramètres. Désormais le pin
+    # est prioritaire : le marché ne décide qu'en mode auto. Si le canal du pin tombe
+    # réellement, repli auto UNIQUE et ANNONCÉ (ignored + ignored_reason).
     req = requested_model(payload)
     honor = False
-    if req and plan != 'gemini' and (req in MODELS or req == GEMINI_MODEL):
-        rb = (market30_best(req) or {}).get('best') or (market_get(req) or {}).get('best')
-        if rb and not in_cooldown(req)[0]:
-            pool = [req]
-            models = [req]
-            honor = True
-    elif not honor and _est_tok >= 8000 and plan == 'auto':
+    pin_fallback = None
+    if req and (req in MODELS or req == GEMINI_MODEL) and not (plan == 'gemini' and req != GEMINI_MODEL):
+        pool = [req]
+        models = [req]
+        honor = True
+    elif not req and _est_tok >= 8000 and plan == 'auto':
         # Prompt volumineux (résumé/compression) : privilégier les modèles véloces
         # pour garantir une réponse < 40s et éviter le mur des 120s Vercel.
         fast_preferred = [m for m in ['glm-5.3-flash', 'deepseek-v4-flash', 'deepseek-v4.1-flash'] if m in models]
@@ -841,6 +851,11 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
             model_id, cand = wait_or_last_resort(models, ctx)
             chosen = cand[0][2] if cand else None
         if not model_id:
+            if honor and req:
+                # Le modèle DEMANDÉ est en cooldown (échec réel du tour) : on ne
+                # refuse pas sèchement, on sort pour le repli auto annoncé.
+                last_err = last_err or (503, 'canal du modèle demandé en cooldown')
+                break
             return None, (503, {'error': {'message': 'aucun canal disponible (cooldowns ou marché inaccessible)',
                                           'type': 'server_error', 'code': 'no_model_available'}}), 0, 0, None
         data, err, dt = forward_upstream(model_id, body, upstream_timeout(_est_tok))
@@ -868,6 +883,14 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         cached = ((usage.get('prompt_tokens_details') or {}).get('cached_tokens')) or 0
         # prix du canal RÉELLEMENT servi (instantanés du worker) ; repli cache instantané
         b = chosen or ((market_get(model_id) or {}).get('best') or {})
+        if not b or not (b.get('in') or b.get('out')):
+            # Cache de prix froid sur CE nœud : la facturation ne doit JAMAIS tomber
+            # à 0 (tokens offerts en silence). Une requête synchrone au marché local
+            # donne le prix réel du canal servi — coût négligeable, honnêteté garantie.
+            try:
+                b = (marketplace_best(model_id) or {}).get('best') or b
+            except Exception as _pe:
+                log(f'PRIX indisponible {model_id}: {str(_pe)[:60]}')
         # coût amont RÉEL : les tokens cachés sont au prix cache_read (12x moins cher sur qwen)
         est = round(((tin - cached) * b.get('in', 0) + cached * b.get('cache_read', b.get('in', 0))
                      + tout * b.get('out', 0)) / 1e6, 8)
@@ -877,12 +900,17 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         log(f'ROUTE {model_id} via {b.get("supplier")} src={b.get("src") or "instant"} '
             f'lat={round(dt, 2)}s tok={tin}+{tout}')
         data['model'] = model_id
+        _honored = bool(honor and req and model_id == req)
+        _auto_alias = str(requested or '').strip().lower() in ('', 'auto', 'default', 'smart', 'router', 'qh-auto', 'smartapi')
         data['a6_router'] = {'served_model': model_id,
-                             'decision': 'modele_demande' if (honor and model_id == req) else (b.get('src') or 'instant'),
-                             'note': ('modèle demandé servi (pin client respecté)' if (honor and model_id == req)
-                                      else 'modèle choisi automatiquement (le moins cher vivant)'),
+                             'decision': 'modele_demande' if _honored else (b.get('src') or 'instant'),
+                             'note': ('modèle demandé servi (pin client respecté)' if _honored
+                                      else ('modèle choisi automatiquement (le moins cher vivant)' if _auto_alias
+                                            else f'modèle demandé {requested} indisponible ce tour-ci — repli auto annoncé')),
                              'requested_model': requested,
-                             'ignored': not (honor and model_id == req),
+                             'served_requested': _honored,
+                             'ignored': bool(requested) and not _auto_alias and not _honored,
+                             'ignored_reason': (pin_fallback if (not _honored and not _auto_alias) else None),
                              'latency_s': round(dt, 2)}
         with LOCK:
             PIN['model'] = model_id
@@ -900,6 +928,28 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         return data, None, tin, tout, {'model': model_id, 'supplier': b.get('supplier'),
                                        'best': b, 'est': est, 'plan': plan,
                                        'requested': requested, 'cached': cached}
+    # PIN INJOIGNABLE : jamais de substitution muette. Un pin ferme qui ne passe pas
+    # bascule UNE fois sur le pool auto, et le client est prévenu (a6_router.ignored
+    # + ignored_reason + en-têtes X-A6-Pin-Honored) : il sait que son choix n'a pas
+    # tenu, au lieu de recevoir un modèle différent sans le voir.
+    if honor and last_err and req:
+        log(f'PIN {req} injoignable {last_err} -> repli auto annonce')
+        pin_fallback = f'{req} injoignable ce tour-ci ({last_err[0]})'
+        try:
+            _fb = dict(payload)
+            _fb['model'] = 'auto'
+            _d2, _e2, _tin2, _tout2, _s2 = chat_auto(_fb, is_stream, 'auto', key_id)
+        except Exception as _ex:
+            _d2, _e2, _tin2, _tout2, _s2 = None, (502, {}), 0, 0, None
+            log(f'REPLI auto KO: {str(_ex)[:70]}')
+        if _d2 and not _e2 and _s2:
+            _a6 = _d2.setdefault('a6_router', {})
+            _a6.update({'requested_model': requested, 'served_model': _s2['model'],
+                        'decision': 'repli_auto', 'served_requested': False, 'ignored': True,
+                        'ignored_reason': pin_fallback,
+                        'note': f'{req} injoignable ce tour-ci — servi automatiquement {_s2["model"]}'})
+            _s2['requested'] = requested
+            return _d2, None, _tin2, _tout2, _s2
     # message client SANS le détail amont (qui pourrait nommer la chaîne) : le
     # détail complet part dans les journaux du service, jamais dans la réponse.
     log(f'502 tous canaux epuises: {last_err}')
@@ -1151,6 +1201,16 @@ def redeem(uid, payload):
     sub = subscription_view(c, uid)
     c.close()
     return 200, {'status': 'ok', 'plan': plan, 'subscription': sub}
+
+def pin_headers(obj):
+    """Traçabilité du pin pour le client (aucun nom de chaîne amont exposé) :
+    quel modèle a été demandé, lequel a servi, et si le choix client a tenu."""
+    a6 = (obj or {}).get('a6_router') or {}
+    req, srv = a6.get('requested_model'), a6.get('served_model')
+    if not req or str(req).strip().lower() in ('auto', 'default', 'smart', 'router', 'qh-auto', 'smartapi'):
+        return {}
+    return {'X-A6-Model-Requested': str(req), 'X-A6-Model-Served': str(srv or ''),
+            'X-A6-Pin-Honored': 'false' if a6.get('ignored') else 'true'}
 
 def api_chat(auth_header, payload, ip):
     """Le cœur : clé sk-sm-*/sk-qh-* -> abonnement -> routage auto -> metering réel."""
@@ -1413,15 +1473,17 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
-    def _json(self, status, obj):
+    def _json(self, status, obj, headers=None):
         data = json.dumps(obj, ensure_ascii=False).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(data)))
+        for _hk, _hv in (headers or {}).items():
+            self.send_header(_hk, _hv)
         self.end_headers()
         self.wfile.write(data)
 
-    def _sse(self, obj):
+    def _sse(self, obj, headers=None):
         """Re-sérialise une réponse complète en événements SSE compatibles SDK
         OpenAI (chunks delta concaténables). L'amont a déjà été interrogé en
         stream:false : l'usage réel facturé est exact, on ne rejoue que le flux."""
@@ -1462,6 +1524,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'text/event-stream')
         self.send_header('Cache-Control', 'no-store')
         self.send_header('Content-Length', str(len(payload)))
+        for _hk, _hv in (headers or {}).items():
+            self.send_header(_hk, _hv)
         self.end_headers()
         self.wfile.write(payload)
 
@@ -1604,11 +1668,25 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {'ok': True, 'window_s': 86400, 'total': total,
                                     'mix': [{'model': r[0], 'n': r[1]} for r in rows]})
         if path == '/v1/models':
-            # compat SDK OpenAI : 'auto' (routeur) en tête, puis le pool exposé
-            return self._json(200, {'object': 'list', 'data': [
-                {'id': 'auto', 'object': 'model', 'owned_by': 'quota-hub'}]
-                + [{'id': m, 'object': 'model', 'owned_by': 'quota-hub'} for m in MODELS]
-                + [{'id': GEMINI_MODEL, 'object': 'model', 'owned_by': 'quota-hub-gemini'}]})
+            # compat SDK OpenAI : 'auto' (routeur) en tête, puis le catalogue publié.
+            # Chaque entrée porte 'a6' : état RÉEL du canal (modèle servi, capacité).
+            # Le sélecteur de modèles côté poste voit ainsi ce qui est servable
+            # avant de choisir — et '/v1/chat/completions' honore le choix (pin ferme).
+            def _mk(mid, owner='quota-hub'):
+                r = market_get(mid) or {}
+                b = r.get('best') or {}
+                return {'id': mid, 'object': 'model', 'owned_by': owner,
+                        'a6': {'available': bool(b.get('in') or b.get('out')),
+                               'channels_alive': int(r.get('n_alive') or 0)}}
+            # gemini vit sur un canal DÉDIÉ (plan gemini) : le marché du pool ne le
+            # voit pas — l'annoncer « indisponible » serait faux.
+            rows = [_mk(m) for m in MODELS] + [
+                {'id': GEMINI_MODEL, 'object': 'model', 'owned_by': 'quota-hub-gemini',
+                 'a6': {'plan': 'gemini'}}]
+            data = [{'id': 'auto', 'object': 'model', 'owned_by': 'quota-hub',
+                     'a6': {'available': any(r['a6']['available'] for r in rows),
+                            'channels_alive': sum(r['a6']['channels_alive'] for r in rows)}}] + rows
+            return self._json(200, {'object': 'list', 'data': data})
         self._json(404, {'error': {'message': 'not found'}})
 
     def do_DELETE(self):
@@ -1670,8 +1748,10 @@ class Handler(BaseHTTPRequestHandler):
         elif path == '/v1/chat/completions':
             stream_wanted = bool(payload.get('stream'))
             status, obj = api_chat(self.headers.get('Authorization', ''), payload, ip)
+            _hx = pin_headers(obj) if isinstance(obj, dict) else {}
             if status == 200 and stream_wanted and isinstance(obj, dict):
-                return self._sse(obj)
+                return self._sse(obj, _hx)
+            return self._json(status, obj, _hx)
         else:
             return self._json(404, {'error': {'message': 'not found'}})
         self._json(status, obj)
