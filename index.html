@@ -65,11 +65,16 @@
 </head>
 <body class="bg-background text-foreground font-sans antialiased min-h-screen selection:bg-white/20 selection:text-white">
 
-    <!-- SIMULATEUR COSMIQUE INTERSTELLAR : TROU NOIR 'GARGANTUA' & DISTORSION D'ESPACE-TEMPS -->
-  <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#000002]">
-    <canvas id="blackhole-canvas" class="h-full w-full"></canvas>
-    <!-- Halo cosmique profond d'ambiance -->
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,transparent_20%,rgba(0,0,2,0.6)_65%,#000002_100%)] pointer-events-none"></div>
+      <!-- ARRIÈRE-PLAN VIDÉO CINÉMATIQUE INTERSTELLAR : TROU NOIR 'GARGANTUA' (NASA SVS SIMULATION OFFICIELLE) -->
+  <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#020204]">
+    <video autoplay loop muted playsinline preload="auto" class="absolute inset-0 h-full w-full object-cover opacity-45 mix-blend-screen filter contrast-125 brightness-90">
+      <source src="/assets/blackhole.webm" type="video/webm">
+      <source src="https://svs.gsfc.nasa.gov/vis/a010000/a013300/a013326/BH_AccretionDisk_Sim_360_wide_16x9_1080.webm" type="video/webm">
+    </video>
+    <!-- Vignettage radial profond pour préserver la lisibilité parfaite des composants -->
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(2,2,4,0.65)_50%,#020204_95%)] pointer-events-none"></div>
+    <!-- Accent lumineux subtil néon passerelle -->
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(16,185,129,0.04)_0%,transparent_60%)] pointer-events-none"></div>
   </div>
 
   <!-- ==================== 1. TOP NAVBAR OFFICIELLE UNOROUTER ==================== -->
