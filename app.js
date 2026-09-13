@@ -904,15 +904,40 @@ async function apiCall(path, opts = {}) {
 }
 
 window.switchTab = function(tab) {
-  document.querySelectorAll('.nav-link').forEach(x => x.classList.toggle('active', x.dataset.tab === tab));
-  document.querySelectorAll('.tab-pane').forEach(x => x.classList.toggle('active', x.id === 'tab-' + tab));
+  // 1. Mise à jour des boutons de navigation (support .nav-btn et .nav-link)
+  document.querySelectorAll('.nav-btn, .nav-link').forEach(x => {
+    const isActive = (x.dataset.tab === tab);
+    x.classList.toggle('active', isActive);
+    if (isActive) {
+      x.classList.add('text-foreground');
+      x.classList.remove('text-muted-foreground');
+    } else {
+      x.classList.remove('text-foreground');
+      x.classList.add('text-muted-foreground');
+    }
+  });
+
+  // 2. Gestion de l'affichage des sections (retrait impératif de 'hidden' sur la cible)
+  document.querySelectorAll('.tab-pane').forEach(pane => {
+    if (pane.id === 'tab-' + tab) {
+      pane.classList.remove('hidden');
+      pane.classList.add('active');
+    } else {
+      pane.classList.add('hidden');
+      pane.classList.remove('active');
+    }
+  });
+
   APP_STATE.currentTab = tab;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  if (tab === 'models') renderModelsTable();
+  // 3. Rendu des données spécifiques
+  if (tab === 'models') renderModelsTableUno();
   if (tab === 'classements') renderClassements();
-  if (tab === 'chat') initChatDropdown();
-  if (tab === 'usage') loadUsage();
+  if (tab === 'chat') {
+    const input = document.getElementById('chat-input');
+    if (input) setTimeout(() => input.focus(), 100);
+  }
 };
 
 /* === AUTHENTIFICATION === */
@@ -1404,3 +1429,38 @@ window.addEventListener('DOMContentLoaded', () => {
   renderModelsTableUno();
   renderClassements();
 });
+
+
+window.showDashboardSection = function(section) {
+  document.querySelectorAll('.dash-btn').forEach(b => {
+    const isAct = (b.dataset.dash === section);
+    b.classList.toggle('active', isAct);
+    b.classList.toggle('border-white', isAct);
+    b.classList.toggle('bg-secondary', isAct);
+    b.classList.toggle('text-white', isAct);
+    b.classList.toggle('text-muted-foreground', !isAct);
+  });
+
+  document.querySelectorAll('.dash-section').forEach(sec => {
+    if (sec.id === 'dash-section-' + section) {
+      sec.classList.remove('hidden');
+    } else {
+      sec.classList.add('hidden');
+    }
+  });
+};
+
+window.switchToDashboard = function(section = 'overview') {
+  document.getElementById('public-view').classList.add('hidden');
+  document.getElementById('main-header').classList.add('hidden');
+  document.getElementById('dashboard-view').classList.remove('hidden');
+  showDashboardSection(section);
+  loadDashboardData();
+};
+
+window.switchToPublic = function() {
+  document.getElementById('dashboard-view').classList.add('hidden');
+  document.getElementById('public-view').classList.remove('hidden');
+  document.getElementById('main-header').classList.remove('hidden');
+  switchTab('home');
+};
