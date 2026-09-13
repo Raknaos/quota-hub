@@ -1396,6 +1396,191 @@ def redeem(uid, payload):
     c.close()
     return 200, {'status': 'ok', 'plan': plan, 'subscription': sub}
 
+# ── FLUX RÉEL (13-09) ───────────────────────────────────────────────────────
+# L'amont expose un vrai SSE (mesuré : 33-37 chunks étalés sur 1,3-5,2 s, et
+# l'usage final arrive DANS le flux). On ne rejoue donc plus la réponse après
+# coup : on relaie les chunks À MESURE. Deux gains réels :
+#   (a) le client a un vrai streaming, il voit le texte se construire ;
+#   (b) le mur des 105 s saute : le 1er octet tombe en ~1-8 s au lieu d'attendre
+#       la réponse complète, donc fini les 502 « tous canaux épuisés » sur gros prompt.
+# L'identité réelle (modèle servi, canal amont) est réécrite chunk par chunk :
+# le client ne voit que PUBLIC_MODEL_ID.
+_SAFE_DELTA = ('role', 'content', 'reasoning_content', 'tool_calls')
+
+def sse_chunk(delta, finish=None, idx=0, usage=None, cid='chatcmpl-qh'):
+    """Chunk SSE public, compatible SDK OpenAI. Identité de marque uniquement."""
+    ev = {'id': cid, 'object': 'chat.completion.chunk',
+          'created': int(time.time()), 'model': PUBLIC_MODEL_ID,
+          'choices': [{'index': idx, 'delta': delta, 'finish_reason': finish}]}
+    if usage:
+        ev['usage'] = usage
+    return ('data: ' + json.dumps(ev, ensure_ascii=False) + '\n\n').encode()
+
+def _open_upstream_stream(model_id, body, timeout):
+    """Ouvre l'amont en stream:true. Aucune identité de canal n'est renvoyée."""
+    b = dict(body)
+    # CRUCIAL : l'amont ne connaît QUE les vrais IDs de modèles — le nom public
+    # 'autosmart-flash-1.0' lui est inconnu (400 « champ non supporté », mesuré).
+    b['model'] = model_id
+    b['stream'] = True
+    # PAS de stream_options: l'amont le refuse (400 « champ non supporté », mesuré
+    # 13-09) — et c'est inutile, l'usage final arrive déjà dans le flux.
+    req = urllib.request.Request(UPSTREAM_URL, data=json.dumps(b).encode(), method='POST',
+                                 headers={'Authorization': 'Bearer ' + UPSTREAM_KEY,
+                                          'Content-Type': 'application/json',
+                                          'Accept': 'text/event-stream'})
+    try:
+        return urllib.request.urlopen(req, timeout=timeout), None
+    except urllib.error.HTTPError as e:
+        try:
+            err = json.loads(e.read().decode() or '{}')
+        except Exception:
+            err = {}
+        msg = (err.get('error', {}) or {}).get('message', f'HTTP {e.code}')
+        return None, (e.code, str(msg)[:150])
+    except Exception as e:
+        return None, (-1, str(e)[:150])
+
+def _stream_prime(resp, budget_s):
+    """Lit l'amont jusqu'à la PREMIÈRE bribe utile (contenu, outil ou finish).
+    Tant que rien n'est reçu, le canal peut être abandonné sans avoir rien
+    facturé ni rien envoyé au client. Renvoie (lignes, ok, erreur)."""
+    lines, t0 = [], time.time()
+    while True:
+        if time.time() - t0 > budget_s:
+            return lines, False, (-1, 'timeout 1er chunk')
+        try:
+            raw = resp.readline()
+        except Exception as e:
+            return lines, False, (-1, f'{type(e).__name__}: {str(e)[:70]}')
+        if not raw:
+            return lines, False, (-1, 'flux amont terminé sans contenu')
+        lines.append(raw)
+        s = raw.strip()
+        if not s.startswith(b'data:'):
+            continue
+        p = s[5:].strip()
+        if p == b'[DONE]':
+            return lines, False, (-1, 'flux amont vide')
+        try:
+            d = json.loads(p.decode('utf-8', 'replace'))
+        except Exception:
+            continue
+        if d.get('error'):
+            # erreur DANS le flux (certains canaux font ça) : c'est un échec
+            em = (d.get('error') or {}).get('message') or 'erreur amont dans le flux'
+            return lines, False, (-1, str(em)[:100])
+        # PREUVE DE VIE = le 1er chunk, quel qu'il soit. Certains canaux passent
+        # 10-13 s à raisonner sans rien diffuser (1306 tokens de raisonnement
+        # invisibles mesurés) : attendre du CONTENU ferait croire à un canal mort
+        # et repousserait inutilement le 1er octet côté client. Dès que l'amont
+        # parle, on engage — la suite coule en direct.
+        if d.get('choices'):
+            c0 = (d.get('choices') or [{}])[0]
+            if c0.get('delta') or c0.get('finish_reason') or c0.get('message'):
+                return lines, True, None
+
+def chat_auto_stream(payload, plan, key_id, uid):
+    """Comme chat_auto, mais renvoie un relais SSE VIVANT. Le canal est validé
+    par son 1er chunk avant tout engagement côté client."""
+    try:
+        _est_tok = len(json.dumps(payload.get('messages') or [])) // 4
+    except Exception:
+        _est_tok = 0
+    ctx = {'key_id': key_id, 'sig': conv_signature(payload), 'tin_est': _est_tok}
+    body = dict(payload)
+    body['stream'] = True
+    body.pop('stream_options', None)
+    if 'max_completion_tokens' in body and 'max_tokens' not in body:
+        body['max_tokens'] = body.pop('max_completion_tokens')
+    mt = body.get('max_tokens')
+    if mt is None:
+        body['max_tokens'] = MAX_TOKENS_CAP
+    elif isinstance(mt, int):
+        # mêmes garde-fous que le mode non-stream : budget raisonnement minimal
+        if mt < 2048:
+            body['max_tokens'] = 2048 if _est_tok < 4000 else MAX_TOKENS_CAP
+        elif mt > MAX_TOKENS_CAP:
+            body['max_tokens'] = MAX_TOKENS_CAP
+    models = [GEMINI_MODEL] if plan == 'gemini' else list(MODELS)
+    if plan == 'auto' and has_images(payload):
+        vision = [m for m in MODELS if 'vision' in m]
+        vr = [m for m in vision if not in_cooldown(m)[0] and (market_get(m) or {}).get('best')]
+        if vr:
+            models = vision
+        else:
+            return None, (400, {'error': {
+                'message': 'images reçues mais aucun canal vision actif pour le moment — réessayez plus tard ou retirer les images',
+                'type': 'invalid_request_error', 'code': 'vision_unavailable'}})
+    if not has_images(payload) and _est_tok >= 8000 and plan == 'auto':
+        # gros prompt (compression/résumé) : modèles véloces d'abord, mêmes raisons
+        fast_preferred = [m for m in ['glm-5.3-flash', 'deepseek-v4-flash', 'deepseek-v4.1-flash']
+                          if m in models]
+        live_fast = [m for m in fast_preferred
+                     if not in_cooldown(m)[0] and ((market30_best(m) or {}).get('best')
+                                                   or (market_get(m) or {}).get('best'))]
+        if live_fast:
+            models = live_fast
+    last_err, t_start = None, time.time()
+    for attempt in range(3):
+        if attempt and time.time() - t_start > REQUEST_BUDGET_S - 20:
+            break
+        model_id, cand = pick_model(models, ctx)
+        if not model_id:
+            break
+        chosen = cand[0][2] if cand else None
+        resp, oerr = _open_upstream_stream(model_id, body, FIRST_BYTE_MAX_S)
+        if oerr:
+            log(f'STREAM essai {attempt+1} {model_id}: {oerr[0]} {oerr[1][:70]}')
+            last_err = oerr
+            on_failure(model_id, oerr[1])
+            continue
+        lines, ok, perr = _stream_prime(resp, FIRST_BYTE_MAX_S)
+        if not ok:
+            try:
+                resp.close()
+            except Exception:
+                pass
+            log(f'STREAM essai {attempt+1} {model_id}: pas de 1er chunk ({perr[1][:70]})')
+            last_err = perr
+            on_failure(model_id, perr[1])
+            continue
+        b = chosen or ((market_get(model_id) or {}).get('best') or {})
+        log(f'STREAM {model_id} via {b.get("supplier")} 1er chunk {round(time.time()-t_start, 2)}s')
+        _pin_set(ctx, model_id, b.get('supplier'))
+        return {'resp': resp, 'prime': lines, 'model_id': model_id, 'best': b,
+                'uid': uid, 'plan': plan, 'key_id': key_id,
+                'requested': payload.get('model'), 't_start': t_start,
+                'messages': payload.get('messages') or [],
+                'cid': 'chatcmpl-' + secrets.token_hex(12)}, None
+    if last_err is None:
+        last_err = (-1, 'aucun canal')
+    log(f'STREAM 502 tous canaux: {last_err}')
+    return None, (502, {'error': {
+        'message': "aucun canal amont n'a pu servir la requête — réessayez dans quelques secondes",
+        'type': 'server_error', 'code': 'all_channels_failed'}})
+
+def bill_and_log(uid, plan, key_id, real_model, supplier, requested, reason,
+                 tin, tout, cached_tok, est):
+    """Facturation + journal UNIQUES (chemin non-stream et chemin flux)."""
+    tokens = int(tin + tout)
+    # FACTURATION CACHE : les tokens servis depuis le cache amont coûtent ~12x
+    # moins cher → ils sont comptés à 10 % au client. C'est le cœur du prix.
+    billed = max(0, tokens - int(cached_tok * 0.9))
+    c = db()
+    c.execute('''UPDATE subscriptions SET tokens_used = MIN(tokens_total, tokens_used + ?)
+                 WHERE user_id=? AND plan=?''', (billed, uid, plan))
+    c.execute('''INSERT INTO usage_logs(user_id,key_id,plan,model_served,model_public,model_requested,supplier,prompt_tokens,
+                 completion_tokens,tokens,cost_amont_usd,created_at,cached_tokens,route_reason)
+                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+              (uid, key_id, plan, real_model, PUBLIC_MODEL_NAME, requested, supplier,
+               tin, tout, billed, est, int(time.time()), cached_tok, reason))
+    c.commit()
+    remaining = c.execute('SELECT tokens_total - tokens_used FROM subscriptions WHERE user_id=? AND plan=?',
+                          (uid, plan)).fetchone()[0]
+    c.close()
+    return billed, max(0, remaining)
+
 def pin_headers(obj):
     """Traçabilité du pin pour le client (aucun nom de chaîne amont exposé) :
     quel modèle a été demandé, lequel a servi, et si le choix client a tenu."""
@@ -1406,7 +1591,7 @@ def pin_headers(obj):
     return {'X-A6-Model-Requested': str(req), 'X-A6-Model-Served': str(srv or ''),
             'X-A6-Pin-Honored': 'false' if a6.get('ignored') else 'true'}
 
-def api_chat(auth_header, payload, ip):
+def api_chat(auth_header, payload, ip, want_stream=False):
     """Le cœur : clé sk-sm-*/sk-qh-* -> abonnement -> routage auto -> metering réel."""
     if not (auth_header.startswith('Bearer sk-qh-') or auth_header.startswith('Bearer sk-sm-')):
         return err(401, 'clé API manquante (Authorization: Bearer sk-qh-…)', 'auth_error', 'authentication_error')
@@ -1437,31 +1622,29 @@ def api_chat(auth_header, payload, ip):
     c.execute('UPDATE api_keys SET last_used=? WHERE id=?', (int(time.time()), key_id))
     c.commit(); c.close()
 
+    if want_stream:
+        # FLUX RÉEL : on tente d'abord le relais vivant. Si aucun canal ne livre de
+        # 1er chunk, on retombe sur le chemin non-stream (re-sérialisation SSE) :
+        # le client ne subit jamais une régression, au pire il n'a pas le direct.
+        relay, se = chat_auto_stream(payload, plan, key_id, uid)
+        if relay:
+            return 200, {'__relay__': relay}
+        log(f'STREAM indisponible ({se[0]}) -> repli re-serialisation SSE')
+        if se[0] not in (502, 503):
+            return se
+
     data, e, tin, tout, served = chat_auto(payload, bool(payload.get('stream')), plan, key_id)
     if e:
         return e[0], e[1]
     tokens = int(tin + tout)
     cached_tok = int(served.get('cached', 0))
-    # FACTURATION CACHE : les tokens servis depuis le cache amont coûtent ~12x moins cher
-    # (qwen 0.0001 vs 0.0012/M) → ils sont comptés à 10 % au client. C'est le cœur du prix.
-    billed = max(0, tokens - int(cached_tok * 0.9))
     # débit : jamais au-delà du plafond ; l'amont a consommé, on impute le volume réel corrigé
-    c = db()
-    c.execute('''UPDATE subscriptions SET tokens_used = MIN(tokens_total, tokens_used + ?)
-                 WHERE user_id=? AND plan=?''', (billed, uid, plan))
-    c.execute('''INSERT INTO usage_logs(user_id,key_id,plan,model_served,model_public,model_requested,supplier,prompt_tokens,
-                 completion_tokens,tokens,cost_amont_usd,created_at,cached_tokens,route_reason)
-                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-              (uid, key_id, plan, served['model'], PUBLIC_MODEL_NAME, served.get('requested'),
-               served['supplier'],
-               tin, tout, billed, served['est'], int(time.time()), cached_tok, served.get('reason')))
-    c.commit()
-    remaining = c.execute('SELECT tokens_total - tokens_used FROM subscriptions WHERE user_id=? AND plan=?',
-                          (uid, plan)).fetchone()[0]
-    c.close()
+    billed, remaining = bill_and_log(uid, plan, key_id, served['model'], served['supplier'],
+                                     served.get('requested'), served.get('reason'),
+                                     tin, tout, cached_tok, served['est'])
     data['quota_hub'] = {'plan': plan, 'tokens_billed': billed, 'tokens_raw': tokens,
                          'cache_tokens': cached_tok, 'cache_savings_tokens': tokens - billed,
-                         'tokens_remaining': max(0, remaining), 'served_model': PUBLIC_MODEL_NAME}
+                         'tokens_remaining': remaining, 'served_model': PUBLIC_MODEL_NAME}
     return 200, data
 
 # ── Connexion sociale : Google / GitHub (10-09) ─────────────────────────────
@@ -1686,7 +1869,7 @@ class Handler(BaseHTTPRequestHandler):
         base = {'id': obj.get('id', 'chatcmpl-qh'),
                 'object': 'chat.completion.chunk',
                 'created': obj.get('created', int(time.time())),
-                'model': obj.get('model', 'auto')}
+                'model': obj.get('model') or PUBLIC_MODEL_ID}
         c0 = (obj.get('choices') or [{}])[0]
         msg = c0.get('message') or {}
         full = msg.get('content') or ''
@@ -1724,6 +1907,107 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header(_hk, _hv)
         self.end_headers()
         self.wfile.write(payload)
+
+    def _relay_sse(self, rl, headers=None):
+        """Relais SSE VIVANT : chaque chunk amont est réécrit (identité de marque)
+        puis poussé immédiatement au client. La facturation se fait au drain.
+        Réponse volontairement SANS Content-Length : HTTP/1.0 la clôt à la
+        fermeture du socket, ce que les clients SSE lisent nativement."""
+        cid = rl['cid']
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/event-stream; charset=utf-8')
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Accel-Buffering', 'no')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        w = self.wfile
+
+        def wsend(b):
+            w.write(b)
+            try:
+                w.flush()
+            except Exception:
+                pass
+
+        resp = rl['resp']
+        content, usage, finish = [], None, None
+        try:
+            wsend(sse_chunk({'role': 'assistant'}, None, 0, None, cid))
+            pending = list(rl.get('prime') or [])
+            while True:
+                if pending:
+                    raw = pending.pop(0)
+                else:
+                    raw = resp.readline()
+                    if not raw:
+                        break
+                s = raw.strip()
+                if not s or not s.startswith(b'data:'):
+                    continue
+                p = s[5:].strip()
+                if p == b'[DONE]':
+                    break
+                try:
+                    d = json.loads(p.decode('utf-8', 'replace'))
+                except Exception:
+                    continue
+                if d.get('usage'):
+                    usage = d['usage']
+                    # l'usage du dernier chunk est relayé tel quel (tokens + cache),
+                    # rien d'autre n'en sort : aucun nom de canal.
+                    _u = {k: v for k, v in usage.items()
+                          if k in ('prompt_tokens', 'completion_tokens', 'total_tokens',
+                                   'prompt_tokens_details', 'completion_tokens_details')}
+                    wsend(sse_chunk({}, None, 0, _u or None, cid))
+                c0 = (d.get('choices') or [{}])[0]
+                delta = c0.get('delta') or {}
+                fr = c0.get('finish_reason')
+                if fr:
+                    finish = fr
+                if isinstance(delta.get('content'), str):
+                    content.append(delta['content'])
+                # seuls les champs de contenu passent : aucune fuite de canal
+                pub = {k: v for k, v in delta.items() if k in _SAFE_DELTA}
+                wsend(sse_chunk(pub, None, c0.get('index') or 0, None, cid))
+            if not usage:
+                wsend(sse_chunk({}, finish or 'stop', 0, None, cid))
+            wsend(b'data: [DONE]\n\n')
+        except Exception as ex:
+            log(f'RELAY interrompu: {type(ex).__name__}: {str(ex)[:90]}')
+        finally:
+            try:
+                resp.close()
+            except Exception:
+                pass
+
+        # FACTURATION après le drain : l'usage réel est dans le flux.
+        u = usage or {}
+        tin = u.get('prompt_tokens') or 0
+        tout = u.get('completion_tokens') or 0
+        cached_tok = ((u.get('prompt_tokens_details') or {}).get('cached_tokens')) or 0
+        if not u:
+            # aucun usage amont : on estime pour NE PAS facturer 0 (jamais offert)
+            try:
+                tin = len(json.dumps(rl.get('messages') or [])) // 4
+            except Exception:
+                tin = 0
+            tout = len(''.join(content)) // 4
+        b = rl.get('best') or {}
+        est = round(((tin - cached_tok) * b.get('in', 0)
+                     + cached_tok * b.get('cache_read', b.get('in', 0))
+                     + tout * b.get('out', 0)) / 1e6, 8)
+        try:
+            billed, remaining = bill_and_log(rl['uid'], rl['plan'], rl['key_id'],
+                                             rl['model_id'], b.get('supplier'),
+                                             rl.get('requested'),
+                                             'flux' if u else 'flux_estime',
+                                             tin, tout, cached_tok, est)
+            log(f'FLUX {rl["model_id"]} via {b.get("supplier")} tok={tin}+{tout} '
+                f'cache={cached_tok} facture={billed} reste={remaining}')
+        except Exception as ex:
+            log(f'FACTURATION flux KO: {type(ex).__name__}: {str(ex)[:90]}')
 
     def do_OPTIONS(self):
         # le front appelle son propre domaine (/gw/* via Vercel) : préflights gérés là-bas.
@@ -1935,9 +2219,13 @@ class Handler(BaseHTTPRequestHandler):
             status, obj = redeem(uid, payload)
         elif path == '/v1/chat/completions':
             stream_wanted = bool(payload.get('stream'))
-            status, obj = api_chat(self.headers.get('Authorization', ''), payload, ip)
+            status, obj = api_chat(self.headers.get('Authorization', ''), payload, ip,
+                                   want_stream=stream_wanted)
+            if status == 200 and isinstance(obj, dict) and '__relay__' in obj:
+                return self._relay_sse(obj['__relay__'])
             _hx = pin_headers(obj) if isinstance(obj, dict) else {}
             if status == 200 and stream_wanted and isinstance(obj, dict):
+                # repli : relais impossible -> on re-sérialise (comportement d'avant)
                 return self._sse(obj, _hx)
             return self._json(status, obj, _hx)
         else:
