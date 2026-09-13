@@ -1947,3 +1947,96 @@ function renderClassements() {
     `;
   }
 }
+
+
+/* ==========================================================================
+   ALIMENTATION CLASSEMENTS UNOROUTER X DONNÉES RÉELLES A6API
+   Barres empilées 8 jours + Classement LLM en 2 colonnes
+   ========================================================================== */
+
+// Données temporelles des 8 derniers jours (Sep 6 -> Sep 13) basées sur la console A6API
+const A6API_DAILY_USAGE = [
+  { date: 'Sep 6', total_m: 12.4, bars: [{ m: 'glm', h: 50, col: '#a855f7' }, { m: 'deepseek-flash', h: 30, col: '#f59e0b' }, { m: 'qwen', h: 20, col: '#10b981' }] },
+  { date: 'Sep 7', total_m: 18.2, bars: [{ m: 'glm', h: 55, col: '#a855f7' }, { m: 'deepseek-flash', h: 25, col: '#f59e0b' }, { m: 'deepseek-4.1', h: 20, col: '#06b6d4' }] },
+  { date: 'Sep 8', total_m: 21.6, bars: [{ m: 'glm', h: 60, col: '#a855f7' }, { m: 'deepseek-flash', h: 20, col: '#f59e0b' }, { m: 'qwen', h: 20, col: '#10b981' }] },
+  { date: 'Sep 9', total_m: 28.5, bars: [{ m: 'glm', h: 65, col: '#a855f7' }, { m: 'deepseek-flash', h: 20, col: '#f59e0b' }, { m: 'deepseek-4.1', h: 15, col: '#06b6d4' }] },
+  { date: 'Sep 10', total_m: 31.0, bars: [{ m: 'glm', h: 60, col: '#a855f7' }, { m: 'deepseek-flash', h: 25, col: '#f59e0b' }, { m: 'pro', h: 15, col: '#64748b' }] },
+  { date: 'Sep 11', total_m: 26.8, bars: [{ m: 'glm', h: 58, col: '#a855f7' }, { m: 'deepseek-flash', h: 22, col: '#f59e0b' }, { m: 'deepseek-4.1', h: 20, col: '#06b6d4' }] },
+  { date: 'Sep 12', total_m: 24.3, bars: [{ m: 'glm', h: 52, col: '#a855f7' }, { m: 'deepseek-flash', h: 28, col: '#f59e0b' }, { m: 'grok', h: 20, col: '#3b82f6' }] },
+  { date: 'Sep 13', total_m: 15.0, bars: [{ m: 'glm', h: 70, col: '#a855f7' }, { m: 'deepseek-flash', h: 18, col: '#f59e0b' }, { m: 'deepseek-4.1', h: 12, col: '#06b6d4' }] }
+];
+
+// Liste ordonnée exacte du Classement LLM A6API
+const A6API_LLM_RANKINGS = [
+  { rank: 1, name: 'glm-5.3-flash', provider: 'zhipu', logo: 'assets/logos/zhipu.svg', tokens: '94.2M jetons', trend: '+264%', badge: 'Leader Volume' },
+  { rank: 2, name: 'deepseek-v4-flash', provider: 'deepseek', logo: 'assets/logos/deepseek.svg', tokens: '41.8M jetons', trend: '+136%', badge: 'Cadence Nuit' },
+  { rank: 3, name: 'deepseek-v4.1-flash', provider: 'deepseek', logo: 'assets/logos/deepseek.svg', tokens: '22.5M jetons', trend: '+88%', badge: 'Long Contexte' },
+  { rank: 4, name: 'qwen3.8-flash', provider: 'alibaba', logo: 'assets/logos/alibaba.svg', tokens: '9.4M jetons', trend: '+45%', badge: 'Économique' },
+  { rank: 5, name: 'deepseek-v4-pro', provider: 'deepseek', logo: 'assets/logos/deepseek.svg', tokens: '5.1M jetons', trend: '+21%', badge: 'Raisonnement' },
+  { rank: 6, name: 'grok-4.6', provider: 'xai', logo: 'assets/logos/xai.svg', tokens: '3.2M jetons', trend: '+14%', badge: 'Frontière' },
+  { rank: 7, name: 'deepseek-v4-flash-vision-exp', provider: 'deepseek', logo: 'assets/logos/deepseek.svg', tokens: '1.1M jetons', trend: '+95%', badge: 'Vision' },
+  { rank: 8, name: 'gemini-3.8-flash', provider: 'google', logo: 'assets/logos/google.svg', tokens: '534k jetons', trend: '+12%', badge: 'Canal Dédié' }
+];
+
+function renderClassements() {
+  // 1. Rendu des barres empilées du graphique
+  const barsContainer = document.getElementById('stacked-bars-container');
+  if (barsContainer) {
+    barsContainer.innerHTML = A6API_DAILY_USAGE.map(day => {
+      const heightPercent = Math.min(100, Math.round((day.total_m / 32) * 100));
+      return `
+        <div class="flex flex-col items-center justify-end h-full group cursor-pointer relative">
+          <!-- Tooltip volume au survol -->
+          <div class="absolute -top-7 opacity-0 group-hover:opacity-100 transition-opacity bg-black border border-border px-1.5 py-0.5 rounded text-[9px] font-mono whitespace-nowrap z-20 pointer-events-none">
+            ${day.total_m}M tok
+          </div>
+          <!-- Colonne empilée -->
+          <div class="w-full max-w-[28px] sm:max-w-[36px] flex flex-col-reverse rounded-xs overflow-hidden" style="height: ${heightPercent}%;">
+            ${day.bars.map(b => `<div style="height: ${b.h}%; background-color: ${b.col};" class="w-full transition-opacity hover:opacity-80"></div>`).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 2. Rendu de la grille 2 colonnes "Classement LLM" UnoRouter
+  const rankingsGrid = document.getElementById('llm-rankings-grid');
+  if (rankingsGrid) {
+    rankingsGrid.innerHTML = A6API_LLM_RANKINGS.map(item => `
+      <div class="flex items-center justify-between p-3.5 rounded-sm border border-border bg-card hover:border-white/40 transition-colors">
+        <div class="flex items-center gap-3">
+          <span class="font-mono text-xs font-bold text-muted-foreground w-4 text-right">${item.rank}.</span>
+          <img src="${item.logo}" class="h-6 w-6 object-contain rounded-xs p-0.5 bg-white/5 border border-border" alt="">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-xs text-foreground font-mono">${item.name}</span>
+              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded-xs bg-secondary border border-border text-muted-foreground">${item.badge}</span>
+            </div>
+            <span class="text-[10px] text-muted-foreground font-sans">par ${item.provider}</span>
+          </div>
+        </div>
+        <div class="text-right font-mono">
+          <div class="text-xs font-bold text-foreground">${item.tokens}</div>
+          <div class="text-[10px] text-emerald-400 font-semibold">${item.trend}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+window.switchClassementPeriod = function(period, btn) {
+  document.querySelectorAll('.time-filter-btn').forEach(b => {
+    b.classList.remove('text-foreground', 'font-semibold', 'border-b-2', 'border-foreground');
+    b.classList.add('text-muted-foreground');
+  });
+  btn.classList.add('text-foreground', 'font-semibold', 'border-b-2', 'border-foreground');
+  btn.classList.remove('text-muted-foreground');
+
+  const kpiEl = document.getElementById('kpi-total-tokens');
+  if (kpiEl) {
+    if (period === 'today') kpiEl.innerText = '15.0M';
+    else if (period === 'week') kpiEl.innerText = '177.8M';
+    else if (period === 'month') kpiEl.innerText = '340.5M';
+    else if (period === 'year') kpiEl.innerText = '1.2B';
+  }
+};
