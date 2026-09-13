@@ -1464,3 +1464,217 @@ window.switchToPublic = function() {
   document.getElementById('main-header').classList.remove('hidden');
   switchTab('home');
 };
+
+
+/* ==========================================================================
+   SMART API CHEAP - LIAISONS API REELLES (STATS, PRICES, KEYS, LOGS, OAUTH)
+   ========================================================================== */
+
+// 1. Chargement de la télémétrie réelle depuis la table usage_logs
+async function loadLivePlatformStats() {
+  try {
+    const res = await fetch('/api/gw?path=api/public/stats');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.ok) {
+      const elTokens = $('stat-hero-tokens');
+      if (elTokens && data.total_tokens) {
+        elTokens.innerText = Number(data.total_tokens).toLocaleString('fr-FR');
+      }
+      const elTpm = document.querySelector('#tab-home .text-emerald-400.font-mono.text-xl');
+      if (elTpm && data.tokens_per_minute) {
+        elTpm.innerText = '~ ' + Number(data.tokens_per_minute).toLocaleString('fr-FR');
+      }
+      const elReqs = document.querySelector('#tab-home .font-mono.text-xl.font-bold.text-foreground');
+      if (elReqs && data.total_requests) {
+        elReqs.innerText = Number(data.total_requests).toLocaleString('fr-FR');
+      }
+    }
+  } catch (err) {
+    console.debug('Télémétrie en cours d\'agrégation:', err);
+  }
+}
+
+// 2. Synchronisation du tableau des modèles avec la sonde active /api/prices
+async function syncModelsWithLiveMarket() {
+  try {
+    const res = await fetch('/api/gw?path=api/prices');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.models) {
+      // Mettre à jour MODELS_DATA avec les vrais tarifs de la sonde
+      Object.keys(data.models).forEach(mId => {
+        const live = data.models[mId];
+        const match = MODELS_DATA.find(x => x.id.toLowerCase() === mId.toLowerCase());
+        if (match && live.top && live.top.length > 0) {
+          const best = live.top[0];
+          if (best.in_now) match.input_ours = '$' + Number(best.in_now).toFixed(4);
+          if (best.out_now) match.output_ours = '$' + Number(best.out_now).toFixed(4);
+          if (best.latency_s) match.latency = Number(best.latency_s).toFixed(2) + 's';
+          if (best.sr24) match.success = best.sr24.toFixed(1) + '%';
+        }
+      });
+      renderModelsTableUno();
+    }
+  } catch (err) {
+    console.debug('Sonde marché non disponible immédiatement:', err);
+  }
+}
+
+// 3. Gestion réelle des Clés API (Tokens) pour le Dashboard
+async function loadDashboardKeys() {
+  const tbody = $('dash-keys-tbody');
+  if (!tbody) return;
+  const sess = localStorage.getItem('qh_session');
+  if (!sess) {
+    tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-muted-foreground">Veuillez vous connecter pour voir vos clés API.</td></tr>';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/gw?path=api/keys', {
+      headers: { 'X-QH-Session': sess }
+    });
+    const data = await res.json();
+    if (data && data.keys && data.keys.length > 0) {
+      const keysCountEl = $('dash-stat-keys');
+      if (keysCountEl) keysCountEl.innerText = data.keys.filter(k => !k.revoked).length;
+
+      tbody.innerHTML = data.keys.map(k => `
+        <tr class="hover:bg-secondary/40 transition-colors">
+          <td class="py-3 px-4 font-bold text-foreground">${k.name || 'Clé sans nom'}</td>
+          <td class="py-3 px-4 text-cyan-300 font-mono">${k.prefix ? k.prefix + '••••••••' : 'sk-sm-••••••••'}</td>
+          <td class="py-3 px-4 text-muted-foreground">${new Date(k.created_at * 1000).toLocaleDateString('fr-FR')}</td>
+          <td class="py-3 px-4 text-center">
+            ${k.revoked ? '<span class="text-red-400 font-bold">Révoquée</span>' : '<span class="text-emerald-400 font-bold">Active</span>'}
+          </td>
+          <td class="py-3 px-4 text-right">
+            ${k.revoked ? '-' : `<button class="text-red-400 hover:text-red-300 text-xs uppercase tracking-wider" onclick="revokeKey(${k.id})">Révoquer</button>`}
+          </td>
+        </tr>
+      `).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-muted-foreground">Aucune clé créée pour le moment. Cliquez sur "+ Nouvelle Clé".</td></tr>';
+    }
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-red-400">Erreur lors de la récupération des clés.</td></tr>';
+  }
+}
+
+// 4. Création réelle de Clé API
+window.submitCreateKey = async function() {
+  const nameInput = $('new-key-name');
+  const name = nameInput ? nameInput.value.trim() : 'Agent';
+  const sess = localStorage.getItem('qh_session');
+  if (!sess) {
+    alert('Session expirée. Veuillez vous reconnecter.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/gw?path=api/keys', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-QH-Session': sess
+      },
+      body: JSON.stringify({ name: name })
+    });
+    const data = await res.json();
+    if (data && data.key) {
+      $('key-create-form').classList.add('hidden');
+      const resBox = $('key-result-box');
+      resBox.classList.remove('hidden');
+      $('created-key-display').innerText = data.key;
+      loadDashboardKeys();
+    } else {
+      alert(data.error?.message || 'Erreur lors de la création de la clé');
+    }
+  } catch (err) {
+    alert('Erreur réseau lors de la génération de la clé.');
+  }
+};
+
+// 5. Révocation de Clé API
+window.revokeKey = async function(keyId) {
+  if (!confirm('Confirmez-vous la révocation immédiate de cette clé API ?')) return;
+  const sess = localStorage.getItem('qh_session');
+  try {
+    const res = await fetch('/api/gw?path=api/keys/' + keyId, {
+      method: 'DELETE',
+      headers: { 'X-QH-Session': sess }
+    });
+    loadDashboardKeys();
+  } catch (err) {
+    alert('Impossible de révoquer la clé');
+  }
+};
+
+// 6. Chargement des Journaux d'utilisation récents (/logs)
+async function loadDashboardUsageLogs() {
+  const tbody = $('dash-logs-tbody');
+  if (!tbody) return;
+  const sess = localStorage.getItem('qh_session');
+  if (!sess) return;
+
+  try {
+    const res = await fetch('/api/gw?path=api/usage', {
+      headers: { 'X-QH-Session': sess }
+    });
+    const data = await res.json();
+    if (data && data.logs && data.logs.length > 0) {
+      tbody.innerHTML = data.logs.map(l => `
+        <tr class="hover:bg-secondary/40 transition-colors">
+          <td class="py-3 px-4 text-muted-foreground">${new Date(l.created_at * 1000).toLocaleTimeString('fr-FR')}</td>
+          <td class="py-3 px-4 font-bold text-foreground">${l.model_public || 'AutoSmart Flash 1.0'}</td>
+          <td class="py-3 px-4 text-right">${Number(l.prompt_tokens || 0).toLocaleString('fr-FR')}</td>
+          <td class="py-3 px-4 text-right text-emerald-400 font-bold">${Number(l.cached_tokens || 0).toLocaleString('fr-FR')}</td>
+          <td class="py-3 px-4 text-right text-cyan-300">$${Number(l.cost_usd || 0).toFixed(5)}</td>
+        </tr>
+      `).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-muted-foreground">Aucune consommation enregistrée récemment. Vos requêtes d\'API apparaîtront ici.</td></tr>';
+    }
+  } catch (err) {
+    console.debug('Erreur chargement logs:', err);
+  }
+}
+
+// 7. Initialisation globale et persistance OAuth de session
+window.loadDashboardData = function() {
+  loadDashboardKeys();
+  loadDashboardUsageLogs();
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+  // Capture de token de session si retour d'OAuth Google ou GitHub dans l'URL
+  const params = new URLSearchParams(window.location.search);
+  const qhSession = params.get('session_token') || params.get('qh_session');
+  if (qhSession) {
+    localStorage.setItem('qh_session', qhSession);
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  const existingSess = localStorage.getItem('qh_session');
+  if (existingSess) {
+    $('auth-unlogged')?.classList.add('hidden');
+    $('auth-logged')?.classList.remove('hidden');
+    fetch('/api/gw?path=api/me', { headers: { 'X-QH-Session': existingSess } })
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.user) {
+          const emailEl = $('dash-user-email');
+          if (emailEl) emailEl.innerText = d.user.email;
+          const greetEl = $('dash-greeting');
+          if (greetEl) greetEl.innerText = 'Bonjour, ' + (d.user.email.split('@')[0]);
+          const planEl = $('dash-stat-plan');
+          if (planEl) planEl.innerText = d.user.plan || 'Pay-as-you-go';
+          const tokEl = $('dash-stat-tokens');
+          if (tokEl) tokEl.innerText = (d.user.balance_tokens != null ? Number(d.user.balance_tokens).toLocaleString('fr-FR') : 'Illimité');
+        }
+      }).catch(() => {});
+  }
+
+  loadLivePlatformStats();
+  syncModelsWithLiveMarket();
+});
