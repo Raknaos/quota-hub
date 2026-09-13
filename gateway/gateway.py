@@ -82,6 +82,9 @@ MODELS = ['qwen3.8-flash', 'grok-4.6', 'glm-5.3-flash',
 # tokentrans = ancre (le moins cher sur qwen, présent sur les 3 modèles, cache ~76-82 %).
 # Changement de modèle = perte du cache amont → on reste sur le MÊME fournisseur tant qu'il vit.
 TRUSTED_SUPPLIERS = ['tokentrans', '国产', 'bbgt-vip', 'deepseek线路']
+# FOURNISSEURS BANNIS (13-09) : 新3 vend a bas prix mais ne met AUCUN token en cache (0.7% mesure en prod),
+# ce qui fait exploser les couts de 10x sur les conversations longues.
+BANNED_SUPPLIERS = {'新3'}
 GEMINI_MODEL = 'gemini-3.8-flash'
 PLANS = ('auto', 'gemini')
 PLAN_DEFAULT = {'auto': 1_000_000_000, 'gemini': 100_000_000}   # tokens par code
@@ -137,9 +140,17 @@ CONV_LOCK = threading.Lock()
 # sont écartés du choix tant qu'un canal cache-capable existe dans le pool.
 CACHE_MIN_TOKENS = 1500    # taille de prompt au-delà de laquelle le cache pèse vraiment
 
-def has_cache(b):
-    """Le canal propose-t-il un VRAI cache prompt ? (remise cache_read effective
-    ou hit constaté ≥ 30 %)."""
+def has_cache(b, model_id=None):
+    """Le canal propose-t-il un VRAI cache prompt actif ?
+    VERIFICATION STRICTE (13-09) : Les declarations amont (prix cache_read affiche)
+    sont souvent mensongeres (ex: 新3 pour glm qui affiche un cache mais a 0.7% reel).
+    Si le canal a ete mesure chez nous avec un taux < 15%, il est declare SANS CACHE."""
+    sup = b.get('supplier')
+    real = get_real_cache_hit(model_id, sup)
+    if real is not None:
+        # Mesure empirique prioritaire : si < 15% de cache en production, rejet categorique
+        return real >= 0.20
+    # Pas encore de mesure locale : se baser sur les chiffres de marche
     cr = b.get('cache_read') or 0
     i = b.get('in') or 0
     hit = b.get('cache24') or 0
@@ -250,7 +261,46 @@ def _pin_set(ctx, model_id, supplier):
 # l'input plein et remonte donc au classement — c'est la seule mesure qui integre
 # l'economie reelle du cache.
 OBS = {'d': None, 'ts': 0.0}
+OBS_CACHE = {'d': {}, 'ts': 0.0}
 OBS_TTL = 300
+
+def refresh_observed_cache():
+    """Mesure le taux de hit reel de cache prompt par (modele, fournisseur)
+    sur les requetes a contexte (prompt_tokens >= 2000) des dernieres 24h."""
+    now = time.time()
+    if OBS_CACHE['ts'] and now - OBS_CACHE['ts'] < OBS_TTL:
+        return OBS_CACHE['d']
+    d = {}
+    try:
+        c = db()
+        since = int(now) - 86400
+        rows = c.execute('''SELECT model_served, supplier, 
+                                  SUM(prompt_tokens) as total_in,
+                                  SUM(cached_tokens) as total_cac,
+                                  COUNT(*) as n
+                            FROM usage_logs
+                            WHERE created_at > ? AND prompt_tokens >= 2000
+                            GROUP BY model_served, supplier''', (since,)).fetchall()
+        c.close()
+        for m, sup, tot_in, tot_cac, n in rows:
+            if tot_in and tot_in > 0 and n >= 5:
+                rate = float(tot_cac or 0) / float(tot_in)
+                d[(m, sup)] = rate
+                d[m] = max(d.get(m, 0.0), rate)
+    except Exception as e:
+        log('OBS_CACHE indisponible: ' + str(e)[:60])
+    OBS_CACHE['d'] = d
+    OBS_CACHE['ts'] = now
+    return d
+
+def get_real_cache_hit(model_id, supplier=None):
+    """Renvoie le taux de hit reel constate [0.0 - 0.95]."""
+    d = refresh_observed_cache()
+    if supplier and (model_id, supplier) in d:
+        return max(0.0, min(0.95, d[(model_id, supplier)]))
+    if model_id in d:
+        return max(0.0, min(0.95, d[model_id]))
+    return None
 
 def observed_cost(model_id):
     """(cout observe /M tokens, nb requetes) sur nos 7 derniers jours, ou None."""
@@ -402,7 +452,8 @@ def marketplace_best(model_id):
     alive = [i for i in items if not i.get('supplier_channel_disabled')
              and i.get('listing_availability') == 1
              and (i.get('recent_success_rate') or 0) >= MIN_SUCCESS_RAW
-             and (i.get('sample_count') or 0) >= 20]
+             and (i.get('sample_count') or 0) >= 20
+             and str(i.get('supplier_nickname') or '').strip() not in BANNED_SUPPLIERS]
     trusted = [i for i in alive if str(i.get('supplier_nickname')) in TRUSTED_SUPPLIERS]
     def expected(i):
         s = max((i.get('recent_success_rate') or 0) / SUCCESS_SCALE, 0.01)
@@ -483,7 +534,7 @@ def market30_best(model_id):
     si la vue 30 j est absente/périmée -> repli marché instantané."""
     d = market30_all() or {}
     ent = (d.get('models') or {}).get(model_id) or {}
-    top = ent.get('top') or []
+    top = [x for x in (ent.get('top') or []) if str(x.get('supplier') or '').strip() not in BANNED_SUPPLIERS]
     if not top:
         return None
     t = top[0]
@@ -529,7 +580,10 @@ def on_failure(model_id, msg):
         while NET_FAIL_TS and now - NET_FAIL_TS[0] > 120:
             NET_FAIL_TS.pop(0)
         crisis = len(NET_FAIL_TS) >= 2
-        dur = 60 if crisis else 90          # crise plateforme -> récupération rapide
+        # COOLDOWN COURT (13-09) : un 502/timeout passager de l'amont ne doit JAMAIS
+        # bannir le canal pendant 1 minute et jeter tout le cache de conversation !
+        # 12s en crise, 18s hors crise suffisent pour passer la vague sans perdre le cache.
+        dur = 12 if crisis else 18
         COOLDOWN[model_id] = (now + dur, (msg or '')[:60])
     cooldowns_save()
 
@@ -567,29 +621,32 @@ def pick_model(models, ctx=None):
         cand.append(((eff_in + b['out']) / 2 / success, m, b))
     if not cand:
         return None, None
-    # CACHE INDISPENSABLE (11-09) : pour une requête qui porte un vrai contexte,
-    # on écarte les canaux SANS cache prompt tant qu'un canal cache-capable
-    # existe. Sans cache, chaque tour repaie l'input plein : le prix affiché
-    # ment. Les petites requêtes (one-shot) gardent le classement par prix pur.
+    # CACHE STRICT & PROJECTION DE COÛT RÉEL (13-09) :
     tin_need = int((ctx or {}).get('tin_est') or 0)
     if tin_need >= CACHE_MIN_TOKENS:
-        with_cache = [x for x in cand if has_cache(x[2])]
+        # Écarter impitoyablement les menteurs de cache
+        with_cache = [x for x in cand if has_cache(x[2], x[1])]
         if with_cache:
             cand = with_cache
-    # ── RE-EVALUATION PAR NOS COUTS OBSERVES (13-09) ────────────────────────
-    # Le prix du marche decrit le catalogue ; nos journaux decrivent la facture.
-    # Constat du 13-09 : pour une requete identique (~40 k tokens), glm-5.3-flash
-    # nous a coute 0.00002 $ et deepseek-v4-flash 0.00016 $ — 8x — alors que
-    # l'auto-routage placait deepseek devant des que le pin retombait. On classe
-    # donc sur le cout MESURE chez nous (7 j, >=10 requetes) quand il existe.
+
+    # CALCUL DU COÛT RÉEL PROJETÉ DE LA REQUÊTE :
+    # Si la requête a du contexte, un canal avec 80% de cache bat n'importe quel canal sans cache.
     rescored = []
     for score, m, b in cand:
-        oc = observed_cost(m)
         bb = dict(b)
-        if oc:
-            success = max(float(bb.get('success', 100) or 100) / 100.0, 0.01)
-            bb['src'] = 'observe'
-            score = oc[0] / success
+        sup = bb.get('supplier')
+        real_hit = get_real_cache_hit(m, sup)
+        if real_hit is None:
+            real_hit = max(0.0, min(0.95, (bb.get('cache24') or 0) / 100.0))
+        success = max(float(bb.get('success', 100) or 100) / 100.0, 0.01)
+        tin = max(tin_need, 1000)
+        p_in = bb.get('in', 1.0)
+        p_cr = bb.get('cache_read', p_in)
+        p_out = bb.get('out', 1.0)
+        # Coût réel projeté : tokens non cachés + tokens cachés + sortie
+        eff_req_cost = (tin * (1.0 - real_hit) * p_in + tin * real_hit * p_cr + 300 * p_out)
+        bb['src'] = 'cache_projected'
+        score = eff_req_cost / success
         rescored.append((score, m, bb))
     cand = rescored
     cand.sort(key=lambda x: x[0])
