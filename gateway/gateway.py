@@ -2070,6 +2070,26 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if path == '/api/prices':
+            d30 = market30_all() or {}
+            return self._json(200, d30 if d30 else {'ok': False, 'models': {}})
+        if path == '/api/public/stats':
+            try:
+                c = db()
+                row = c.execute('SELECT COUNT(*), COALESCE(SUM(tokens), 0), COALESCE(SUM(cached_tokens), 0) FROM usage_logs').fetchone()
+                t15 = int(time.time()) - 900
+                recent = c.execute('SELECT COUNT(*), COALESCE(SUM(tokens), 0) FROM usage_logs WHERE created_at >= ?', (t15,)).fetchone()
+                tpm = int((recent[1] if recent else 0) / 15)
+                return self._json(200, {
+                    'ok': True,
+                    'total_requests': row[0] if row else 0,
+                    'total_tokens': row[1] if row else 0,
+                    'total_cached': row[2] if row else 0,
+                    'tokens_per_minute': tpm,
+                    'ts': time.time()
+                })
+            except Exception as e:
+                return self._json(500, {'error': str(e)})
         # OAuth social : public (le navigateur revient de Google/GitHub sans HMAC)
         if path == '/api/auth/oauth/start':
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)

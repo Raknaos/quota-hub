@@ -1678,3 +1678,125 @@ window.addEventListener('DOMContentLoaded', () => {
   loadLivePlatformStats();
   syncModelsWithLiveMarket();
 });
+
+
+/* ==================== ALIGNEMENT AUTHENTIFICATION UNOROUTER ==================== */
+
+// 1. Fonctions d'ouverture / fermeture appelées par les boutons de index.html
+window.openAuthModal = function(mode = 'login') {
+  currentAuthMode = mode;
+  const modal = document.getElementById('auth-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  const titleEl = document.getElementById('auth-modal-title');
+  const descEl = document.getElementById('auth-modal-desc');
+  const submitBtn = document.getElementById('auth-submit-btn');
+  const switchText = document.getElementById('auth-switch-text');
+  const switchBtn = document.getElementById('auth-switch-btn');
+  const errEl = document.getElementById('auth-error-msg');
+  if (errEl) errEl.classList.add('hidden');
+
+  if (mode === 'login') {
+    if (titleEl) titleEl.innerText = 'Connexion';
+    if (descEl) descEl.innerText = 'Accédez à votre console Smart API Cheap';
+    if (submitBtn) submitBtn.innerText = 'Se connecter';
+    if (switchText) switchText.innerText = 'Pas encore de compte ?';
+    if (switchBtn) switchBtn.innerText = 'Créer un compte';
+  } else {
+    if (titleEl) titleEl.innerText = 'Inscription';
+    if (descEl) descEl.innerText = 'Créez votre compte développeur gratuit';
+    if (submitBtn) submitBtn.innerText = 'Créer mon compte';
+    if (switchText) switchText.innerText = 'Déjà inscrit ?';
+    if (switchBtn) switchBtn.innerText = 'Se connecter';
+  }
+};
+
+window.closeAuthModal = function() {
+  const modal = document.getElementById('auth-modal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.style.display = 'none';
+  document.body.style.overflow = '';
+};
+
+window.toggleAuthMode = function() {
+  currentAuthMode = (currentAuthMode === 'login' ? 'register' : 'login');
+  openAuthModal(currentAuthMode);
+};
+
+// 2. Déclencheur OAuth réel Google / GitHub
+window.startOAuth = async function(provider) {
+  try {
+    const res = await fetch(`/api/gw?path=api/auth/oauth/start&provider=${provider}`);
+    const data = await res.json();
+    if (data && data.url) {
+      window.location.href = data.url; // Redirection réelle du navigateur vers Google / GitHub
+    } else {
+      alert("Erreur lors de l'initialisation OAuth (" + (data.error?.message || 'inconnu') + ")");
+    }
+  } catch (err) {
+    alert("Impossible de joindre le serveur d'authentification.");
+  }
+};
+
+// 3. Soumission du formulaire email/password
+window.submitAuth = async function() {
+  const emailInput = document.getElementById('auth-email');
+  const pwdInput = document.getElementById('auth-password');
+  const errEl = document.getElementById('auth-error-msg');
+  const submitBtn = document.getElementById('auth-submit-btn');
+
+  const email = emailInput ? emailInput.value.trim() : '';
+  const password = pwdInput ? pwdInput.value : '';
+
+  if (!email || !password) {
+    if (errEl) {
+      errEl.innerText = 'Veuillez renseigner un email et un mot de passe.';
+      errEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'Traitement en cours...';
+  }
+
+  const endpoint = (currentAuthMode === 'login' ? 'api/auth/login' : 'api/auth/register');
+
+  try {
+    const res = await fetch('/api/gw?path=' + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.status === 'ok' && data.session) {
+      localStorage.setItem('qh_session', data.session);
+      closeAuthModal();
+      window.location.reload();
+    } else {
+      if (errEl) {
+        errEl.innerText = data.error?.message || (data.status === 'ok' ? 'Compte créé ! Veuillez vous connecter.' : 'Erreur de connexion');
+        errEl.classList.remove('hidden');
+      }
+      if (currentAuthMode === 'register' && data.status === 'ok') {
+        setTimeout(() => openAuthModal('login'), 1200);
+      }
+    }
+  } catch (err) {
+    if (errEl) {
+      errEl.innerText = 'Erreur réseau avec la passerelle.';
+      errEl.classList.remove('hidden');
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = (currentAuthMode === 'login' ? 'Se connecter' : 'Créer mon compte');
+    }
+  }
+};
