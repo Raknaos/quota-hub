@@ -173,7 +173,7 @@ print(rep.choices[0].message.content)</code></pre></div>
 
       </div>
 
-      <p class="auto-code-note">Pour épingler un modèle précis, remplacez <code>"auto"</code> par l’identifiant exact d’un modèle du catalogue — <button class="inline-link" onclick="switchTab('models')">voir les modèles →</button></p>
+      <p class="auto-code-note">Le mode <code>"auto"</code> gère l’acheminement optimal : canal actif, cache de contexte et tarif amorti sans réglage manuel.</p>
 
 
 
@@ -181,7 +181,7 @@ print(rep.choices[0].message.content)</code></pre></div>
 
       <div class="auto-faq">
 
-        <details><summary>Puis-je forcer un modèle précis ?</summary><p>Oui — remplacez <code>"auto"</code> par l’identifiant exact d’un modèle du catalogue. Le mode auto n’est jamais obligatoire : c’est le réglage par défaut qui convient à la plupart des usages.</p></details>
+        <details><summary>Puis-je forcer un modèle précis ?</summary><p>Smart API Cheap unifie l’accès sous le modèle <code>"auto"</code>. Le routeur intelligent analyse chaque requête pour sélectionner le canal vivant le plus économique et préserver vos caches de prompt.</p></details>
 
         <details><summary>Mon modèle peut-il changer en pleine conversation ?</summary><p>Jamais par surprise. Tant que votre conversation reste chaude, elle garde son modèle : le routeur ne change que si l’économie dépasse la perte de cache — et il privilégie alors le même fournisseur pour récupérer le cache le plus proche.</p></details>
 
