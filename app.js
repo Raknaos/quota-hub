@@ -2280,3 +2280,184 @@ function initStreakCanvas() {
 window.addEventListener('DOMContentLoaded', () => {
   initStreakCanvas();
 });
+
+
+/* ==========================================================================
+   WARP SPEED / GALAXY BLACK HOLE ENGINE (EFFET HYPERESPACE COSMIQUE 60 FPS)
+   Simulateur 3D de projection d'étoiles filantes depuis le centre de la page
+   (Trou noir / Passerelle), avec accélération radiale, traînées lumineuses,
+   poussières galactiques et réactivité au curseur souris.
+   ========================================================================== */
+function initGalaxyWarpEngine() {
+  const canvas = document.getElementById('galaxy-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  let width = 0;
+  let height = 0;
+  let cx = 0;
+  let cy = 0;
+  let animationId;
+  let paused = false;
+
+  // Configuration de l'hyperespace
+  const STAR_COUNT = window.innerWidth < 768 ? 220 : 550;
+  const BASE_SPEED = 18;
+  const MAX_DEPTH = 1500;
+  let targetSpeed = BASE_SPEED;
+  let currentSpeed = BASE_SPEED;
+
+  // Couleurs cosmiques des étoiles et faisceaux d'hyperespace
+  const STAR_COLORS = [
+    '#ffffff', // Blanc pur (étoile intense)
+    '#e0e7ff', // Bleu pâle froid
+    '#c7d2fe', // Indigo galactique
+    '#a7f3d0', // Vert émeraude quantique
+    '#67e8f9', // Cyan néon
+    '#fbcfe8'  // Magenta nébuleuse
+  ];
+
+  class Star {
+    constructor(initRandomZ = true) {
+      this.reset(initRandomZ);
+    }
+
+    reset(initRandomZ = false) {
+      // Position 3D autour du centre
+      this.x = (Math.random() - 0.5) * width * 2.2;
+      this.y = (Math.random() - 0.5) * height * 2.2;
+      this.z = initRandomZ ? Math.random() * MAX_DEPTH : MAX_DEPTH;
+      this.pz = this.z; // Profondeur précédente pour tracer la traînée de vitesse
+
+      // Propriétés visuelles
+      this.color = STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)];
+      this.size = Math.random() * 1.5 + 0.5;
+      this.brightness = Math.random() * 0.4 + 0.6;
+    }
+
+    update(speed) {
+      this.pz = this.z;
+      this.z -= speed;
+
+      // Si l'étoile a dépassé la caméra ou le bord, la régénérer au fond du vortex
+      if (this.z <= 1) {
+        this.reset(false);
+      }
+    }
+
+    draw() {
+      // Projection perspective 3D vers 2D
+      const k = 420 / this.z;
+      const px = this.x * k + cx;
+      const py = this.y * k + cy;
+
+      if (px < -50 || px > width + 50 || py < -50 || py > height + 50) {
+        this.reset(false);
+        return;
+      }
+
+      // Projection de la position précédente pour la traînée filante (Warp Trail)
+      const pk = 420 / this.pz;
+      const prevX = this.x * pk + cx;
+      const prevY = this.y * pk + cy;
+
+      // Opacité selon la proximité (plus proche = plus brillant)
+      const alpha = Math.min(1, Math.max(0.1, (1 - this.z / MAX_DEPTH) * this.brightness));
+      const radius = Math.max(0.4, (1 - this.z / MAX_DEPTH) * this.size * 2.2);
+
+      // 1. Traînée de vitesse (Warp Line)
+      ctx.beginPath();
+      ctx.moveTo(prevX, prevY);
+      ctx.lineTo(px, py);
+      ctx.strokeStyle = this.color;
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.lineWidth = radius;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // 2. Éclat en tête d'étoile
+      ctx.beginPath();
+      ctx.arc(px, py, radius * 0.7, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = alpha;
+      ctx.fill();
+    }
+  }
+
+  // Initialisation du champ stellaire
+  const stars = [];
+  function setup() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    cx = width / 2;
+    cy = height * 0.42; // Point focal aligné avec le centre du Hero
+
+    stars.length = 0;
+    for (let i = 0; i < STAR_COUNT; i++) {
+      stars.push(new Star(true));
+    }
+  }
+
+  // Boucle d'animation à 60 FPS
+  function loop() {
+    if (paused) {
+      animationId = requestAnimationFrame(loop);
+      return;
+    }
+
+    // Lissage fluide de la vitesse (accélération / décélération douce)
+    currentSpeed += (targetSpeed - currentSpeed) * 0.05;
+
+    // Fond cosmique avec léger fondu pour accentuer la persistance rétinienne des météores
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#020205';
+    ctx.fillRect(0, 0, width, height);
+
+    // Dessiner toutes les étoiles avec projection 3D
+    for (let i = 0; i < stars.length; i++) {
+      stars[i].update(currentSpeed);
+      stars[i].draw();
+    }
+
+    ctx.globalAlpha = 1;
+    animationId = requestAnimationFrame(loop);
+  }
+
+  // Interaction utilisateur : survol accélère l'hyperespace
+  window.addEventListener('mousemove', (e) => {
+    // Déplacement subtil du point de fuite vers le curseur
+    const targetCx = width / 2 + (e.clientX - width / 2) * 0.12;
+    const targetCy = height * 0.42 + (e.clientY - height / 2) * 0.12;
+    cx += (targetCx - cx) * 0.08;
+    cy += (targetCy - cy) * 0.08;
+  });
+
+  // Clic ou impulsion pour donner une pointe de vitesse
+  window.addEventListener('mousedown', () => {
+    targetSpeed = BASE_SPEED * 2.5;
+  });
+  window.addEventListener('mouseup', () => {
+    targetSpeed = BASE_SPEED;
+  });
+
+  window.addEventListener('resize', () => {
+    setup();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    paused = document.hidden;
+  });
+
+  setup();
+  loop();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  initGalaxyWarpEngine();
+});
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  initGalaxyWarpEngine();
+}
