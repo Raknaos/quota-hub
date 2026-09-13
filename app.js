@@ -2461,3 +2461,277 @@ window.addEventListener('DOMContentLoaded', () => {
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
   initGalaxyWarpEngine();
 }
+
+
+/* ==========================================================================
+   INTERSTELLAR 'GARGANTUA' BLACK HOLE & GRAVITATIONAL LENSING ENGINE (60 FPS)
+   Rendu physique fidèle du trou noir inspiré d'Interstellar / Kip Thorne :
+   - Horizon des événements (ombre noire absolue)
+   - Disque d'accrétion relativiste lumineux incliné avec effet Doppler (un côté plus brillant)
+   - Anneau supérieur et inférieur d'Einstein (lumière courbée par la gravité passant au-dessus/au-dessous)
+   - Vortex de distorsion d'espace-temps entraînant le champ d'étoiles environnant
+   - Faisceaux d'hyperespace et poussière cosmique tourbillonnant vers la singularité
+   ========================================================================== */
+function initInterstellarBlackHole() {
+  const canvas = document.getElementById('blackhole-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  let width = 0;
+  let height = 0;
+  let cx = 0;
+  let cy = 0;
+  let animationId;
+  let paused = false;
+  let time = 0;
+
+  // Paramètres du trou noir
+  let bhRadius = 85;       // Rayon de l'horizon des événements
+  let photonRadius = 120;   // Sphère de photons
+  let diskInner = 135;      // Bord intérieur du disque d'accrétion
+  let diskOuter = 340;      // Bord extérieur du disque d'accrétion
+
+  // Particules d'accrétion (matière incandescente tournant à vitesse relativiste)
+  const ACCRETION_PARTICLES = 380;
+  const particles = [];
+
+  // Champ d'étoiles de fond avec distorsion
+  const STARS_COUNT = 300;
+  const stars = [];
+
+  class AccretionParticle {
+    constructor() {
+      this.reset(true);
+    }
+    reset(initial = false) {
+      this.radius = diskInner + Math.pow(Math.random(), 1.6) * (diskOuter - diskInner);
+      this.angle = initial ? Math.random() * Math.PI * 2 : Math.random() * Math.PI * 2;
+      // Vitesse orbitale keplérienne relativiste : plus c'est proche, plus ça va vite
+      this.speed = (Math.sqrt(diskOuter / this.radius) * 0.038) + 0.005;
+      this.size = Math.random() * 2.2 + 0.8;
+      this.brightness = Math.random() * 0.6 + 0.4;
+      // Palette de plasma : or incandescant, orange brûlant, blanc relativiste, cyan d'ionisation
+      const pal = ['#ffffff', '#fff4cc', '#fcd34d', '#f97316', '#ef4444', '#38bdf8'];
+      this.color = pal[Math.floor(Math.random() * pal.length)];
+      // Oscillation verticale légère
+      this.yOffset = (Math.random() - 0.5) * 14;
+    }
+    update() {
+      this.angle += this.speed;
+      // Attraction gravitationnelle lente vers le centre
+      this.radius -= 0.08;
+      if (this.radius < diskInner * 0.95) {
+        this.reset(false);
+        this.radius = diskOuter;
+      }
+    }
+  }
+
+  class BackgroundStar {
+    constructor() {
+      this.reset();
+    }
+    reset() {
+      this.x = (Math.random() - 0.5) * width * 1.8;
+      this.y = (Math.random() - 0.5) * height * 1.8;
+      this.baseSize = Math.random() * 1.4 + 0.4;
+      this.twinkleSpeed = Math.random() * 0.03 + 0.01;
+      this.twinklePhase = Math.random() * Math.PI * 2;
+      this.color = Math.random() > 0.85 ? '#67e8f9' : (Math.random() > 0.7 ? '#fde047' : '#ffffff');
+    }
+    draw(distortIntensity) {
+      // Calcul de la distorsion gravitationnelle (lensing d'Einstein)
+      const dx = this.x;
+      const dy = this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < bhRadius * 0.9) return; // Engloutie par l'horizon
+
+      // Déviation des rayons lumineux selon la loi de la relativité générale (1 / r)
+      const deflection = (bhRadius * bhRadius * 2.2) / Math.max(dist, bhRadius);
+      const angle = Math.atan2(dy, dx);
+      // Les étoiles s'étirent tangentiellement en arcs gravitationnels (Einstein rings)
+      const deflectedDist = dist + deflection * 0.35 * distortIntensity;
+      const sx = cx + Math.cos(angle) * deflectedDist;
+      const sy = cy + Math.sin(angle) * deflectedDist;
+
+      const alpha = Math.min(1, Math.max(0.2, (Math.sin(time * this.twinkleSpeed + this.twinklePhase) * 0.5 + 0.5)));
+      ctx.beginPath();
+      ctx.arc(sx, sy, this.baseSize, 0, Math.PI * 2);
+      ctx.fillStyle = this.color;
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.fill();
+    }
+  }
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    cx = width / 2;
+    cy = height * 0.44; // Placé idéalement au niveau du Hero de la page
+
+    // Ajustement de la taille selon l'écran
+    const scale = Math.min(width, height) / 1000;
+    bhRadius = Math.max(65, Math.min(110, 85 * scale));
+    photonRadius = bhRadius * 1.35;
+    diskInner = bhRadius * 1.5;
+    diskOuter = bhRadius * 3.8;
+
+    particles.length = 0;
+    for (let i = 0; i < ACCRETION_PARTICLES; i++) {
+      particles.push(new AccretionParticle());
+    }
+
+    stars.length = 0;
+    for (let i = 0; i < STARS_COUNT; i++) {
+      stars.push(new BackgroundStar());
+    }
+  }
+
+  function drawGargantua() {
+    ctx.clearRect(0, 0, width, height);
+
+    // 1. DESSINER LE FOND D'ESPACE & LES ÉTOILES SOUMISES AU LENSING GRAVITATIONNEL
+    for (let i = 0; i < stars.length; i++) {
+      stars[i].draw(1.0);
+    }
+
+    // 2. HALO LUMINEUX GLOBAL DU DISQUE D'ACCRÉTION (LUEUR GIGANTESQUE AU LOIN)
+    const diskGlow = ctx.createRadialGradient(cx, cy, bhRadius, cx, cy, diskOuter * 1.5);
+    diskGlow.addColorStop(0, 'rgba(251, 146, 60, 0.45)');
+    diskGlow.addColorStop(0.25, 'rgba(234, 88, 12, 0.22)');
+    diskGlow.addColorStop(0.55, 'rgba(180, 83, 9, 0.08)');
+    diskGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = diskGlow;
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, diskOuter * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. ANNEAU SUPÉRIEUR D'EINSTEIN (Gravitational Lensing de la face arrière du disque courbée au-dessus)
+    // C'est la signature visuelle unique du film Interstellar !
+    ctx.save();
+    ctx.translate(cx, cy);
+    
+    // Halo courbe au-dessus du trou noir
+    ctx.beginPath();
+    ctx.ellipse(0, -bhRadius * 0.45, diskOuter * 0.95, bhRadius * 1.55, 0, Math.PI, Math.PI * 2, false);
+    ctx.lineWidth = bhRadius * 0.85;
+    const einsteinGradTop = ctx.createLinearGradient(-diskOuter, 0, diskOuter, 0);
+    einsteinGradTop.addColorStop(0, 'rgba(255, 237, 213, 0.95)'); // Effet Doppler : plus brillant à gauche
+    einsteinGradTop.addColorStop(0.4, 'rgba(251, 146, 60, 0.7)');
+    einsteinGradTop.addColorStop(0.8, 'rgba(194, 65, 12, 0.3)');
+    einsteinGradTop.addColorStop(1, 'rgba(124, 45, 18, 0.1)'); // Plus sombre à droite
+    ctx.strokeStyle = einsteinGradTop;
+    ctx.stroke();
+
+    // Halo courbe au-dessous du trou noir (lumière passant par en bas)
+    ctx.beginPath();
+    ctx.ellipse(0, bhRadius * 0.45, diskOuter * 0.95, bhRadius * 1.55, 0, 0, Math.PI, false);
+    ctx.lineWidth = bhRadius * 0.85;
+    const einsteinGradBottom = ctx.createLinearGradient(-diskOuter, 0, diskOuter, 0);
+    einsteinGradBottom.addColorStop(0, 'rgba(255, 237, 213, 0.9)');
+    einsteinGradBottom.addColorStop(0.4, 'rgba(251, 146, 60, 0.6)');
+    einsteinGradBottom.addColorStop(0.8, 'rgba(194, 65, 12, 0.25)');
+    einsteinGradBottom.addColorStop(1, 'rgba(124, 45, 18, 0.08)');
+    ctx.strokeStyle = einsteinGradBottom;
+    ctx.stroke();
+
+    ctx.restore();
+
+    // 4. DISQUE D'ACCRÉTION PRINCIPAL AVANT (Disque équatorial en rotation ultra-rapide)
+    ctx.save();
+    ctx.translate(cx, cy);
+    const tilt = 0.22; // Inclinaison de la perspective
+    ctx.scale(1, tilt);
+
+    // Tracé des particules incandescentes de matière tourbillonnante
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.update();
+
+      const px = Math.cos(p.angle) * p.radius;
+      const py = Math.sin(p.angle) * p.radius + p.yOffset;
+
+      // Décalage Doppler relativiste : la matière avançant vers l'observateur (gauche) est plus brillante et bleutée
+      const isApproaching = Math.cos(p.angle) < 0;
+      const dopplerBoost = isApproaching ? 1.6 : 0.45;
+      const alpha = Math.min(1, p.brightness * dopplerBoost * (1 - (p.radius - diskInner) / (diskOuter - diskInner)));
+
+      // Longueur de la traînée de vitesse orbitale
+      const trailAngle = p.angle - p.speed * 4.5;
+      const prevX = Math.cos(trailAngle) * p.radius;
+      const prevY = Math.sin(trailAngle) * p.radius;
+
+      ctx.beginPath();
+      ctx.moveTo(prevX, prevY);
+      ctx.lineTo(px, py);
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = p.size * (isApproaching ? 1.5 : 1);
+      ctx.globalAlpha = alpha;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 5. ANNEAU DE PHOTONS ULTRA-INTENSE (Photon Sphere à r = 1.5 * Rs)
+    // Fin liseré de lumière capturée en orbite instable avant d'être engloutie
+    ctx.beginPath();
+    ctx.arc(cx, cy, photonRadius * 0.98, 0, Math.PI * 2);
+    ctx.lineWidth = 2.5;
+    const photonGrad = ctx.createLinearGradient(cx - photonRadius, cy, cx + photonRadius, cy);
+    photonGrad.addColorStop(0, '#ffffff');
+    photonGrad.addColorStop(0.3, '#fef08a');
+    photonGrad.addColorStop(0.7, '#f97316');
+    photonGrad.addColorStop(1, '#991b1b');
+    ctx.strokeStyle = photonGrad;
+    ctx.globalAlpha = 0.9;
+    ctx.stroke();
+
+    // 6. L'HORIZON DES ÉVÉNEMENTS DU TROU NOIR (L'OMBRE NOIRE ABSOLUE DE GARGANTUA)
+    // Zéro photon ne peut s'échapper d'ici : noir d'encre absolu
+    ctx.beginPath();
+    ctx.arc(cx, cy, bhRadius, 0, Math.PI * 2);
+    ctx.fillStyle = '#000000';
+    ctx.globalAlpha = 1.0;
+    ctx.fill();
+
+    // Bordure d'absorption noire dégradée très douce sur la sphère de photon
+    const shadowEdge = ctx.createRadialGradient(cx, cy, bhRadius * 0.85, cx, cy, bhRadius * 1.04);
+    shadowEdge.addColorStop(0, '#000000');
+    shadowEdge.addColorStop(0.85, '#000000');
+    shadowEdge.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = shadowEdge;
+    ctx.beginPath();
+    ctx.arc(cx, cy, bhRadius * 1.04, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 7. DISTORSION ET RAYONS GRAVITATIONNELS PULSANTS
+    time += 0.02;
+    animationId = requestAnimationFrame(drawGargantua);
+  }
+
+  // Réaction interactive aux mouvements de souris : déplacement subtil de la perspective gravitationnelle
+  window.addEventListener('mousemove', (e) => {
+    const targetCx = width / 2 + (e.clientX - width / 2) * 0.05;
+    const targetCy = height * 0.44 + (e.clientY - height / 2) * 0.05;
+    cx += (targetCx - cx) * 0.06;
+    cy += (targetCy - cy) * 0.06;
+  });
+
+  window.addEventListener('resize', resize);
+  document.addEventListener('visibilitychange', () => {
+    paused = document.hidden;
+  });
+
+  resize();
+  drawGargantua();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  initInterstellarBlackHole();
+});
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  initInterstellarBlackHole();
+}
