@@ -76,9 +76,10 @@ MKT_URL      = 'https://a6api.com/api/marketplace/public/channels/search'
 # Pool AUTO : famille flash polyvalente. Les variantes deepseek v4 (latest/vision)
 # sans canal vivant aujourd'hui sont conservées : dès qu'un fournisseur en liste un,
 # le market scan les inclut automatiquement (aucun redeploy).
-MODELS = ['qwen3.8-flash', 'grok-4.6', 'glm-5.3-flash',
-          'deepseek-v4-pro', 'deepseek-v4-flash',
-          'deepseek-v4.1-flash', 'deepseek-v4-flash-vision', 'deepseek-v4-vision']
+# Pool AUTO principal restreint selon consigne (13-09) :
+# 4 modèles texte prioritaires + canal vision dédié deepseek
+MODELS = ['qwen3.8-flash', 'glm-5.3-flash', 'deepseek-v4.1-flash', 'grok-4.6',
+          'deepseek-v4-flash-vision-exp', 'deepseek-v4-flash-vision']
 # Fournisseurs de confiance (données 24h réelles 2026-09-09) : cache hit élevé + succès stable.
 # tokentrans = ancre (le moins cher sur qwen, présent sur les 3 modèles, cache ~76-82 %).
 # Changement de modèle = perte du cache amont → on reste sur le MÊME fournisseur tant qu'il vit.
@@ -971,9 +972,13 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
     # détection d'images → cible vision si un canal existe (polyvalence auto)
     pool = list(MODELS)
     if plan == 'auto' and has_images(payload):
-        vision = [m for m in MODELS if 'vision' in m]
+        # Bascule automatique vision : deepseek-v4-flash-vision-exp, glm-5.3-flash, deepseek-v4.1-flash
+        vision_candidates = ['deepseek-v4-flash-vision-exp', 'deepseek-v4-flash-vision', 'glm-5.3-flash', 'deepseek-v4.1-flash']
+        vision = [m for m in vision_candidates if m in MODELS]
         vr = [m for m in vision if not in_cooldown(m)[0] and (market_get(m) or {}).get('best')]
         if vr:
+            pool = vr
+        elif vision:
             pool = vision
         else:
             # aucun canal vision vivant : pas d'appel amont (0 coût, 0 cooldown)
@@ -1504,9 +1509,12 @@ def chat_auto_stream(payload, plan, key_id, uid):
             body['max_tokens'] = MAX_TOKENS_CAP
     models = [GEMINI_MODEL] if plan == 'gemini' else list(MODELS)
     if plan == 'auto' and has_images(payload):
-        vision = [m for m in MODELS if 'vision' in m]
+        vision_candidates = ['deepseek-v4-flash-vision-exp', 'deepseek-v4-flash-vision', 'glm-5.3-flash', 'deepseek-v4.1-flash']
+        vision = [m for m in vision_candidates if m in MODELS]
         vr = [m for m in vision if not in_cooldown(m)[0] and (market_get(m) or {}).get('best')]
         if vr:
+            models = vr
+        elif vision:
             models = vision
         else:
             return None, (400, {'error': {
