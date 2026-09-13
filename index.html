@@ -377,8 +377,8 @@
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse font-mono text-xs" id="models-table">
               <thead>
-                <tr class="border-b border-border/80 bg-black/60 text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-mono">
-                  <th class="py-3.5 px-4 font-semibold text-foreground/80">Modèle</th>
+                <tr class="border-b border-border/80 bg-[#080808] text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-mono">
+                  <th class="py-3.5 px-4 font-semibold text-foreground">Modèle</th>
                   <th class="py-3.5 px-3 text-right font-semibold">Tokens Hebdo</th>
                   <th class="py-3.5 px-3 text-right font-semibold">Entrée / 1M</th>
                   <th class="py-3.5 px-3 text-right font-semibold">Sortie / 1M</th>
@@ -502,207 +502,212 @@
       </div>
     </section>
 
-    <!-- SECTION 4 : TARIFS & ABONNEMENTS (DOUBLE USAGE UNOROUTER CONFORME) -->
+        <!-- SECTION 4 : TARIFS (REPLIQUE EXACTE UNOROUTER - ABONNEMENTS DOUBLE USAGE ET RECHARGES SUR LA MÊME PAGE) -->
     <section id="tab-pricing" class="tab-pane hidden">
-      <div class="mx-auto max-w-7xl px-4 sm:px-6 py-10 font-sans">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 py-12 font-sans">
         
-        <div class="text-center max-w-2xl mx-auto mb-12">
-          <div class="text-[11px] font-mono font-medium tracking-[0.2em] text-muted-foreground uppercase mb-1.5">
-            TARIFICATION
-          </div>
-          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-foreground font-sans">
-            Tarifs simples & transparents
+        <!-- En-tête officiel UnoRouter (capture image_ad61b2.png) -->
+        <div class="text-center max-w-3xl mx-auto mb-14">
+          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-foreground font-sans leading-tight">
+            Utilisateur régulier ? Abonnez-vous et obtenez plus de crédit chaque mois.
           </h1>
-          <p class="text-sm text-muted-foreground mt-2 font-sans">
-            Choisissez entre un abonnement mensuel avec crédits inclus ou rechargez votre solde à l'usage. Vos crédits prépayés n'expirent jamais.
+          <p class="text-sm text-muted-foreground mt-3 font-sans leading-relaxed">
+            Rechargez pour plus de flexibilité. Abonnez-vous lorsque votre usage est prévisible et obtenez du crédit supplémentaire en plus de ce que vous payez.
           </p>
-
-          <!-- Toggle d'usage UnoRouter : Abonnements vs Recharges -->
-          <div class="inline-flex items-center gap-1 p-1 rounded-sm bg-secondary border border-border mt-6 font-mono text-xs">
-            <button id="toggle-sub-btn" class="px-4 py-1.5 rounded-sm bg-white text-black font-bold uppercase tracking-wider" onclick="switchPricingMode('subscription')">Abonnements</button>
-            <button id="toggle-topup-btn" class="px-4 py-1.5 rounded-sm text-muted-foreground hover:text-foreground uppercase tracking-wider" onclick="switchPricingMode('topup')">Recharges Pay-as-you-go</button>
-          </div>
         </div>
 
-        <!-- VUE 1 : LES 3 PLANS D'ABONNEMENT OFFICIELS UNOROUTER -->
-        <div id="pricing-view-subscription" class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-16">
+        <!-- 1. LES 3 CARTES D'ABONNEMENT DOUBLE USAGE (EXACTEMENT COMME UNOROUTER) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-16 items-stretch">
           
-          <!-- Plan Starter -->
+          <!-- Carte 1 : DÉMARRAGE -->
           <div class="rounded-sm border border-border bg-card p-6 flex flex-col justify-between hover:border-border/80 transition-colors">
             <div>
-              <div class="flex items-center justify-between mb-4">
-                <span class="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">Starter</span>
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-secondary border border-border text-muted-foreground">Mensuel</span>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-mono font-bold tracking-wider text-muted-foreground uppercase">DÉMARRAGE</span>
               </div>
-              <div class="mb-6">
-                <div class="flex items-baseline gap-1">
-                  <span class="text-4xl font-bold font-mono text-foreground">$10</span>
-                  <span class="text-xs font-mono text-muted-foreground">/ mois</span>
-                </div>
-                <p class="text-xs text-muted-foreground font-sans mt-2">
-                  Idéal pour les développeurs indépendants, tests d'agents et prototypage léger.
-                </p>
+              <div class="flex items-baseline gap-1 mb-4">
+                <span class="text-3xl sm:text-4xl font-bold font-mono text-foreground">$20</span>
+                <span class="text-xs font-mono text-muted-foreground">· mois</span>
               </div>
-              <div class="space-y-3 font-mono text-xs border-t border-border/60 pt-5">
+
+              <!-- Cartouche vert UnoRouter en gros -->
+              <div class="p-3 rounded-xs bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 font-mono text-sm font-bold tracking-wider uppercase mb-5 text-center">
+                $40 CRÉDIT API / MOIS
+              </div>
+
+              <div class="text-xs text-muted-foreground font-sans space-y-2 mb-6">
+                <p>Payez $20/mois, obtenez $40 de crédit API. Utilisable sur tout modèle.</p>
+                <p class="font-mono text-[11px] text-foreground/80">Recharge $10 chaque semaine.</p>
+                <p class="text-[10px] text-amber-500 font-mono">Le crédit non utilisé n'est pas reporté sur la semaine suivante.</p>
+              </div>
+
+              <div class="space-y-2.5 font-mono text-xs border-t border-border/60 pt-4">
                 <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-foreground">$10 de crédits d'inférence inclus</span>
+                  <span class="text-emerald-400 font-bold">✓</span>
+                  <span class="text-foreground">Deux fois le crédit API que vous payez</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-muted-foreground">Accès complet à tous les 20 modèles</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-muted-foreground">Verrouillage de conversation CONV</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-muted-foreground">Routage automatique AutoSmart</span>
+                  <span class="text-emerald-400 font-bold">✓</span>
+                  <span class="text-muted-foreground">50 % d'attente en moins sur les modèles gratuits</span>
                 </div>
               </div>
             </div>
-            <button class="border border-border text-foreground hover:border-white h-10 w-full font-mono font-bold tracking-widest uppercase rounded-sm text-xs mt-8 transition-colors" onclick="openAuthModal('register')">
-              CHOISIR STARTER
+
+            <button class="border border-border text-foreground hover:border-white h-11 w-full font-mono font-bold tracking-widest uppercase rounded-sm text-xs mt-8 transition-colors" onclick="openAuthModal('register')">
+              S'ABONNER
             </button>
           </div>
 
-          <!-- Plan Pro (Populaire UnoRouter) -->
-          <div class="rounded-sm border border-white bg-card p-6 flex flex-col justify-between shadow-xl relative">
-            <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-black font-mono text-[10px] font-bold uppercase tracking-widest px-3 py-0.5 rounded-xs">
-              LE PLUS POPULAIRE
+          <!-- Carte 2 : PRO (MISE EN AVANT POPULAIRE / MEILLEURE VALEUR EN VERT) -->
+          <div class="rounded-sm border-2 border-emerald-500 bg-card p-6 flex flex-col justify-between shadow-2xl relative">
+            <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+              <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400">MEILLEURE VALEUR</span>
+              <span class="bg-emerald-500 text-black font-mono text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-xs">POPULAIRE</span>
             </div>
+
             <div>
-              <div class="flex items-center justify-between mb-4">
-                <span class="text-xs font-mono font-bold uppercase tracking-wider text-white">Pro Developer</span>
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-white/10 text-emerald-400 font-bold">50% RPM Boost</span>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-mono font-bold tracking-wider text-white uppercase">PRO</span>
               </div>
-              <div class="mb-6">
-                <div class="flex items-baseline gap-1">
-                  <span class="text-4xl font-bold font-mono text-foreground">$30</span>
-                  <span class="text-xs font-mono text-muted-foreground">/ mois</span>
-                </div>
-                <p class="text-xs text-muted-foreground font-sans mt-2">
-                  Pour les développeurs actifs, applications en production et coding intensif avec Claude Code / Cursor.
-                </p>
+              <div class="flex items-baseline gap-1 mb-4">
+                <span class="text-3xl sm:text-4xl font-bold font-mono text-foreground">$50</span>
+                <span class="text-xs font-mono text-muted-foreground">· mois</span>
               </div>
-              <div class="space-y-3 font-mono text-xs border-t border-border/60 pt-5">
+
+              <!-- Cartouche vert UnoRouter en gros -->
+              <div class="p-3 rounded-xs bg-emerald-950/60 border border-emerald-500/50 text-emerald-400 font-mono text-sm font-bold tracking-wider uppercase mb-5 text-center shadow-lg shadow-emerald-500/10">
+                $100 CRÉDIT API / MOIS
+              </div>
+
+              <div class="text-xs text-muted-foreground font-sans space-y-2 mb-6">
+                <p>Payez $50/mois, obtenez $100 de crédit API. Utilisable sur tout modèle.</p>
+                <p class="font-mono text-[11px] text-foreground">Recharge $25 chaque semaine.</p>
+                <p class="text-[10px] text-amber-500 font-mono">Le crédit non utilisé n'est pas reporté sur la semaine suivante.</p>
+              </div>
+
+              <div class="space-y-2.5 font-mono text-xs border-t border-border/60 pt-4">
                 <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-foreground font-bold">$30 de crédits d'inférence inclus</span>
+                  <span class="text-emerald-400 font-bold">✓</span>
+                  <span class="text-white font-semibold">Deux fois le crédit API que vous payez</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-foreground">Priorité de bande passante sur les 4 VPS</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-foreground">Support direct et monitoring dédié</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-foreground">Accès illimité à la sonde 30 min</span>
+                  <span class="text-emerald-400 font-bold">✓</span>
+                  <span class="text-foreground">75 % d'attente en moins sur les modèles gratuits</span>
                 </div>
               </div>
             </div>
-            <button class="bg-primary text-primary-foreground hover:bg-white/90 h-10 w-full font-mono font-bold tracking-widest uppercase rounded-sm text-xs mt-8 transition-colors" onclick="openAuthModal('register')">
-              CHOISIR PRO
+
+            <button class="bg-primary text-primary-foreground hover:bg-white/90 h-11 w-full font-mono font-bold tracking-widest uppercase rounded-sm text-xs mt-8 transition-colors flex items-center justify-center gap-2" onclick="openAuthModal('register')">
+              <span>⚡</span> S'ABONNER
             </button>
           </div>
 
-          <!-- Plan Scale / Team -->
+          <!-- Carte 3 : ÉCHELLE -->
           <div class="rounded-sm border border-border bg-card p-6 flex flex-col justify-between hover:border-border/80 transition-colors">
             <div>
-              <div class="flex items-center justify-between mb-4">
-                <span class="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">Scale & Team</span>
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-secondary border border-border text-muted-foreground">Sur-mesure</span>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-mono font-bold tracking-wider text-muted-foreground uppercase">ÉCHELLE</span>
               </div>
-              <div class="mb-6">
-                <div class="flex items-baseline gap-1">
-                  <span class="text-4xl font-bold font-mono text-foreground">$100</span>
-                  <span class="text-xs font-mono text-muted-foreground">/ mois</span>
-                </div>
-                <p class="text-xs text-muted-foreground font-sans mt-2">
-                  Pour les équipes, flottes d'agents autonomes et charges de travail lourdes sans ralentissement.
-                </p>
+              <div class="flex items-baseline gap-1 mb-4">
+                <span class="text-3xl sm:text-4xl font-bold font-mono text-foreground">$100</span>
+                <span class="text-xs font-mono text-muted-foreground">· mois</span>
               </div>
-              <div class="space-y-3 font-mono text-xs border-t border-border/60 pt-5">
+
+              <!-- Cartouche vert UnoRouter en gros -->
+              <div class="p-3 rounded-xs bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 font-mono text-sm font-bold tracking-wider uppercase mb-5 text-center">
+                $200 CRÉDIT API / MOIS
+              </div>
+
+              <div class="text-xs text-muted-foreground font-sans space-y-2 mb-6">
+                <p>Payez $100/mois, obtenez $200 de crédit API. Utilisable sur tout modèle.</p>
+                <p class="font-mono text-[11px] text-foreground/80">Recharge $50 chaque semaine.</p>
+                <p class="text-[10px] text-amber-500 font-mono">Le crédit non utilisé n'est pas reporté sur la semaine suivante.</p>
+              </div>
+
+              <div class="space-y-2.5 font-mono text-xs border-t border-border/60 pt-4">
                 <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-foreground">$100 de crédits inclus</span>
+                  <span class="text-emerald-400 font-bold">✓</span>
+                  <span class="text-foreground">Deux fois le crédit API que vous payez</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-muted-foreground">Quota de débit maximum (100% Boost)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-muted-foreground">Clés illimitées avec gestion d'équipe</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-emerald-400">✓</span>
-                  <span class="text-muted-foreground">Facturation centralisée</span>
+                  <span class="text-emerald-400 font-bold">✓</span>
+                  <span class="text-muted-foreground">Aucune attente entre les requêtes aux modèles</span>
                 </div>
               </div>
             </div>
-            <button class="border border-border text-foreground hover:border-white h-10 w-full font-mono font-bold tracking-widest uppercase rounded-sm text-xs mt-8 transition-colors" onclick="openAuthModal('register')">
-              CHOISIR SCALE
+
+            <button class="border border-border text-foreground hover:border-white h-11 w-full font-mono font-bold tracking-widest uppercase rounded-sm text-xs mt-8 transition-colors" onclick="openAuthModal('register')">
+              S'ABONNER
             </button>
           </div>
 
         </div>
 
-        <!-- VUE 2 : RECHARGES PAY-AS-YOU-GO (SANS ESTIMATION ABSURDE) -->
-        <div id="pricing-view-topup" class="hidden max-w-4xl mx-auto mb-16">
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8 font-mono">
+        <!-- 2. SECTION RECHARGES PAY-AS-YOU-GO SUR LA MÊME PAGE (SANS ONGLETS, SANS ESTIMATION ABSURDE) -->
+        <div class="max-w-4xl mx-auto pt-8 border-t border-border/60">
+          <div class="text-center mb-8">
+            <div class="text-[10px] font-mono tracking-[0.2em] text-muted-foreground uppercase mb-1">
+              FLEXIBILITÉ TOTALE
+            </div>
+            <h2 class="text-2xl font-bold font-sans text-foreground">
+              Rechargez selon vos besoins
+            </h2>
+            <p class="text-xs text-muted-foreground font-sans mt-1">
+              Pas d'engagement mensuel. Les crédits Pay-as-you-go n'expirent jamais.
+            </p>
+          </div>
+
+          <!-- Grille de recharges directes -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 font-mono">
             <button class="paygo-card p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectPaygoAmount(5, this)">
-              <span class="text-[10px] text-muted-foreground uppercase block">Pack 1</span>
-              <span class="text-2xl font-bold my-1 block text-foreground">$5</span>
-              <span class="text-[10px] text-muted-foreground">Crédit immédiat</span>
+              <span class="text-[10px] text-muted-foreground uppercase block mb-1">Pack 1</span>
+              <span class="text-2xl font-bold block text-foreground">$5</span>
+              <span class="text-[10px] text-muted-foreground mt-1 block">Immédiat</span>
             </button>
             <button class="paygo-card active p-4 rounded-sm border border-white bg-secondary text-center" onclick="selectPaygoAmount(10, this)">
-              <span class="text-[10px] text-white uppercase block font-bold">Populaire</span>
-              <span class="text-2xl font-bold my-1 block text-foreground">$10</span>
-              <span class="text-[10px] text-emerald-400 font-semibold">Zéro expiration</span>
+              <span class="text-[10px] text-white uppercase block font-bold mb-1">Populaire</span>
+              <span class="text-2xl font-bold block text-foreground">$10</span>
+              <span class="text-[10px] text-emerald-400 font-semibold mt-1 block">À vie</span>
             </button>
             <button class="paygo-card p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectPaygoAmount(20, this)">
-              <span class="text-[10px] text-muted-foreground uppercase block">Pack 3</span>
-              <span class="text-2xl font-bold my-1 block text-foreground">$20</span>
-              <span class="text-[10px] text-muted-foreground">Crédit immédiat</span>
+              <span class="text-[10px] text-muted-foreground uppercase block mb-1">Pack 3</span>
+              <span class="text-2xl font-bold block text-foreground">$20</span>
+              <span class="text-[10px] text-muted-foreground mt-1 block">Immédiat</span>
             </button>
             <button class="paygo-card p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectPaygoAmount(50, this)">
-              <span class="text-[10px] text-muted-foreground uppercase block">Pack 4</span>
-              <span class="text-2xl font-bold my-1 block text-foreground">$50</span>
-              <span class="text-[10px] text-muted-foreground">Crédit immédiat</span>
+              <span class="text-[10px] text-muted-foreground uppercase block mb-1">Pack 4</span>
+              <span class="text-2xl font-bold block text-foreground">$50</span>
+              <span class="text-[10px] text-muted-foreground mt-1 block">Immédiat</span>
             </button>
             <button class="paygo-card p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectPaygoAmount(100, this)">
-              <span class="text-[10px] text-muted-foreground uppercase block">Pack 5</span>
-              <span class="text-2xl font-bold my-1 block text-foreground">$100</span>
-              <span class="text-[10px] text-muted-foreground">Crédit immédiat</span>
+              <span class="text-[10px] text-muted-foreground uppercase block mb-1">Pack 5</span>
+              <span class="text-2xl font-bold block text-foreground">$100</span>
+              <span class="text-[10px] text-muted-foreground mt-1 block">Immédiat</span>
             </button>
             <button class="paygo-card p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectPaygoAmount(200, this)">
-              <span class="text-[10px] text-muted-foreground uppercase block">Pack 6</span>
-              <span class="text-2xl font-bold my-1 block text-foreground">$200</span>
-              <span class="text-[10px] text-muted-foreground">Crédit immédiat</span>
+              <span class="text-[10px] text-muted-foreground uppercase block mb-1">Pack 6</span>
+              <span class="text-2xl font-bold block text-foreground">$200</span>
+              <span class="text-[10px] text-muted-foreground mt-1 block">Immédiat</span>
             </button>
           </div>
 
-          <!-- Boîte de validation épurée (sans calcul bidon de tokens) -->
-          <div class="max-w-md mx-auto rounded-sm border border-border bg-card p-6 font-mono">
+          <!-- Validation de recharge épurée -->
+          <div class="max-w-md mx-auto rounded-sm border border-border bg-card p-5 font-mono">
             <div class="flex items-center justify-between mb-4">
               <div>
-                <span class="text-[10px] text-muted-foreground uppercase tracking-widest">Montant de recharge</span>
-                <div class="text-3xl font-bold text-foreground" id="paygo-selected-amount">$10.00</div>
+                <span class="text-[10px] text-muted-foreground uppercase tracking-widest">Montant sélectionné</span>
+                <div class="text-2xl font-bold text-foreground" id="paygo-selected-amount">$10.00</div>
               </div>
               <div class="text-right">
-                <span class="text-[10px] text-muted-foreground uppercase tracking-widest">Validité</span>
-                <div class="text-xs font-bold text-emerald-400">À vie / N'expire jamais</div>
+                <span class="text-[10px] text-muted-foreground uppercase tracking-widest">Validité des crédits</span>
+                <div class="text-xs font-bold text-emerald-400">Illimitée (N'expire jamais)</div>
               </div>
             </div>
-            <button class="bg-primary text-primary-foreground hover:bg-white/90 h-11 w-full font-bold tracking-widest uppercase rounded-sm text-xs transition-colors" onclick="executePaygoPayment()">
-              RECHARGER MON SOLDE
+            <button class="bg-primary text-primary-foreground hover:bg-white/90 h-10 w-full font-bold tracking-widest uppercase rounded-sm text-xs transition-colors" onclick="openAuthModal('login')">
+              PROCÉDER AU PAIEMENT SÉCURISÉ
             </button>
           </div>
+
         </div>
 
       </div>
