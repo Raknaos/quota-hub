@@ -65,6 +65,12 @@
 </head>
 <body class="bg-background text-foreground font-sans antialiased min-h-screen selection:bg-white/20 selection:text-white">
 
+  <!-- EFFET DE FOND OFFICIEL UNOROUTER : STREAK CANVAS DYNAMIQUE -->
+  <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+    <canvas id="streak-canvas" class="h-full w-full opacity-60"></canvas>
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#050505_100%)] opacity-80"></div>
+  </div>
+
   <!-- ==================== 1. TOP NAVBAR OFFICIELLE UNOROUTER ==================== -->
   <header id="main-header" class="navbar-scroll fixed top-0 right-0 left-0 z-50 border-b border-border bg-background/85 backdrop-blur-md h-14">
     <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">

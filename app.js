@@ -2191,3 +2191,92 @@ window.executePaygoPayment = function() {
 // Surcharger les appels d'initialisation pour appliquer ces raffinements
 window.renderModelsTableUno = renderModelsTableUnoRefined;
 window.initMarquee = initMarqueeClean;
+
+
+/* ==========================================================================
+   STREAK CANVAS (EFFET DE FOND OFFICIEL UNOROUTER - 40 LIGNES LUMINEUSES)
+   ========================================================================== */
+function initStreakCanvas() {
+  const canvas = document.getElementById('streak-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const DARK_COLORS = ["#ffffff", "#d4d4d4", "#a3a3a3", "#525252", "#10b981"];
+  const DARK_ACCENT = "#10b981";
+  const DARK_TRANSPARENT = "rgba(255,255,255,0)";
+
+  let width = 0;
+  let height = 0;
+  let animationId;
+  let paused = false;
+  const lines = [];
+
+  const isMobile = () => window.innerWidth < 768;
+
+  function spawnLine(i, initial = false) {
+    const color = Math.random() > 0.88 ? DARK_ACCENT : DARK_COLORS[Math.floor(Math.random() * (DARK_COLORS.length - 1))];
+    lines[i] = {
+      x: initial ? Math.random() * width : -Math.random() * 500 - 200,
+      y: Math.random() * height,
+      speed: Math.random() * 7 + 4,
+      width: Math.random() * 2 + 0.5,
+      length: Math.random() * 350 + 100,
+      color: color,
+      gradient: null,
+      gradientX: -Infinity
+    };
+  }
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    const count = isMobile() ? 15 : 40;
+    lines.length = 0;
+    for (let n = 0; n < count; n++) {
+      spawnLine(n, true);
+    }
+  }
+
+  function render() {
+    if (paused) {
+      animationId = requestAnimationFrame(render);
+      return;
+    }
+    ctx.clearRect(0, 0, width, height);
+
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      l.x += l.speed;
+      if (l.x > width + l.length) {
+        spawnLine(i);
+        continue;
+      }
+
+      if (!l.gradient || Math.abs(l.x - l.gradientX) > 20) {
+        const g = ctx.createLinearGradient(l.x - l.length, l.y, l.x, l.y);
+        g.addColorStop(0, DARK_TRANSPARENT);
+        g.addColorStop(0.2, DARK_TRANSPARENT);
+        g.addColorStop(0.8, l.color);
+        g.addColorStop(1, DARK_TRANSPARENT);
+        l.gradient = g;
+        l.gradientX = l.x;
+      }
+
+      ctx.fillStyle = l.gradient;
+      ctx.fillRect(l.x - l.length, l.y, l.length, l.width);
+    }
+    animationId = requestAnimationFrame(render);
+  }
+
+  window.addEventListener('resize', resize);
+  document.addEventListener('visibilitychange', () => { paused = document.hidden; });
+  resize();
+  render();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  initStreakCanvas();
+});
