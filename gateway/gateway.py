@@ -13,7 +13,8 @@ Sécurité :
   - Mots de passe : scrypt (sel aléatoire). Clés API : sha256 (jamais en clair).
   - Sessions : token HMAC signé (30 j). Rate-limit login (5 échecs -> 15 min).
   - Rate-limit API : 60 req/min par clé (burst 10).
-  - L'endpoint /v1/chat/completions ignore totalement le champ "model".
+  - L'endpoint /v1/chat/completions ignore totalement le champ "model" : le
+    catalogue public ne publie que le modele de marque PUBLIC_MODEL_ID.
   - Aucune réponse simulée : si l'amont échoue -> 502 typé, 0 token facturé.
 
 Endpoints (derrière le front signé) :
@@ -86,6 +87,23 @@ TRUSTED_SUPPLIERS = ['tokentrans', '国产', 'bbgt-vip', 'deepseek线路']
 # ce qui fait exploser les couts de 10x sur les conversations longues.
 BANNED_SUPPLIERS = set() # Aucun ban en dur : seule la mesure de cache reel decide
 GEMINI_MODEL = 'gemini-3.8-flash'
+# ── MODELE PUBLIC UNIQUE (13-09) ────────────────────────────────────────────
+# La passerelle sonde les prix de TOUS les modeles du pool, elit le moins cher
+# vivant pour la requete (cache prompt reel compris) puis le publie sous un nom
+# de MARQUE stable. Le client ne voit JAMAIS l'identite reelle :
+#   - /v1/models ne liste QUE le modele public ;
+#   - les reponses portent model = PUBLIC_MODEL_ID ;
+#   - les journaux client (/api/usage, /api/me, /api/auto-mix) affichent le
+#     nom de marque.
+# La verite interne (modele reel, canal, cout) reste dans les journaux serveur
+# et dans usage_logs.model_served, pour l'apprentissage du routeur.
+PUBLIC_MODEL_ID   = os.environ.get('QH_PUBLIC_MODEL_ID', 'autosmart-flash-1.0')
+PUBLIC_MODEL_NAME = os.environ.get('QH_PUBLIC_MODEL_NAME', 'AutoSmart Flash 1.0')
+PUBLIC_ALIASES = {
+    '', 'auto', 'default', 'smart', 'router', 'qh-auto', 'smartapi',
+    'autosmart', 'autosmart-flash', 'autosmartflash', 'autosmart flash',
+    'autosmart-flash-1.0', 'autosmart flash 1.0',
+}
 PLANS = ('auto', 'gemini')
 PLAN_DEFAULT = {'auto': 1_000_000_000, 'gemini': 100_000_000}   # tokens par code
 SUCCESS_SCALE = 10000
@@ -438,6 +456,7 @@ def init_db():
     _ensure_cols(c, 'usage_logs', 'model_requested TEXT')
     _ensure_cols(c, 'usage_logs', 'cached_tokens INTEGER DEFAULT 0')
     _ensure_cols(c, 'usage_logs', 'route_reason TEXT')
+    _ensure_cols(c, 'usage_logs', 'model_public TEXT')
     c.commit(); c.close()
 
 def audit(event, email, ip, ok):
@@ -898,7 +917,7 @@ def requested_model(payload):
     'auto' (ou vide, ou un alias d'auto-routage) = le routeur décide ; tout autre
     nom EST une demande ferme, servie si un canal du modèle vit."""
     m = (payload.get('model') or '').strip()
-    if not m or m.lower() in ('auto', 'default', 'smart', 'router', 'qh-auto', 'smartapi'):
+    if not m or m.lower() in PUBLIC_ALIASES:
         return None
     # Normalisation : retire les préfixes de namespace (ex: 'z-ai/glm-5.3-flash' -> 'glm-5.3-flash')
     clean = m.split('/')[-1].strip().lower()
@@ -1071,10 +1090,13 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         # que le modèle publié + la règle de décision.
         log(f'ROUTE {model_id} via {b.get("supplier")} src={b.get("src") or "instant"} '
             f'lat={round(dt, 2)}s tok={tin}+{tout}')
-        data['model'] = model_id
+        # IDENTITE REELLE NON EXPOSEE : la reponse porte le nom de MARQUE. Le
+        # couple (modele reel, canal amont, cout) ne part que dans les journaux
+        # serveur — aucune fuite concurrentielle possible cote client.
+        data['model'] = PUBLIC_MODEL_ID
         _honored = bool(honor and req and model_id == req)
-        _auto_alias = str(requested or '').strip().lower() in ('', 'auto', 'default', 'smart', 'router', 'qh-auto', 'smartapi')
-        data['a6_router'] = {'served_model': model_id,
+        _auto_alias = str(requested or '').strip().lower() in PUBLIC_ALIASES
+        data['a6_router'] = {'served_model': PUBLIC_MODEL_NAME,
                              'decision': 'modele_demande' if _honored else (b.get('src') or 'instant'),
                              'note': ('modèle demandé servi (pin client respecté)' if _honored
                                       else ('modèle choisi automatiquement (le moins cher vivant)' if _auto_alias
@@ -1312,13 +1334,14 @@ def me(uid):
     usage_rows = c.execute('''SELECT plan, COUNT(*) n, COALESCE(SUM(tokens),0) tok,
                          COALESCE(SUM(prompt_tokens),0) pin, COALESCE(SUM(completion_tokens),0) pout
                          FROM usage_logs WHERE user_id=? GROUP BY plan''', (uid,)).fetchall()
-    last = c.execute('SELECT plan, model_served FROM usage_logs WHERE user_id=? ORDER BY id DESC LIMIT 1', (uid,)).fetchone()
+    last = c.execute('SELECT plan, model_public FROM usage_logs WHERE user_id=? ORDER BY id DESC LIMIT 1', (uid,)).fetchone()
     c.close()
     usage = {r['plan']: dict(r) for r in usage_rows}
     for p in PLANS:
         usage.setdefault(p, {'n': 0, 'tok': 0, 'pin': 0, 'pout': 0})
-    if last and last['model_served'] and last['plan'] in usage:
-        usage[last['plan']]['last_model'] = last['model_served']
+    if last and last['plan'] in usage:
+        # jamais le nom reel : les lignes anterieures retombent sur la marque
+        usage[last['plan']]['last_model'] = last['model_public'] or PUBLIC_MODEL_NAME
     return 200, {'user': {'id': u['id'], 'email': u['email'], 'created_at': u['created_at']},
                  'subscription': sub,
                  'keys': [dict(k) for k in keys],
@@ -1378,7 +1401,7 @@ def pin_headers(obj):
     quel modèle a été demandé, lequel a servi, et si le choix client a tenu."""
     a6 = (obj or {}).get('a6_router') or {}
     req, srv = a6.get('requested_model'), a6.get('served_model')
-    if not req or str(req).strip().lower() in ('auto', 'default', 'smart', 'router', 'qh-auto', 'smartapi'):
+    if not req or str(req).strip().lower() in PUBLIC_ALIASES:
         return {}
     return {'X-A6-Model-Requested': str(req), 'X-A6-Model-Served': str(srv or ''),
             'X-A6-Pin-Honored': 'false' if a6.get('ignored') else 'true'}
@@ -1426,10 +1449,11 @@ def api_chat(auth_header, payload, ip):
     c = db()
     c.execute('''UPDATE subscriptions SET tokens_used = MIN(tokens_total, tokens_used + ?)
                  WHERE user_id=? AND plan=?''', (billed, uid, plan))
-    c.execute('''INSERT INTO usage_logs(user_id,key_id,plan,model_served,model_requested,supplier,prompt_tokens,
+    c.execute('''INSERT INTO usage_logs(user_id,key_id,plan,model_served,model_public,model_requested,supplier,prompt_tokens,
                  completion_tokens,tokens,cost_amont_usd,created_at,cached_tokens,route_reason)
-                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-              (uid, key_id, plan, served['model'], served.get('requested'), served['supplier'],
+                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+              (uid, key_id, plan, served['model'], PUBLIC_MODEL_NAME, served.get('requested'),
+               served['supplier'],
                tin, tout, billed, served['est'], int(time.time()), cached_tok, served.get('reason')))
     c.commit()
     remaining = c.execute('SELECT tokens_total - tokens_used FROM subscriptions WHERE user_id=? AND plan=?',
@@ -1437,7 +1461,7 @@ def api_chat(auth_header, payload, ip):
     c.close()
     data['quota_hub'] = {'plan': plan, 'tokens_billed': billed, 'tokens_raw': tokens,
                          'cache_tokens': cached_tok, 'cache_savings_tokens': tokens - billed,
-                         'tokens_remaining': max(0, remaining), 'served_model': served['model']}
+                         'tokens_remaining': max(0, remaining), 'served_model': PUBLIC_MODEL_NAME}
     return 200, data
 
 # ── Connexion sociale : Google / GitHub (10-09) ─────────────────────────────
@@ -1775,7 +1799,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 c = db()
                 rows = c.execute(
-                    'SELECT u.id, u.plan, u.model_served, u.model_requested, u.prompt_tokens, '
+                    'SELECT u.id, u.plan, u.model_public, u.model_requested, u.prompt_tokens, '
                     'u.completion_tokens, u.tokens, u.cost_amont_usd, u.created_at, '
                     'k.name AS key_name FROM usage_logs u '
                     'LEFT JOIN api_keys k ON k.id=u.key_id '
@@ -1786,9 +1810,9 @@ class Handler(BaseHTTPRequestHandler):
                     "SUM(cost_amont_usd) cost FROM usage_logs WHERE user_id=? AND created_at>=? "
                     "GROUP BY d ORDER BY d", (uid, since)).fetchall()
                 per_model = c.execute(
-                    'SELECT model_served, COUNT(*) n, SUM(tokens) tok FROM usage_logs '
-                    'WHERE user_id=? AND created_at>=? GROUP BY model_served '
-                    'ORDER BY tok DESC LIMIT 12', (uid, since)).fetchall()
+                    'SELECT COALESCE(model_public, ?) mp, COUNT(*) n, SUM(tokens) tok FROM usage_logs '
+                    'WHERE user_id=? AND created_at>=? GROUP BY mp '
+                    'ORDER BY tok DESC LIMIT 12', (PUBLIC_MODEL_NAME, uid, since)).fetchall()
                 per_key = c.execute(
                     'SELECT k.name AS name, COUNT(*) n, COALESCE(SUM(u.tokens),0) tok, '
                     'COALESCE(SUM(u.cost_amont_usd),0) cost FROM usage_logs u '
@@ -1806,7 +1830,8 @@ class Handler(BaseHTTPRequestHandler):
                 'ok': True,
                 'totals': {'requests': tot['n'], 'tokens': int(tot['tok']),
                            'cost_usd': round(tot['cost'] or 0, 6)},
-                'rows': [{'id': r['id'], 'plan': r['plan'], 'model': r['model_served'],
+                'rows': [{'id': r['id'], 'plan': r['plan'],
+                          'model': (r['model_public'] or PUBLIC_MODEL_NAME),
                           'requested': r['model_requested'], 'in': int(r['prompt_tokens'] or 0),
                           'out': int(r['completion_tokens'] or 0), 'tokens': int(r['tokens'] or 0),
                           'cost_usd': round(r['cost_amont_usd'] or 0, 6),
@@ -1814,7 +1839,7 @@ class Handler(BaseHTTPRequestHandler):
                           'ts': int(r['created_at'] or 0)} for r in rows],
                 'per_day': [{'d': r['d'], 'n': r['n'], 'tokens': int(r['tok'] or 0),
                              'cost_usd': round(r['cost'] or 0, 6)} for r in per_day],
-                'per_model': [{'model': r['model_served'], 'n': r['n'], 'tokens': int(r['tok'] or 0)}
+                'per_model': [{'model': r['mp'], 'n': r['n'], 'tokens': int(r['tok'] or 0)}
                               for r in per_model],
                 'per_key': [{'key': r['name'] or 'clé supprimée', 'n': r['n'],
                              'tokens': int(r['tok'] or 0), 'cost_usd': round(r['cost'] or 0, 6)}
@@ -1831,31 +1856,24 @@ class Handler(BaseHTTPRequestHandler):
                 c = db()
                 since = int(time.time()) - 86400
                 rows = c.execute(
-                    "SELECT model_served, COUNT(*) n FROM usage_logs "
+                    "SELECT COALESCE(model_public, ?) mp, COUNT(*) n FROM usage_logs "
                     "WHERE created_at>=? AND model_served IS NOT NULL AND model_served!='' "
-                    "GROUP BY model_served ORDER BY n DESC LIMIT 12", (since,)).fetchall()
+                    "GROUP BY mp ORDER BY n DESC LIMIT 12",
+                    (PUBLIC_MODEL_NAME, since)).fetchall()
                 total = sum((r[1] or 0) for r in rows)
             except Exception:
                 rows, total = [], 0
             return self._json(200, {'ok': True, 'window_s': 86400, 'total': total,
                                     'mix': [{'model': r[0], 'n': r[1]} for r in rows]})
         if path == '/v1/models':
-            # compat SDK OpenAI : 'auto' (routeur) en tête, puis le catalogue publié.
-            # Chaque entrée porte 'a6' : état RÉEL du canal (modèle servi, capacité).
-            # Le sélecteur de modèles côté poste voit ainsi ce qui est servable
-            # avant de choisir — et '/v1/chat/completions' honore le choix (pin ferme).
-            def _mk(mid, owner='quota-hub'):
-                r = market_get(mid) or {}
-                b = r.get('best') or {}
-                return {'id': mid, 'object': 'model', 'owned_by': owner,
-                        'a6': {'available': bool(b.get('in') or b.get('out')),
-                               'channels_alive': int(r.get('n_alive') or 0)}}
-            # gemini vit sur un canal DÉDIÉ (plan gemini) : le marché du pool ne le
-            # voit pas — l'annoncer « indisponible » serait faux.
-            # Seul 'auto' est publié sur Smart API Cheap.
-            # Tout autre modèle est verrouillé par la passerelle.
-            data = [{'id': 'auto', 'object': 'model', 'owned_by': 'quota-hub',
-                     'a6': {'available': True, 'channels_alive': 150}}]
+            # CATALOGUE PUBLIC = UN SEUL MODELE DE MARQUE. Le routeur sonde tous
+            # les modèles du pool et sert le moins cher vivant sous ce nom : le
+            # client n'a rien à choisir et ne voit jamais l'identité réelle.
+            data = [{'id': PUBLIC_MODEL_ID, 'object': 'model', 'owned_by': 'quota-hub',
+                     'name': PUBLIC_MODEL_NAME, 'display_name': PUBLIC_MODEL_NAME,
+                     'created': 0,
+                     'a6': {'available': True, 'channels_alive': len(MODELS),
+                            'strategy': 'auto-cheapest-live'}}]
             return self._json(200, {'object': 'list', 'data': data})
         self._json(404, {'error': {'message': 'not found'}})
 

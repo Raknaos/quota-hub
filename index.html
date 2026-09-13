@@ -160,7 +160,7 @@
         <span>✦</span>
         <div>
           <strong>Le routage automatique est inclus.</strong>
-          <p>Si vous ne souhaitez pas choisir de modèle spécifique, utilisez simplement <code>model: "auto"</code> dans vos requêtes — notre routeur élit le moins cher vivant avec cache mémorisé toutes les 30 minutes.</p>
+          <p>Un seul nom public : <code>model: "autosmart-flash-1.0"</code>. Le routeur élit le moins cher vivant, cache mémorisé et sonde active toutes les 30 minutes.</p>
         </div>
         <button class="inline-link" onclick="switchTab('auto')">Comprendre le mode auto →</button>
       </div>
@@ -327,13 +327,12 @@
         <div>
           <span class="section-kicker">Interface interactive</span>
           <h1>Chat <em>Smart API Cheap</em></h1>
-          <p>Testez nos 20 modèles directement dans votre navigateur. Changez de modèle en un clic et observez les économies de cache réelles.</p>
+          <p>Un seul nom de modèle : <strong>AutoSmart Flash 1.0</strong>. Derrière, le routeur sonde tout le pool et sert le moins cher vivant à chaque requête — vous n'avez rien à choisir.</p>
         </div>
         <div class="chat-header-actions">
           <label class="model-select-label" for="chat-model-select">Modèle :</label>
-          <select id="chat-model-select" class="chat-model-dropdown" onchange="onChatModelChange(this.value)">
-            <option value="auto">auto (Routage intelligent - Moins cher)</option>
-            <!-- Rempli dynamiquement avec les 20 modèles -->
+          <select id="chat-model-select" class="chat-model-dropdown" onchange="onChatModelChange()">
+            <option value="autosmart-flash-1.0">AutoSmart Flash 1.0 — routage automatique (le moins cher à l'instant)</option>
           </select>
           <button class="secondary-button compact" onclick="clearChat()">Effacer le chat</button>
         </div>
@@ -371,7 +370,7 @@
       <div class="page-intro">
         <span class="section-kicker">Mode automatique</span>
         <h1>Le bon modèle,<br><em>automatiquement.</em></h1>
-        <p>Envoyez <code>model: "auto"</code> et le routeur fait le reste : toutes les 30 minutes, une sonde active teste la réalité du cache et élit le modèle vivant le plus rentable. Vos conversations restent stables et vos coûts sont réduits au minimum.</p>
+        <p>Envoyez <code>model: "autosmart-flash-1.0"</code> (ou <code>"auto"</code>, alias conservé) et le routeur fait le reste : toutes les 30 minutes, une sonde active teste la réalité du cache et élit le modèle vivant le plus rentable. Un seul nom exposé, des conversations stables, des coûts réduits au minimum.</p>
       </div>
 
       <div class="router-panel">
@@ -478,7 +477,7 @@
       <div class="docs-grid">
         <article><span>01</span><h3>Base URL</h3><code>https://smartapi.cheap/v1</code><p>Remplacer l'hôte OpenAI officiel.</p></article>
         <article><span>02</span><h3>Authentification</h3><code>Authorization: Bearer sk-sm-...</code><p>Votre clé générée dans la console.</p></article>
-        <article><span>03</span><h3>Modèles</h3><code>model: "auto" ou l'un des 20 IDs</code><p>Supporte les 20 modèles de la bibliothèque.</p></article>
+        <article><span>03</span><h3>Modèles</h3><code>model: "autosmart-flash-1.0"</code><p>Nom public unique : le routeur choisit le modèle réel le moins cher.</p></article>
       </div>
       <div class="docs-endpoints">
         <div class="code-panel-head"><span>Endpoints disponibles</span></div>

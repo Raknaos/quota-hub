@@ -13,6 +13,11 @@ const APP_STATE = {
 const $ = id => document.getElementById(id);
 const fmtBalanceUSD = tokens => '$' + Math.max(0, (tokens || 0) / 1e9 * 10).toFixed(2);
 
+/* Modele PUBLIC unique : le routeur sonde tous les modeles du pool, elit le
+   moins cher vivant (cache reel compris) et le sert sous ce nom de marque.
+   Le client ne voit jamais l'identite reelle du modele ni du canal amont. */
+const PUBLIC_MODEL = { id: 'autosmart-flash-1.0', name: 'AutoSmart Flash 1.0' };
+
 function escapeHtml(value) {
   return String(value || '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
@@ -684,35 +689,28 @@ function initChatDropdown() {
   const select = $('chat-model-select');
   if (!select) return;
 
-  const currentVal = select.value;
-  select.innerHTML = `<option value="auto">auto (Routage intelligent - Moins cher avec cache)</option>` +
-    MODELS_DATA.map(m => `<option value="${m.id}">${m.id} (${m.provider_name} · ${m.discount})</option>`).join('');
-
-  select.value = currentVal || 'auto';
+  // CATALOGUE PUBLIC = UN SEUL MODELE. Le routeur choisit tout seul le moins
+  // cher vivant : le client n'a rien a selectionner et ne voit aucun nom reel.
+  select.innerHTML =
+    `<option value="${PUBLIC_MODEL.id}">${PUBLIC_MODEL.name} — routage automatique (le moins cher à l'instant)</option>`;
+  select.value = PUBLIC_MODEL.id;
 }
 
-window.onChatModelChange = function(modelId) {
-  APP_STATE.chatModel = modelId;
+window.onChatModelChange = function() {
+  APP_STATE.chatModel = PUBLIC_MODEL.id;
   const title = $('chat-active-model-title');
   const desc = $('chat-active-model-desc');
-  if (modelId === 'auto') {
-    if (title) title.textContent = 'Mode auto';
-    if (desc) desc.textContent = 'Routage automatique vers le modèle le plus économique avec cache.';
-  } else {
-    const found = MODELS_DATA.find(m => m.id === modelId);
-    if (found) {
-      if (title) title.textContent = found.name;
-      if (desc) desc.textContent = `${found.provider_name} · Contexte ${found.context} · Réduction ${found.discount}`;
-    }
-  }
+  if (title) title.textContent = PUBLIC_MODEL.name;
+  if (desc) desc.textContent = 'Routage automatique : à chaque requête, le modèle vivant le moins cher — cache réel compris.';
 };
 
-window.launchChatWithModel = function(modelId) {
+window.launchChatWithModel = function() {
+  // Le catalogue est vitrine : toute requete passe par le modele public unique.
   switchTab('chat');
   const select = $('chat-model-select');
   if (select) {
-    select.value = modelId;
-    onChatModelChange(modelId);
+    select.value = PUBLIC_MODEL.id;
+    onChatModelChange();
   }
   const input = $('chat-input');
   if (input) input.focus();
@@ -770,7 +768,7 @@ async function sendChatMessageReal(userText) {
     key = sessionStorage.getItem('qh_play_key');
   }
 
-  const modelRequested = APP_STATE.chatModel || 'auto';
+  const modelRequested = PUBLIC_MODEL.id;
   const t0 = performance.now();
 
   try {
@@ -800,7 +798,8 @@ async function sendChatMessageReal(userText) {
       const details = usage.prompt_tokens_details || {};
       const tcached = details.cached_tokens || usage.cached_tokens || 0;
       const cachePct = tin > 0 ? Math.round((tcached / tin) * 100) : 0;
-      const modelServed = data.model || modelRequested;
+      // jamais le nom reel : on affiche la marque publique
+      const modelServed = PUBLIC_MODEL.name;
 
       aBubble.classList.remove('loading');
       aBubble.innerHTML = `
