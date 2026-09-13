@@ -67,9 +67,10 @@
 
       <!-- ARRIÈRE-PLAN VIDÉO CINÉMATIQUE INTERSTELLAR : TROU NOIR 'GARGANTUA' (NASA SVS SIMULATION OFFICIELLE) -->
   <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#020204]">
-    <video autoplay loop muted playsinline preload="auto" class="absolute inset-0 h-full w-full object-cover opacity-45 mix-blend-screen filter contrast-125 brightness-90">
+    <video autoplay loop muted playsinline preload="auto" class="absolute inset-0 h-full w-full object-cover opacity-65 mix-blend-screen filter contrast-135 brightness-105 saturate-125 transition-opacity duration-1000">
+      <source src="assets/blackhole.mp4" type="video/mp4">
+      <source src="https://svs.gsfc.nasa.gov/vis/a010000/a013300/a013326/BH_AccretionDisk_Sim_Stationary_1080.mp4" type="video/mp4">
       <source src="assets/blackhole.webm" type="video/webm">
-      <source src="https://svs.gsfc.nasa.gov/vis/a010000/a013300/a013326/BH_AccretionDisk_Sim_360_wide_16x9_1080.webm" type="video/webm">
     </video>
     <!-- Vignettage radial profond pour préserver la lisibilité parfaite des composants -->
     <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(2,2,4,0.65)_50%,#020204_95%)] pointer-events-none"></div>
