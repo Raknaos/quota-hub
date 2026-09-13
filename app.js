@@ -775,7 +775,8 @@ async function sendChatMessageReal(userText) {
     const payload = {
       model: modelRequested,
       messages: APP_STATE.chatHistory,
-      max_tokens: 1200
+      max_tokens: 1200,
+      stream: true            // vrai flux : le texte s'affiche au fil de l'eau
     };
 
     const headers = { 'Content-Type': 'application/json' };
@@ -787,33 +788,8 @@ async function sendChatMessageReal(userText) {
       body: JSON.stringify(payload)
     });
 
-    const data = await res.json().catch(() => ({}));
-    const duration = ((performance.now() - t0) / 1000).toFixed(2);
-
-    if (res.ok && data.choices?.[0]?.message) {
-      const assistantContent = data.choices[0].message.content || 'Réponse vide.';
-      const usage = data.usage || {};
-      const tin = usage.prompt_tokens || 0;
-      const tout = usage.completion_tokens || 0;
-      const details = usage.prompt_tokens_details || {};
-      const tcached = details.cached_tokens || usage.cached_tokens || 0;
-      const cachePct = tin > 0 ? Math.round((tcached / tin) * 100) : 0;
-      // jamais le nom reel : on affiche la marque publique
-      const modelServed = PUBLIC_MODEL.name;
-
-      aBubble.classList.remove('loading');
-      aBubble.innerHTML = `
-        <div class="assistant-body">${escapeHtml(assistantContent).replace(/\n/g, '<br>')}</div>
-        <div class="assistant-telemetry">
-          <span class="tele-item"><b>Modèle servi :</b> ${escapeHtml(modelServed)}</span>
-          <span class="tele-item"><b>Tokens :</b> ${tin} in / ${tout} out</span>
-          ${tcached > 0 ? `<span class="tele-item text-green"><b>Cache économisé :</b> ${tcached} tok (${cachePct}%)</span>` : ''}
-          <span class="tele-item"><b>Latence :</b> ${duration}s</span>
-        </div>
-      `;
-
-      APP_STATE.chatHistory.push({ role: 'assistant', content: assistantContent });
-    } else {
+    if (!res.ok || !res.body) {
+      const data = await res.json().catch(() => ({}));
       const errMsg = data.error?.message || `Erreur serveur (${res.status})`;
       aBubble.classList.remove('loading');
       aBubble.classList.add('error');
@@ -823,6 +799,55 @@ async function sendChatMessageReal(userText) {
           <span>Pour tester avec votre propre compte, ajoutez votre clé Smart API Cheap depuis la Console.</span>
         </div>
       `;
+    } else {
+      aBubble.classList.remove('loading');
+      aBubble.innerHTML = '<div class="assistant-body"><span class="typing-indicator"><i></i><i></i><i></i></span></div><div class="assistant-telemetry"></div>';
+      const bodyEl = aBubble.querySelector('.assistant-body');
+      const teleEl = aBubble.querySelector('.assistant-telemetry');
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '', full = '', usage = null, started = false;
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        buf += dec.decode(chunk.value, { stream: true });
+        let cut;
+        while ((cut = buf.indexOf('\n\n')) >= 0) {
+          const blk = buf.slice(0, cut);
+          buf = buf.slice(cut + 2);
+          for (const line of blk.split('\n')) {
+            const s = line.trim();
+            if (!s.startsWith('data:')) continue;
+            const p = s.slice(5).trim();
+            if (!p || p === '[DONE]') continue;
+            let d;
+            try { d = JSON.parse(p); } catch (e) { continue; }
+            if (d.usage) usage = d.usage;
+            const delta = ((d.choices || [])[0] || {}).delta || {};
+            if (delta.content) {
+              if (!started) { started = true; bodyEl.innerHTML = ''; }
+              full += delta.content;
+              bodyEl.innerHTML = escapeHtml(full).replace(/\n/g, '<br>');
+              box.scrollTop = box.scrollHeight;
+            }
+          }
+        }
+      }
+      const duration = ((performance.now() - t0) / 1000).toFixed(2);
+      if (!full) bodyEl.innerHTML = 'Réponse vide.';
+      const u = usage || {};
+      const tin = u.prompt_tokens || 0;
+      const tout = u.completion_tokens || 0;
+      const tcached = (u.prompt_tokens_details || {}).cached_tokens || 0;
+      const cachePct = tin > 0 ? Math.round((tcached / tin) * 100) : 0;
+      // jamais le nom reel : on affiche la marque publique
+      teleEl.innerHTML = `
+        <span class="tele-item"><b>Modèle servi :</b> ${escapeHtml(PUBLIC_MODEL.name)}</span>
+        <span class="tele-item"><b>Tokens :</b> ${tin} in / ${tout} out</span>
+        ${tcached > 0 ? `<span class="tele-item text-green"><b>Cache économisé :</b> ${tcached} tok (${cachePct}%)</span>` : ''}
+        <span class="tele-item"><b>Latence :</b> ${duration}s</span>
+      `;
+      if (full) APP_STATE.chatHistory.push({ role: 'assistant', content: full });
     }
   } catch (err) {
     aBubble.classList.remove('loading');
