@@ -87,6 +87,7 @@
         <button class="nav-btn px-3 py-1.5 rounded-sm hover:text-foreground transition-colors" data-tab="models" onclick="switchTab('models')">Modèles</button>
         <button class="nav-btn px-3 py-1.5 rounded-sm hover:text-foreground transition-colors" data-tab="classements" onclick="switchTab('classements')">Classements</button>
         <button class="nav-btn px-3 py-1.5 rounded-sm hover:text-foreground transition-colors" data-tab="pricing" onclick="switchTab('pricing')">Tarifs</button>
+        <button class="nav-btn px-3 py-1.5 rounded-sm hover:text-foreground transition-colors" data-tab="auto" onclick="switchTab('auto')">AutoSmart 1.0</button>
         <button class="nav-btn px-3 py-1.5 rounded-sm hover:text-foreground transition-colors" data-tab="chat" onclick="switchTab('chat')">Chat</button>
         <button class="nav-btn px-3 py-1.5 rounded-sm hover:text-foreground transition-colors" data-tab="docs" onclick="switchTab('docs')">Docs</button>
       </nav>
@@ -643,6 +644,232 @@ for chunk in response:
     print(chunk.choices[0].delta.content or "", end="", flush=True)</code></pre>
           </div>
         </div>
+      </div>
+    </section>
+
+      <!-- SECTION AUTO : PRÉSENTATION OFFICIELLE DU MODÈLE AUTOSMART FLASH 1.0 (STYLE UNOROUTER MODEL-DETAIL) -->
+    <section id="tab-auto" class="tab-pane hidden">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 py-10 font-sans">
+
+        <!-- Breadcrumb UnoRouter -->
+        <div class="flex items-center gap-2 text-xs font-mono text-muted-foreground mb-6">
+          <a href="#" onclick="switchTab('models')" class="hover:text-foreground transition-colors">MODÈLES</a>
+          <span>/</span>
+          <span class="text-foreground uppercase tracking-wider">AUTOSMART-FLASH-1.0</span>
+        </div>
+
+        <!-- En-tête Modèle UnoRouter -->
+        <div class="border-b border-border pb-8 mb-8">
+          <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+            
+            <div class="space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-sm bg-white text-black font-bold text-base">
+                  ✦
+                </div>
+                <div>
+                  <div class="flex items-center gap-2.5">
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-sans">
+                      AutoSmart Flash 1.0
+                    </h1>
+                    <span class="px-2 py-0.5 rounded-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                      ROUTAGE ACTIF
+                    </span>
+                  </div>
+                  <div class="text-xs font-mono text-muted-foreground mt-0.5">
+                    ID API : <code class="text-foreground">autosmart-flash-1.0</code> · Alias : <code class="text-muted-foreground">auto</code>
+                  </div>
+                </div>
+              </div>
+
+              <p class="text-sm text-muted-foreground font-sans max-w-2xl leading-relaxed">
+                Modèle unifié à routage dynamique et mémoire de cache d'amorce. Sélectionne en temps réel le canal le moins cher et le plus véloce parmi le pool d'excellence (GLM-5.3, DeepSeek V4.1, DeepSeek V4 Flash, Grok 4.6), avec bascule vision instantanée sur DeepSeek Vision dès qu'une image est détectée.
+              </p>
+            </div>
+
+            <!-- Actions CTA UnoRouter Header -->
+            <div class="flex items-center gap-3 font-mono text-xs">
+              <button class="bg-primary text-primary-foreground hover:bg-white/90 h-10 px-6 font-bold tracking-widest uppercase rounded-sm transition-colors" onclick="switchTab('chat')">
+                <span>💬</span> TESTER EN CHAT
+              </button>
+              <button class="border border-border text-foreground hover:border-white h-10 px-4 font-bold tracking-widest uppercase rounded-sm transition-colors" onclick="navigator.clipboard.writeText('autosmart-flash-1.0'); alert('ID modèle copié !')">
+                COPIER L'ID
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Métriques Clés UnoRouter Chips -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mt-6 pt-6 border-t border-border/60 font-mono text-xs">
+            <div class="p-3 rounded-sm bg-secondary border border-border">
+              <span class="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Prix Entrée / 1M</span>
+              <div class="text-base font-bold text-foreground">$0.0012</div>
+              <span class="text-[10px] text-emerald-400 font-semibold">-98% vs officiel</span>
+            </div>
+            <div class="p-3 rounded-sm bg-secondary border border-border">
+              <span class="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Prix Sortie / 1M</span>
+              <div class="text-base font-bold text-foreground">$0.0035</div>
+              <span class="text-[10px] text-emerald-400 font-semibold">-98% vs officiel</span>
+            </div>
+            <div class="p-3 rounded-sm bg-secondary border border-border">
+              <span class="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Contexte Max</span>
+              <div class="text-base font-bold text-foreground">128K à 1M</div>
+              <span class="text-[10px] text-muted-foreground">Tokens glissants</span>
+            </div>
+            <div class="p-3 rounded-sm bg-secondary border border-border">
+              <span class="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Taux Cache Prompt</span>
+              <div class="text-base font-bold text-emerald-400">Jusqu'à 95%</div>
+              <span class="text-[10px] text-muted-foreground">Verrou CONV actif</span>
+            </div>
+            <div class="p-3 rounded-sm bg-secondary border border-border">
+              <span class="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Latence Moyenne</span>
+              <div class="text-base font-bold text-foreground">~ 2.5s</div>
+              <span class="text-[10px] text-emerald-400 font-semibold">Streaming direct</span>
+            </div>
+            <div class="p-3 rounded-sm bg-secondary border border-border">
+              <span class="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Modalités</span>
+              <div class="text-base font-bold text-foreground">Texte + Vision</div>
+              <span class="text-[10px] text-cyan-300 font-semibold">Bascule automatique</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Corps de Présentation UnoRouter (Architecture, Verrouillage & Code) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+          
+          <!-- Colonne Gauche (2/3) : Architecture & Fonctionnement -->
+          <div class="lg:col-span-2 space-y-8">
+            
+            <!-- Bloc 1 : Moteur de Routage -->
+            <div class="rounded-sm border border-border bg-card p-6">
+              <h2 class="text-base font-bold text-foreground uppercase tracking-wider font-mono mb-3 flex items-center gap-2">
+                <span>🧠</span> Moteur de Routage & Préservation du Cache
+              </h2>
+              <p class="text-xs text-muted-foreground font-sans leading-relaxed mb-4">
+                Contrairement aux routeurs traditionnels qui comparent les prix à chaque appel et cassent la mémoire vive des fournisseurs, <strong>AutoSmart Flash 1.0</strong> applique un verrou de conversation ferme (<code class="text-white font-mono">CONV</code>). Dès que votre premier message est envoyé, le modèle et le fournisseur sélectionnés sont maintenus pour toute la durée de la session, garantissant une économie maximale sur le prompt caching (jusqu'à 95% de réduction sur les requêtes suivantes).
+              </p>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-xs">
+                <div class="p-3 rounded-sm bg-secondary border border-border">
+                  <span class="text-foreground font-bold block mb-1">1. Pool Texte & Code</span>
+                  <p class="text-[11px] text-muted-foreground font-sans">
+                    qwen3.8-flash, glm-5.3-flash, deepseek-v4.1-flash, grok-4.6 selon latence et charge.
+                  </p>
+                </div>
+                <div class="p-3 rounded-sm bg-secondary border border-border">
+                  <span class="text-foreground font-bold block mb-1">2. Détection Vision Immédiate</span>
+                  <p class="text-[11px] text-muted-foreground font-sans">
+                    Dès qu'une image est détectée dans la charge, bascule transparente sur deepseek-v4-flash-vision-exp.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bloc 2 : Exemples de code SDK Officiels -->
+            <div class="rounded-sm border border-border bg-card p-6">
+              <h2 class="text-base font-bold text-foreground uppercase tracking-wider font-mono mb-4 flex items-center gap-2">
+                <span>💻</span> Intégration Immédiate (100% Compatible OpenAI)
+              </h2>
+
+              <div class="space-y-4 font-mono text-xs">
+                <!-- Python -->
+                <div>
+                  <div class="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+                    <span>Python (SDK OpenAI)</span>
+                    <button class="hover:text-white" onclick="navigator.clipboard.writeText(document.getElementById('code-py-auto').innerText); alert('Copié !')">Copier</button>
+                  </div>
+                  <pre class="bg-black p-4 rounded-sm border border-border text-white overflow-x-auto text-[11px]"><code id="code-py-auto">from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://smartapi.cheap/v1",
+    api_key="sk-sm-VOTRE_CLE_API"
+)
+
+response = client.chat.completions.create(
+    model="autosmart-flash-1.0",
+    messages=[{"role": "user", "content": "Explique le prompt caching en 1 phrase."}],
+    stream=True
+)
+
+for chunk in response:
+    print(chunk.choices[0].delta.content or "", end="", flush=True)</code></pre>
+                </div>
+
+                <!-- cURL -->
+                <div>
+                  <div class="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+                    <span>cURL</span>
+                    <button class="hover:text-white" onclick="navigator.clipboard.writeText(document.getElementById('code-curl-auto').innerText); alert('Copié !')">Copier</button>
+                  </div>
+                  <pre class="bg-black p-4 rounded-sm border border-border text-white overflow-x-auto text-[11px]"><code id="code-curl-auto">curl https://smartapi.cheap/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-sm-VOTRE_CLE_API" \
+  -d '{
+    "model": "autosmart-flash-1.0",
+    "messages": [{"role": "user", "content": "Bonjour !"}],
+    "stream": true
+  }'</code></pre>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Colonne Droite (1/3) : Statuts de la Flotte & Paramètres Supportés -->
+          <div class="space-y-6 font-mono text-xs">
+            
+            <div class="rounded-sm border border-border bg-card p-5">
+              <h3 class="text-xs font-bold text-foreground uppercase tracking-wider mb-3">Statut de la Flotte (4 VPS)</h3>
+              <div class="space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-muted-foreground">Sandra (23.94.144.66) :</span>
+                  <span class="text-emerald-400 font-bold">100% Uptime</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-muted-foreground">Victor (23.94.144.67) :</span>
+                  <span class="text-emerald-400 font-bold">100% Uptime</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-muted-foreground">Hugo (23.94.144.68) :</span>
+                  <span class="text-emerald-400 font-bold">100% Uptime</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-muted-foreground">Curley (23.94.144.69) :</span>
+                  <span class="text-emerald-400 font-bold">100% Uptime</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-sm border border-border bg-card p-5">
+              <h3 class="text-xs font-bold text-foreground uppercase tracking-wider mb-3">Paramètres API Supportés</h3>
+              <div class="space-y-2 text-[11px]">
+                <div class="flex items-center justify-between border-b border-border/40 pb-1.5">
+                  <code class="text-white">temperature</code>
+                  <span class="text-muted-foreground">0.0 à 2.0</span>
+                </div>
+                <div class="flex items-center justify-between border-b border-border/40 pb-1.5">
+                  <code class="text-white">stream</code>
+                  <span class="text-emerald-400 font-bold">true (Relais SSE)</span>
+                </div>
+                <div class="flex items-center justify-between border-b border-border/40 pb-1.5">
+                  <code class="text-white">max_tokens</code>
+                  <span class="text-muted-foreground">Jusqu'à 8 192</span>
+                </div>
+                <div class="flex items-center justify-between border-b border-border/40 pb-1.5">
+                  <code class="text-white">tools / functions</code>
+                  <span class="text-emerald-400 font-bold">Supporté</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <code class="text-white">image_url</code>
+                  <span class="text-cyan-300 font-bold">Auto-switch Vision</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
       </div>
     </section>
 
