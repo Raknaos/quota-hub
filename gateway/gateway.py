@@ -84,7 +84,7 @@ MODELS = ['qwen3.8-flash', 'grok-4.6', 'glm-5.3-flash',
 TRUSTED_SUPPLIERS = ['tokentrans', '国产', 'bbgt-vip', 'deepseek线路']
 # FOURNISSEURS BANNIS (13-09) : 新3 vend a bas prix mais ne met AUCUN token en cache (0.7% mesure en prod),
 # ce qui fait exploser les couts de 10x sur les conversations longues.
-BANNED_SUPPLIERS = {'新3'}
+BANNED_SUPPLIERS = set() # Aucun ban en dur : seule la mesure de cache reel decide
 GEMINI_MODEL = 'gemini-3.8-flash'
 PLANS = ('auto', 'gemini')
 PLAN_DEFAULT = {'auto': 1_000_000_000, 'gemini': 100_000_000}   # tokens par code
@@ -94,11 +94,11 @@ HYSTERESIS = 0.30                                  # pin canal chaud (cache prom
 PIN_MIN_HOLD_S = 21600                             # 6 h de retenue mini du modèle élu
 PIN_SWITCH_PCT = 50                                # pendant la retenue : basculer seulement
                                                     # si l'alternative est ≥ 50 % moins chère
-MARKET_TTL = 1200                                  # s (marché instantané, 24 h) : suit le
-                                                    # cycle du sondeur partagé (20 min)
+MARKET_TTL = 1800                                  # s (marché instantané, 24 h) : suit le
+                                                    # cycle du sondeur partagé (30 min)
 MKT30_URL = 'http://127.0.0.1:8891/api/prices'     # marché 30 j — worker local (même VPS)
-MKT30_TTL = 1200                                   # s — cache mémoire de la vue 30 j
-                                                    # (aligne sur le cycle du sondeur, 20 min)
+MKT30_TTL = 1800                                   # s — cache mémoire de la vue 30 j
+                                                    # (aligne sur le cycle du sondeur, 30 min)
 MKT30_MAX_AGE_S = 2700                             # fraîcheur exigée du worker (age_s)
 MKT30_FLOOR_WORST = 80.0                           # floor fiabilité « pire heure » (moy30)
 MKT30_MIN_SAMPLES = 200                            # volume minimal pour juger un canal
@@ -292,6 +292,15 @@ def refresh_observed_cache():
     OBS_CACHE['d'] = d
     OBS_CACHE['ts'] = now
     return d
+
+def probe_cache_hit(model_id):
+    """Taux de cache [0.0 - 0.95] mesuré par la sonde active des 20 minutes (Vérité partagée)."""
+    d = market30_all() or {}
+    pr = (d.get('probes') or {}).get('models') or {}
+    p = pr.get(model_id) or {}
+    if p.get('ok') and 'cache_pct' in p:
+        return max(0.0, min(0.95, float(p['cache_pct']) / 100.0))
+    return None
 
 def get_real_cache_hit(model_id, supplier=None):
     """Renvoie le taux de hit reel constate [0.0 - 0.95]."""
@@ -629,13 +638,15 @@ def pick_model(models, ctx=None):
         if with_cache:
             cand = with_cache
 
-    # CALCUL DU COÛT RÉEL PROJETÉ DE LA REQUÊTE :
-    # Si la requête a du contexte, un canal avec 80% de cache bat n'importe quel canal sans cache.
+    # CALCUL DU COÛT RÉEL PROJETÉ DE LA REQUÊTE (Vérité des sondes 30 min) :
     rescored = []
     for score, m, b in cand:
         bb = dict(b)
         sup = bb.get('supplier')
-        real_hit = get_real_cache_hit(m, sup)
+        # Priorité absolue : la mesure de cache de la sonde active des 20 minutes
+        real_hit = probe_cache_hit(m)
+        if real_hit is None:
+            real_hit = get_real_cache_hit(m, sup)
         if real_hit is None:
             real_hit = max(0.0, min(0.95, (bb.get('cache24') or 0) / 100.0))
         success = max(float(bb.get('success', 100) or 100) / 100.0, 0.01)
@@ -645,7 +656,7 @@ def pick_model(models, ctx=None):
         p_out = bb.get('out', 1.0)
         # Coût réel projeté : tokens non cachés + tokens cachés + sortie
         eff_req_cost = (tin * (1.0 - real_hit) * p_in + tin * real_hit * p_cr + 300 * p_out)
-        bb['src'] = 'cache_projected'
+        bb['src'] = 'probe_truth'
         score = eff_req_cost / success
         rescored.append((score, m, bb))
     cand = rescored
@@ -1917,14 +1928,14 @@ class Handler(BaseHTTPRequestHandler):
 
 def refresh_loop():
     """Le routeur rafraîchit le marché LUI-MÊME (jamais dans le chemin d'une
-    requête) et le partage à tous les clients : toutes les MARKET_TTL (20 min),
+    requête) et le partage à tous les clients : toutes les MARKET_TTL (30 min),
     re-warm du marché instantané + de la vue 30 j. Les requêtes lisent ensuite
     le snapshot — zéro vérification de prix par requête ou par utilisateur."""
     while True:
         time.sleep(MARKET_TTL)
         try:
             warm_market()
-            log('REFRESH marché: re-warm lancé (snapshot partagé, 20 min)')
+            log('REFRESH marché: re-warm lancé (snapshot partagé, 30 min)')
         except Exception as e:
             log(f'REFRESH marché: {str(e)[:80]}')
 
