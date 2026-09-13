@@ -2040,3 +2040,154 @@ window.switchClassementPeriod = function(period, btn) {
     else if (period === 'year') kpiEl.innerText = '1.2B';
   }
 };
+
+
+/* ==========================================================================
+   AFFINAGES VISUELS ET FONCTIONNELS (ACCUEIL, MODÈLES, TARIFS)
+   ========================================================================== */
+
+// 1. Remplissage du Marquee infini : suppression du fond gris lourd, style minimaliste UnoRouter
+function initMarqueeClean() {
+  const track = document.getElementById('marquee-models');
+  if (!track) return;
+  const doubled = [...MODELS_DATA, ...MODELS_DATA];
+  track.innerHTML = doubled.map(m => `
+    <div class="flex items-center gap-2 px-2.5 py-1 rounded-xs bg-card border border-border/80 shrink-0 cursor-pointer hover:border-white transition-colors" onclick="launchChatWithModel('${m.id}')">
+      <img src="${m.logo}" class="h-3.5 w-3.5 object-contain" alt="">
+      <span class="font-mono text-xs text-foreground font-semibold">${m.name}</span>
+      <span class="font-mono text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1 py-0.2 rounded-xs border border-emerald-500/20">${m.discount}</span>
+    </div>
+  `).join('');
+}
+
+// 2. Rendu du Tableau des Modèles : style UnoRouter fidèle avec mise en valeur nette des réductions
+function renderModelsTableUnoRefined() {
+  const tbody = document.getElementById('models-tbody');
+  if (!tbody) return;
+
+  const filtered = MODELS_DATA.filter(m => {
+    if (CURRENT_MODALITY !== 'all' && !m.modalities.includes(CURRENT_MODALITY)) return false;
+    if (CURRENT_VENDOR !== 'all' && m.provider !== CURRENT_VENDOR) return false;
+    if (PROMO_ONLY && m.discount_num < 50) return false;
+    if (SEARCH_QUERY && !m.name.toLowerCase().includes(SEARCH_QUERY) && !m.id.toLowerCase().includes(SEARCH_QUERY) && !m.provider_name.toLowerCase().includes(SEARCH_QUERY)) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-muted-foreground font-mono text-xs">Aucun modèle ne correspond à vos critères.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(m => `
+    <tr class="hover:bg-white/[0.02] border-b border-border/40 transition-colors">
+      <!-- 1. Modèle (Logo + Nom + Badge) -->
+      <td class="py-3.5 px-4">
+        <div class="flex items-center gap-3">
+          <img src="${m.logo}" class="h-6 w-6 object-contain rounded-xs p-0.5 bg-white/5 border border-border" alt="">
+          <div>
+            <div class="font-bold text-foreground flex items-center gap-2">
+              <span class="font-mono text-xs">${m.name}</span>
+              ${m.badge ? `<span class="text-[9px] font-mono px-1.5 py-0.2 rounded-xs bg-secondary border border-border text-muted-foreground">${m.badge}</span>` : ''}
+            </div>
+            <span class="text-[10px] font-mono text-muted-foreground">${m.id}</span>
+          </div>
+        </div>
+      </td>
+
+      <!-- 2. Tokens Hebdo -->
+      <td class="py-3.5 px-3 text-right font-mono font-semibold text-foreground text-xs">${m.tokens_weekly}</td>
+
+      <!-- 3. Prix Entrée / 1M (Manière UnoRouter : prix actuel grand + barré et badge -XX% très visible) -->
+      <td class="py-3.5 px-3 text-right font-mono">
+        <div class="text-xs font-bold text-foreground">${m.input_ours}</div>
+        <div class="flex items-center justify-end gap-1.5 text-[10px] mt-0.5">
+          <span class="text-muted-foreground/60 line-through">${m.input_official}</span>
+          <span class="px-1 py-0.2 rounded-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">${m.discount}</span>
+        </div>
+      </td>
+
+      <!-- 4. Prix Sortie / 1M (Manière UnoRouter) -->
+      <td class="py-3.5 px-3 text-right font-mono">
+        <div class="text-xs font-bold text-foreground">${m.output_ours}</div>
+        <div class="flex items-center justify-end gap-1.5 text-[10px] mt-0.5">
+          <span class="text-muted-foreground/60 line-through">${m.output_official}</span>
+          <span class="px-1 py-0.2 rounded-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">${m.discount}</span>
+        </div>
+      </td>
+
+      <!-- 5. Contexte -->
+      <td class="py-3.5 px-3 text-center font-mono">
+        <span class="px-2 py-0.5 rounded-xs bg-secondary border border-border text-muted-foreground text-[10px]">${m.context}</span>
+      </td>
+
+      <!-- 6. Uptime -->
+      <td class="py-3.5 px-3 text-center font-mono text-emerald-400 font-semibold text-xs">${m.availability}</td>
+
+      <!-- 7. Succès -->
+      <td class="py-3.5 px-3 text-center font-mono text-emerald-400 text-xs">${m.success}</td>
+
+      <!-- 8. Latence -->
+      <td class="py-3.5 px-3 text-center font-mono text-muted-foreground text-xs">${m.latency}</td>
+
+      <!-- 9. Actions -->
+      <td class="py-3.5 px-4 text-center font-mono">
+        <div class="flex items-center justify-center gap-1.5">
+          <button class="px-2 py-1 rounded-xs border border-border hover:border-white text-xs text-foreground uppercase tracking-wider transition-colors" onclick="launchChatWithModel('${m.id}')">Tester</button>
+          <button class="px-2 py-1 rounded-xs border border-border/60 hover:border-border text-xs text-muted-foreground hover:text-white uppercase tracking-wider transition-colors" onclick="copyText('${m.id}', this)">Copier</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// 3. Gestion de la page Tarifs : bascule Abonnements mensuels vs Recharges Pay-as-you-go
+window.switchPricingMode = function(mode) {
+  const subView = document.getElementById('pricing-view-subscription');
+  const topupView = document.getElementById('pricing-view-topup');
+  const subBtn = document.getElementById('toggle-sub-btn');
+  const topupBtn = document.getElementById('toggle-topup-btn');
+
+  if (mode === 'subscription') {
+    if (subView) subView.classList.remove('hidden');
+    if (topupView) topupView.classList.add('hidden');
+    if (subBtn) {
+      subBtn.classList.add('bg-white', 'text-black', 'font-bold');
+      subBtn.classList.remove('text-muted-foreground');
+    }
+    if (topupBtn) {
+      topupBtn.classList.remove('bg-white', 'text-black', 'font-bold');
+      topupBtn.classList.add('text-muted-foreground');
+    }
+  } else {
+    if (subView) subView.classList.add('hidden');
+    if (topupView) topupView.classList.remove('hidden');
+    if (topupBtn) {
+      topupBtn.classList.add('bg-white', 'text-black', 'font-bold');
+      topupBtn.classList.remove('text-muted-foreground');
+    }
+    if (subBtn) {
+      subBtn.classList.remove('bg-white', 'text-black', 'font-bold');
+      subBtn.classList.add('text-muted-foreground');
+    }
+  }
+};
+
+window.selectPaygoAmount = function(amt, btn) {
+  document.querySelectorAll('.paygo-card').forEach(b => {
+    b.classList.remove('active', 'border-white', 'bg-secondary');
+    b.classList.add('border-border', 'bg-card');
+  });
+  btn.classList.add('active', 'border-white', 'bg-secondary');
+  btn.classList.remove('border-border', 'bg-card');
+
+  const amtEl = document.getElementById('paygo-selected-amount');
+  if (amtEl) amtEl.innerText = '$' + amt + '.00';
+};
+
+window.executePaygoPayment = function() {
+  openAuthModal('login');
+};
+
+// Surcharger les appels d'initialisation pour appliquer ces raffinements
+window.renderModelsTableUno = renderModelsTableUnoRefined;
+window.initMarquee = initMarqueeClean;

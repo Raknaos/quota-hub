@@ -152,16 +152,13 @@
             </p>
           </div>
 
-          <!-- 3 Boutons d'action stricts UnoRouter -->
+          <!-- Boutons d'action stricts UnoRouter (2 boutons nets) -->
           <div class="flex flex-col items-center justify-center gap-3 font-mono text-xs sm:flex-row lg:justify-start pt-2">
             <button class="bg-primary text-primary-foreground hover:bg-white/90 flex h-11 w-full items-center justify-center gap-2 px-8 font-bold tracking-widest uppercase rounded-sm transition-colors sm:w-auto" onclick="openAuthModal('register')">
               <span>⚡</span> COMMENCER
             </button>
             <button class="border border-border text-foreground hover:border-foreground flex h-11 w-full items-center justify-center gap-2 border bg-transparent px-8 font-bold tracking-widest uppercase rounded-sm transition-all sm:w-auto" onclick="switchTab('models')">
               VOIR LES MODÈLES →
-            </button>
-            <button class="border border-border text-foreground hover:border-foreground flex h-11 w-full items-center justify-center gap-2 border bg-transparent px-8 font-bold tracking-widest uppercase rounded-sm transition-all sm:w-auto" onclick="switchTab('chat')">
-              <span>💬</span> CHAT EN FLUX
             </button>
           </div>
 
@@ -185,10 +182,10 @@
             </div>
             <div class="p-4 border-r border-border flex flex-col">
               <span class="font-mono text-[10px] tracking-widest text-muted-foreground uppercase mb-1">Réductions</span>
-              <span class="text-2xl font-bold font-sans text-emerald-400">Jusqu'à -99%</span>
+              <span class="text-xl sm:text-2xl font-bold font-sans text-emerald-400 whitespace-nowrap">Jusqu'à -99%</span>
               <div class="mt-2 flex items-center gap-1.5">
                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                <span class="font-mono text-[10px] text-muted-foreground">Vérité mesurée</span>
+                <span class="font-mono text-[10px] text-muted-foreground whitespace-nowrap">Vérité mesurée</span>
               </div>
             </div>
             <div class="p-4 flex flex-col">
@@ -235,15 +232,15 @@
               </div>
             </div>
 
-            <!-- Chips Integrations -->
+            <!-- Chips Integrations alignées sur une seule ligne -->
             <div class="mt-6 pt-4 border-t border-border">
-              <span class="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block mb-3">Clients vérifiés & 100% compatibles :</span>
-              <div class="flex flex-wrap gap-1.5 font-mono text-[11px]">
-                <span class="px-2 py-1 rounded-sm bg-secondary border border-border text-foreground">Claude Code</span>
-                <span class="px-2 py-1 rounded-sm bg-secondary border border-border text-foreground">Hermes Agent</span>
-                <span class="px-2 py-1 rounded-sm bg-secondary border border-border text-foreground">Cursor</span>
-                <span class="px-2 py-1 rounded-sm bg-secondary border border-border text-foreground">SillyTavern</span>
-                <span class="px-2 py-1 rounded-sm bg-secondary border border-border text-foreground">SDK OpenAI</span>
+              <span class="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block mb-2.5">Clients vérifiés & 100% compatibles :</span>
+              <div class="flex items-center gap-2 font-mono text-[10px] overflow-x-auto whitespace-nowrap pb-1">
+                <span class="px-2.5 py-1 rounded-sm bg-secondary/80 border border-border/80 text-foreground">Claude Code</span>
+                <span class="px-2.5 py-1 rounded-sm bg-secondary/80 border border-border/80 text-foreground">Hermes Agent</span>
+                <span class="px-2.5 py-1 rounded-sm bg-secondary/80 border border-border/80 text-foreground">Cursor</span>
+                <span class="px-2.5 py-1 rounded-sm bg-secondary/80 border border-border/80 text-foreground">SillyTavern</span>
+                <span class="px-2.5 py-1 rounded-sm bg-secondary/80 border border-border/80 text-foreground">SDK OpenAI</span>
               </div>
             </div>
 
@@ -252,15 +249,15 @@
 
       </main>
 
-      <!-- LIVE INFERENCE TICKER (MARQUEE UNOROUTER) -->
-      <div class="border-y border-border bg-secondary py-3 relative overflow-hidden backdrop-blur-md">
+      <!-- LIVE INFERENCE TICKER (STYLE UNOROUTER ÉPURÉ SANS FOND GRIS LOURD) -->
+      <div class="border-y border-border/60 bg-black/40 py-3 relative overflow-hidden backdrop-blur-sm">
         <div class="mx-auto flex max-w-7xl items-center gap-6 px-6">
-          <div class="shrink-0 flex items-center gap-2 border border-border bg-card px-2.5 py-1 rounded-sm font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-foreground">
+          <div class="shrink-0 flex items-center gap-2 border border-border/60 bg-card px-2.5 py-1 rounded-sm font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-foreground">
             <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>Inférence en direct</span>
           </div>
           <div class="relative flex-1 overflow-hidden">
-            <div class="marquee-track flex gap-6 font-mono text-xs items-center" id="marquee-models">
+            <div class="marquee-track flex gap-4 font-mono text-xs items-center" id="marquee-models">
               <!-- Rempli par app.js -->
             </div>
           </div>
@@ -380,16 +377,16 @@
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse font-mono text-xs" id="models-table">
               <thead>
-                <tr class="border-b border-border bg-secondary/80 text-[10px] uppercase tracking-widest text-muted-foreground">
-                  <th class="py-3 px-4">Modèle</th>
-                  <th class="py-3 px-3 text-right">Tokens Hebdo</th>
-                  <th class="py-3 px-3 text-right">Entrée / 1M</th>
-                  <th class="py-3 px-3 text-right">Sortie / 1M</th>
-                  <th class="py-3 px-3 text-center">Contexte</th>
-                  <th class="py-3 px-3 text-center">Uptime</th>
-                  <th class="py-3 px-3 text-center">Succès</th>
-                  <th class="py-3 px-3 text-center">Latence</th>
-                  <th class="py-3 px-4 text-center">Actions</th>
+                <tr class="border-b border-border/80 bg-black/60 text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-mono">
+                  <th class="py-3.5 px-4 font-semibold text-foreground/80">Modèle</th>
+                  <th class="py-3.5 px-3 text-right font-semibold">Tokens Hebdo</th>
+                  <th class="py-3.5 px-3 text-right font-semibold">Entrée / 1M</th>
+                  <th class="py-3.5 px-3 text-right font-semibold">Sortie / 1M</th>
+                  <th class="py-3.5 px-3 text-center font-semibold">Contexte</th>
+                  <th class="py-3.5 px-3 text-center font-semibold">Uptime</th>
+                  <th class="py-3.5 px-3 text-center font-semibold">Succès</th>
+                  <th class="py-3.5 px-3 text-center font-semibold">Latence</th>
+                  <th class="py-3.5 px-4 text-center font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody id="models-tbody" class="divide-y divide-border/60">
@@ -505,61 +502,209 @@
       </div>
     </section>
 
-    <!-- SECTION 4 : TARIFS & RECHARGES -->
+    <!-- SECTION 4 : TARIFS & ABONNEMENTS (DOUBLE USAGE UNOROUTER CONFORME) -->
     <section id="tab-pricing" class="tab-pane hidden">
-      <div class="mx-auto max-w-7xl px-4 sm:px-6 py-8">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 py-10 font-sans">
+        
         <div class="text-center max-w-2xl mx-auto mb-12">
-          <span class="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">✦ Transparence Absolue</span>
-          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-foreground font-sans mt-1">Tarifs simples & sans engagement</h1>
-          <p class="text-sm text-muted-foreground mt-2 font-sans">Rechargez selon vos besoins en Pay-as-you-go ou profitez du plan illimité Quota Hub. Zéro expiration.</p>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8 font-mono">
-          <button class="paygo-btn p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectRecharge(5, this)">
-            <span class="text-[10px] text-muted-foreground uppercase block">Pack Test</span>
-            <span class="text-2xl font-bold my-1 block text-foreground">$5</span>
-            <span class="text-[10px] text-emerald-400">~2.1M tokens</span>
-          </button>
-          <button class="paygo-btn active p-4 rounded-sm border border-white bg-secondary text-center" onclick="selectRecharge(10, this)">
-            <span class="text-[10px] text-white uppercase block font-bold">Populaire</span>
-            <span class="text-2xl font-bold my-1 block text-foreground">$10</span>
-            <span class="text-[10px] text-emerald-400">~4.2M tokens</span>
-          </button>
-          <button class="paygo-btn p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectRecharge(20, this)">
-            <span class="text-[10px] text-muted-foreground uppercase block">Dev Pro</span>
-            <span class="text-2xl font-bold my-1 block text-foreground">$20</span>
-            <span class="text-[10px] text-emerald-400">~8.4M tokens</span>
-          </button>
-          <button class="paygo-btn p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectRecharge(50, this)">
-            <span class="text-[10px] text-muted-foreground uppercase block">Startup</span>
-            <span class="text-2xl font-bold my-1 block text-foreground">$50</span>
-            <span class="text-[10px] text-emerald-400">~21M tokens</span>
-          </button>
-          <button class="paygo-btn p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectRecharge(100, this)">
-            <span class="text-[10px] text-muted-foreground uppercase block">Team</span>
-            <span class="text-2xl font-bold my-1 block text-foreground">$100</span>
-            <span class="text-[10px] text-emerald-400">~42M tokens</span>
-          </button>
-          <button class="paygo-btn p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectRecharge(200, this)">
-            <span class="text-[10px] text-muted-foreground uppercase block">Scale</span>
-            <span class="text-2xl font-bold my-1 block text-foreground">$200</span>
-            <span class="text-[10px] text-emerald-400">~84M tokens</span>
-          </button>
-        </div>
-
-        <div class="max-w-xl mx-auto rounded-sm border border-border bg-card p-6 font-mono mb-12">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <span class="text-[10px] text-muted-foreground uppercase tracking-widest">Montant sélectionné</span>
-              <div class="text-3xl font-bold text-foreground" id="summary-amount">$10.00</div>
-            </div>
-            <div class="text-right">
-              <span class="text-[10px] text-muted-foreground uppercase tracking-widest">Volume estimé</span>
-              <div class="text-sm font-bold text-emerald-400" id="summary-tokens">~ 4,166,666 tokens</div>
-            </div>
+          <div class="text-[11px] font-mono font-medium tracking-[0.2em] text-muted-foreground uppercase mb-1.5">
+            TARIFICATION
           </div>
-          <button class="bg-primary text-primary-foreground hover:bg-white/90 h-11 w-full font-bold tracking-widest uppercase rounded-sm text-xs transition-colors" onclick="executeRecharge()">Procéder au paiement sécurisé</button>
+          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-foreground font-sans">
+            Tarifs simples & transparents
+          </h1>
+          <p class="text-sm text-muted-foreground mt-2 font-sans">
+            Choisissez entre un abonnement mensuel avec crédits inclus ou rechargez votre solde à l'usage. Vos crédits prépayés n'expirent jamais.
+          </p>
+
+          <!-- Toggle d'usage UnoRouter : Abonnements vs Recharges -->
+          <div class="inline-flex items-center gap-1 p-1 rounded-sm bg-secondary border border-border mt-6 font-mono text-xs">
+            <button id="toggle-sub-btn" class="px-4 py-1.5 rounded-sm bg-white text-black font-bold uppercase tracking-wider" onclick="switchPricingMode('subscription')">Abonnements</button>
+            <button id="toggle-topup-btn" class="px-4 py-1.5 rounded-sm text-muted-foreground hover:text-foreground uppercase tracking-wider" onclick="switchPricingMode('topup')">Recharges Pay-as-you-go</button>
+          </div>
         </div>
+
+        <!-- VUE 1 : LES 3 PLANS D'ABONNEMENT OFFICIELS UNOROUTER -->
+        <div id="pricing-view-subscription" class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-16">
+          
+          <!-- Plan Starter -->
+          <div class="rounded-sm border border-border bg-card p-6 flex flex-col justify-between hover:border-border/80 transition-colors">
+            <div>
+              <div class="flex items-center justify-between mb-4">
+                <span class="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">Starter</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-secondary border border-border text-muted-foreground">Mensuel</span>
+              </div>
+              <div class="mb-6">
+                <div class="flex items-baseline gap-1">
+                  <span class="text-4xl font-bold font-mono text-foreground">$10</span>
+                  <span class="text-xs font-mono text-muted-foreground">/ mois</span>
+                </div>
+                <p class="text-xs text-muted-foreground font-sans mt-2">
+                  Idéal pour les développeurs indépendants, tests d'agents et prototypage léger.
+                </p>
+              </div>
+              <div class="space-y-3 font-mono text-xs border-t border-border/60 pt-5">
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-foreground">$10 de crédits d'inférence inclus</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-muted-foreground">Accès complet à tous les 20 modèles</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-muted-foreground">Verrouillage de conversation CONV</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-muted-foreground">Routage automatique AutoSmart</span>
+                </div>
+              </div>
+            </div>
+            <button class="border border-border text-foreground hover:border-white h-10 w-full font-mono font-bold tracking-widest uppercase rounded-sm text-xs mt-8 transition-colors" onclick="openAuthModal('register')">
+              CHOISIR STARTER
+            </button>
+          </div>
+
+          <!-- Plan Pro (Populaire UnoRouter) -->
+          <div class="rounded-sm border border-white bg-card p-6 flex flex-col justify-between shadow-xl relative">
+            <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-black font-mono text-[10px] font-bold uppercase tracking-widest px-3 py-0.5 rounded-xs">
+              LE PLUS POPULAIRE
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-4">
+                <span class="text-xs font-mono font-bold uppercase tracking-wider text-white">Pro Developer</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-white/10 text-emerald-400 font-bold">50% RPM Boost</span>
+              </div>
+              <div class="mb-6">
+                <div class="flex items-baseline gap-1">
+                  <span class="text-4xl font-bold font-mono text-foreground">$30</span>
+                  <span class="text-xs font-mono text-muted-foreground">/ mois</span>
+                </div>
+                <p class="text-xs text-muted-foreground font-sans mt-2">
+                  Pour les développeurs actifs, applications en production et coding intensif avec Claude Code / Cursor.
+                </p>
+              </div>
+              <div class="space-y-3 font-mono text-xs border-t border-border/60 pt-5">
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-foreground font-bold">$30 de crédits d'inférence inclus</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-foreground">Priorité de bande passante sur les 4 VPS</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-foreground">Support direct et monitoring dédié</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-foreground">Accès illimité à la sonde 30 min</span>
+                </div>
+              </div>
+            </div>
+            <button class="bg-primary text-primary-foreground hover:bg-white/90 h-10 w-full font-mono font-bold tracking-widest uppercase rounded-sm text-xs mt-8 transition-colors" onclick="openAuthModal('register')">
+              CHOISIR PRO
+            </button>
+          </div>
+
+          <!-- Plan Scale / Team -->
+          <div class="rounded-sm border border-border bg-card p-6 flex flex-col justify-between hover:border-border/80 transition-colors">
+            <div>
+              <div class="flex items-center justify-between mb-4">
+                <span class="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">Scale & Team</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-secondary border border-border text-muted-foreground">Sur-mesure</span>
+              </div>
+              <div class="mb-6">
+                <div class="flex items-baseline gap-1">
+                  <span class="text-4xl font-bold font-mono text-foreground">$100</span>
+                  <span class="text-xs font-mono text-muted-foreground">/ mois</span>
+                </div>
+                <p class="text-xs text-muted-foreground font-sans mt-2">
+                  Pour les équipes, flottes d'agents autonomes et charges de travail lourdes sans ralentissement.
+                </p>
+              </div>
+              <div class="space-y-3 font-mono text-xs border-t border-border/60 pt-5">
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-foreground">$100 de crédits inclus</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-muted-foreground">Quota de débit maximum (100% Boost)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-muted-foreground">Clés illimitées avec gestion d'équipe</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span class="text-muted-foreground">Facturation centralisée</span>
+                </div>
+              </div>
+            </div>
+            <button class="border border-border text-foreground hover:border-white h-10 w-full font-mono font-bold tracking-widest uppercase rounded-sm text-xs mt-8 transition-colors" onclick="openAuthModal('register')">
+              CHOISIR SCALE
+            </button>
+          </div>
+
+        </div>
+
+        <!-- VUE 2 : RECHARGES PAY-AS-YOU-GO (SANS ESTIMATION ABSURDE) -->
+        <div id="pricing-view-topup" class="hidden max-w-4xl mx-auto mb-16">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8 font-mono">
+            <button class="paygo-card p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectPaygoAmount(5, this)">
+              <span class="text-[10px] text-muted-foreground uppercase block">Pack 1</span>
+              <span class="text-2xl font-bold my-1 block text-foreground">$5</span>
+              <span class="text-[10px] text-muted-foreground">Crédit immédiat</span>
+            </button>
+            <button class="paygo-card active p-4 rounded-sm border border-white bg-secondary text-center" onclick="selectPaygoAmount(10, this)">
+              <span class="text-[10px] text-white uppercase block font-bold">Populaire</span>
+              <span class="text-2xl font-bold my-1 block text-foreground">$10</span>
+              <span class="text-[10px] text-emerald-400 font-semibold">Zéro expiration</span>
+            </button>
+            <button class="paygo-card p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectPaygoAmount(20, this)">
+              <span class="text-[10px] text-muted-foreground uppercase block">Pack 3</span>
+              <span class="text-2xl font-bold my-1 block text-foreground">$20</span>
+              <span class="text-[10px] text-muted-foreground">Crédit immédiat</span>
+            </button>
+            <button class="paygo-card p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectPaygoAmount(50, this)">
+              <span class="text-[10px] text-muted-foreground uppercase block">Pack 4</span>
+              <span class="text-2xl font-bold my-1 block text-foreground">$50</span>
+              <span class="text-[10px] text-muted-foreground">Crédit immédiat</span>
+            </button>
+            <button class="paygo-card p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectPaygoAmount(100, this)">
+              <span class="text-[10px] text-muted-foreground uppercase block">Pack 5</span>
+              <span class="text-2xl font-bold my-1 block text-foreground">$100</span>
+              <span class="text-[10px] text-muted-foreground">Crédit immédiat</span>
+            </button>
+            <button class="paygo-card p-4 rounded-sm border border-border bg-card text-center hover:border-white transition-colors" onclick="selectPaygoAmount(200, this)">
+              <span class="text-[10px] text-muted-foreground uppercase block">Pack 6</span>
+              <span class="text-2xl font-bold my-1 block text-foreground">$200</span>
+              <span class="text-[10px] text-muted-foreground">Crédit immédiat</span>
+            </button>
+          </div>
+
+          <!-- Boîte de validation épurée (sans calcul bidon de tokens) -->
+          <div class="max-w-md mx-auto rounded-sm border border-border bg-card p-6 font-mono">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <span class="text-[10px] text-muted-foreground uppercase tracking-widest">Montant de recharge</span>
+                <div class="text-3xl font-bold text-foreground" id="paygo-selected-amount">$10.00</div>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] text-muted-foreground uppercase tracking-widest">Validité</span>
+                <div class="text-xs font-bold text-emerald-400">À vie / N'expire jamais</div>
+              </div>
+            </div>
+            <button class="bg-primary text-primary-foreground hover:bg-white/90 h-11 w-full font-bold tracking-widest uppercase rounded-sm text-xs transition-colors" onclick="executePaygoPayment()">
+              RECHARGER MON SOLDE
+            </button>
+          </div>
+        </div>
+
       </div>
     </section>
 
