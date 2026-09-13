@@ -124,7 +124,7 @@ COOLDOWN_WAIT_MAX_S = 15                           # anti-503 : attente bornée 
                                                    # (budget front Vercel : maxDuration 120 s)
 # ── Budget de temps (front Vercel : maxDuration 120 s) ──────────────────────
 REQUEST_BUDGET_S = 105                             # mur interne : on rend la main AVANT Vercel (120 s)
-FIRST_BYTE_MAX_S = 45                              # attente max du 1er chunk streaming avant bascule
+FIRST_BYTE_MAX_S = 75                              # attente max du 1er chunk streaming avant bascule
 HEARTBEAT_S = 8                                    # keep-alive SSE pendant l'attente amont
 STREAM_TIMEOUT_S = 100                             # lecture amont bornée sous le plafond Vercel
 MAX_TOKENS_CAP = 8000                              # plafond par requête (résumés de compression)
@@ -1623,15 +1623,18 @@ def api_chat(auth_header, payload, ip, want_stream=False):
     c.commit(); c.close()
 
     if want_stream:
-        # FLUX RÉEL : on tente d'abord le relais vivant. Si aucun canal ne livre de
-        # 1er chunk, on retombe sur le chemin non-stream (re-sérialisation SSE) :
-        # le client ne subit jamais une régression, au pire il n'a pas le direct.
+        # FLUX RÉEL : relais SSE vivant. Si aucun canal ne livre de 1er chunk,
+        # on retourne l'erreur telle quelle — le repli non-stream (re-sérialisation)
+        # sur les mêmes canaux qui viennent de timeout est un gaspillage (même amont,
+        # même lenteur, mais cette fois on attend la réponse ENTIÈRE au lieu du seul
+        # 1er byte → encore plus de chances de timeout). Le seul repli utile est
+        # gardé dans le handler (_sse) pour les clients qui demandent stream:true
+        # mais dont le front ne supporte pas les chunks.
         relay, se = chat_auto_stream(payload, plan, key_id, uid)
         if relay:
             return 200, {'__relay__': relay}
-        log(f'STREAM indisponible ({se[0]}) -> repli re-serialisation SSE')
-        if se[0] not in (502, 503):
-            return se
+        log(f'STREAM indisponible ({se[0]}) -> erreur directe (repli non-stream supprime)')
+        return se[0], se[1]
 
     data, e, tin, tout, served = chat_auto(payload, bool(payload.get('stream')), plan, key_id)
     if e:
