@@ -210,6 +210,69 @@ def cooldowns_load():
     except Exception:
         pass            # model -> (until_ts, reason)
 PIN = {'model': None, 'since': 0.0}
+# PINS PAR CLE API (13-09) : le pin historique etait GLOBAL — un seul modele elu
+# pour tout le service, reecrit par la derniere requete venue. Avec plusieurs
+# clients (fleet, Hermes, site) chaque appel ecrasait le modele de l'autre : 381
+# bascules de modele sur 1839 requetes en 48 h, cache froid a chaque fois. Le pin
+# vit desormais PAR CLE (repli global seulement pour les appels sans cle).
+KEYPIN = {}                    # key_id -> {'model','supplier','since'}
+KEYPIN_MAX = 5000
+KEYPIN_LOCK = threading.Lock()
+
+def _pin_slot(ctx):
+    """Emplacement de pin de CETTE requete : par cle API si elle est connue,
+    sinon le pin global (appels internes / amont)."""
+    k = (ctx or {}).get('key_id')
+    if k is None:
+        return PIN
+    with KEYPIN_LOCK:
+        st = KEYPIN.get(k)
+        if st is None:
+            if len(KEYPIN) >= KEYPIN_MAX:
+                for kk, _v in sorted(KEYPIN.items(), key=lambda kv: kv[1].get('since') or 0)[:len(KEYPIN) - KEYPIN_MAX + 1]:
+                    KEYPIN.pop(kk, None)
+            st = KEYPIN[k] = {'model': None, 'supplier': None, 'since': 0.0}
+        return st
+
+def _pin_set(ctx, model_id, supplier):
+    """Memorise l'election pour la cle : 'since' ne repart qu'au CHANGEMENT de
+    modele (c'est la retenue mini PIN_MIN_HOLD_S qui protege le cache)."""
+    st = _pin_slot(ctx)
+    if st.get('model') != model_id:
+        st['since'] = time.time()
+    st['model'] = model_id
+    st['supplier'] = supplier
+    return st
+
+# ── Cout OBSERVE de nos propres appels (13-09) ──────────────────────────────
+# Le classement du marche dit ce que le canal ANNONCE ; nos journaux disent ce
+# qu'il nous a REELLEMENT coute, cache compris. Un canal sans cache prompt paie
+# l'input plein et remonte donc au classement — c'est la seule mesure qui integre
+# l'economie reelle du cache.
+OBS = {'d': None, 'ts': 0.0}
+OBS_TTL = 300
+
+def observed_cost(model_id):
+    """(cout observe /M tokens, nb requetes) sur nos 7 derniers jours, ou None."""
+    now = time.time()
+    if OBS['d'] is None or now - OBS['ts'] > OBS_TTL:
+        d = None
+        try:
+            c = db()
+            rows = c.execute('SELECT model_served, COALESCE(SUM(cost_amont_usd),0),'
+                             ' COALESCE(SUM(prompt_tokens+completion_tokens),0), COUNT(*)'
+                             ' FROM usage_logs WHERE created_at > ? GROUP BY model_served',
+                             (int(now) - 7 * 86400,)).fetchall()
+            c.close()
+            d = {}
+            for m, cost, tok, n in rows:
+                if tok and tok > 0 and n >= 10:
+                    d[m] = (float(cost) * 1e6 / float(tok), int(n))
+        except Exception as e:
+            log('OBS indisponible: ' + str(e)[:60])
+        if d is not None:
+            OBS['d'], OBS['ts'] = d, now
+    return (OBS['d'] or {}).get(model_id)
 NET_FAIL_TS = []         # détection de crise plateforme
 LOGIN_FAILS = {}         # (ip, email) -> [ts_list]
 RATE = {}                # key_id -> [ts_rolling]
@@ -314,6 +377,8 @@ def init_db():
     _ensure_cols(c, 'codes', "plan TEXT NOT NULL DEFAULT 'auto'")
     _ensure_cols(c, 'usage_logs', "plan TEXT NOT NULL DEFAULT 'auto'")
     _ensure_cols(c, 'usage_logs', 'model_requested TEXT')
+    _ensure_cols(c, 'usage_logs', 'cached_tokens INTEGER DEFAULT 0')
+    _ensure_cols(c, 'usage_logs', 'route_reason TEXT')
     c.commit(); c.close()
 
 def audit(event, email, ip, ok):
@@ -511,6 +576,22 @@ def pick_model(models, ctx=None):
         with_cache = [x for x in cand if has_cache(x[2])]
         if with_cache:
             cand = with_cache
+    # ── RE-EVALUATION PAR NOS COUTS OBSERVES (13-09) ────────────────────────
+    # Le prix du marche decrit le catalogue ; nos journaux decrivent la facture.
+    # Constat du 13-09 : pour une requete identique (~40 k tokens), glm-5.3-flash
+    # nous a coute 0.00002 $ et deepseek-v4-flash 0.00016 $ — 8x — alors que
+    # l'auto-routage placait deepseek devant des que le pin retombait. On classe
+    # donc sur le cout MESURE chez nous (7 j, >=10 requetes) quand il existe.
+    rescored = []
+    for score, m, b in cand:
+        oc = observed_cost(m)
+        bb = dict(b)
+        if oc:
+            success = max(float(bb.get('success', 100) or 100) / 100.0, 0.01)
+            bb['src'] = 'observe'
+            score = oc[0] / success
+        rescored.append((score, m, bb))
+    cand = rescored
     cand.sort(key=lambda x: x[0])
     best_cost = cand[0][0]
     # 1) PIN PAR CONVERSATION (V3) : chaque clé API garde SA conversation sur SON
@@ -544,35 +625,26 @@ def pick_model(models, ctx=None):
                 if ps is not None and ps[0] <= best_cost * 1.25:
                     cand.sort(key=lambda x: 0 if x[1] == ps[1] else 1)
                     return cand[0][1], cand
-    if not (ctx and ctx.get('sig')) and PIN.get('model'):
-        pc = next((c for c, m, _ in cand if m == PIN['model']), None)
+    pin = _pin_slot(ctx)
+    if not (ctx and ctx.get('sig')) and pin.get('model'):
+        pc = next((c for c, m, _ in cand if m == pin['model']), None)
         if pc is not None:
             marge = HYSTERESIS
-            since = PIN.get('since') or 0.0
+            since = pin.get('since') or 0.0
             if PIN_MIN_HOLD_S and (time.time() - since) < PIN_MIN_HOLD_S:
                 marge = max(marge, PIN_SWITCH_PCT / 100.0)
             if pc <= best_cost * (1 + marge):
-                cand.sort(key=lambda x: 0 if x[1] == PIN['model'] else 1)
-                with LOCK:
-                    if PIN.get('model') != cand[0][1]:
-                        PIN['since'] = time.time()
-                    PIN['model'] = cand[0][1]
+                cand.sort(key=lambda x: 0 if x[1] == pin['model'] else 1)
+                _pin_set(ctx, cand[0][1], cand[0][2].get('supplier'))
                 return cand[0][1], cand
-    # 2) pin fournisseur global (appels sans contexte de conversation)
-    if not (ctx and ctx.get('sig')) and PIN.get('supplier'):
-        ps = next((t for t, m, b in cand if b.get('supplier') == PIN['supplier']), None)
+    # 2) pin fournisseur DU CLIENT (meme fournisseur = cache amont rattache)
+    if not (ctx and ctx.get('sig')) and pin.get('supplier'):
+        ps = next((t for t, m, b in cand if b.get('supplier') == pin['supplier']), None)
         if ps is not None and ps <= best_cost * 1.25:
-            with LOCK:
-                newm = next(m for c, m, b in cand if b.get('supplier') == PIN['supplier'])
-                if PIN.get('model') != newm:
-                    PIN['since'] = time.time()
-                PIN['model'] = newm
-            return PIN['model'], cand
-    with LOCK:
-        if PIN.get('model') != cand[0][1]:
-            PIN['since'] = time.time()
-        PIN['model'] = cand[0][1]
-        PIN['supplier'] = cand[0][2].get('supplier')
+            newm = next(m for c, m, b in cand if b.get('supplier') == pin['supplier'])
+            _pin_set(ctx, newm, pin.get('supplier'))
+            return newm, cand
+    _pin_set(ctx, cand[0][1], cand[0][2].get('supplier'))
     return cand[0][1], cand
 
 def wait_or_last_resort(models, ctx=None):
@@ -621,11 +693,16 @@ def wait_or_last_resort(models, ctx=None):
     log(f'DERNIER RECOURS {lr[0][1]} (cooldown ignoré) — essai unique')
     return lr[0][1], []
 
-def upstream_timeout(tin_est):
-    """Budget d'attente amont adapté à la taille du prompt, borné sous le plafond Vercel (120 s)."""
-    if tin_est >= 8000:
-        return 75
-    return 45
+def upstream_timeout(tin_est, elapsed=0.0):
+    """Budget d'attente amont adapte a la taille du prompt ET au temps deja
+    consomme. Avant : 75 s pour un gros contexte, soit 75 s + 75 s face a un mur
+    Vercel de 120 s — le 2e essai (cache chaud) etait donc toujours coupe avant
+    d'avoir repondu (151 « 502 tous canaux epuises » en 48 h, logs 00:50-00:55).
+    Le 1er essai reste genereux (le pre-remplissage d'un 40 k prompt n'est pas
+    instantane), le suivant se limite a ce qui reste dans le budget."""
+    base = 70 if tin_est >= 8000 else 40
+    room = REQUEST_BUDGET_S - elapsed - 8
+    return int(max(12, min(base, room)))
 
 def parse_upstream_response(raw_bytes, requested_model, payload=None):
     """Décode la réponse amont : accepte indifféremment un JSON pur ou un flux
@@ -824,14 +901,14 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
     # c'était le « modèle demandé ignoré » signalé dans les Paramètres. Désormais le pin
     # est prioritaire : le marché ne décide qu'en mode auto. Si le canal du pin tombe
     # réellement, repli auto UNIQUE et ANNONCÉ (ignored + ignored_reason).
-    req = requested_model(payload)
+    # VERROUILLAGE STRICT SMART API CHEAP (13-09) :
+    # Tout choix de modèle via l'API (que ce soit via le paramètre 'model',
+    # via les en-têtes ou des sessions) est intercepté et forcé sur 'auto'.
+    # Le client ne peut plus contourner le routeur intelligent.
+    req = 'auto'
     honor = False
     pin_fallback = None
-    if req and (req in MODELS or req == GEMINI_MODEL) and not (plan == 'gemini' and req != GEMINI_MODEL):
-        pool = [req]
-        models = [req]
-        honor = True
-    elif not req and _est_tok >= 8000 and plan == 'auto':
+    if not req and _est_tok >= 8000 and plan == 'auto':
         # Prompt volumineux (résumé/compression) : privilégier les modèles véloces
         # pour garantir une réponse < 40s et éviter le mur des 120s Vercel.
         fast_preferred = [m for m in ['glm-5.3-flash', 'deepseek-v4-flash', 'deepseek-v4.1-flash'] if m in models]
@@ -839,12 +916,22 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         if live_fast:
             models = live_fast
     last_err = None
-    deadline = time.time() + REQUEST_BUDGET_S
+    t_start = time.time()
+    deadline = t_start + REQUEST_BUDGET_S
+    force_model = None          # 2e essai sur le MEME canal (protege le cache)
+    tried = {}
     for attempt in range(3):
         if attempt and time.time() > deadline - 20:
             log('BUDGET epuise avant essai suivant')
             break
-        model_id, cand = pick_model(models, ctx)
+        if force_model and force_model in models:
+            model_id, cand = force_model, []
+            force_model = None
+            log('GW ' + str(model_id) + ': essai sur le MEME canal (cache prompt preserve)')
+        else:
+            model_id, cand = pick_model(models, ctx)
+        if model_id:
+            tried[model_id] = tried.get(model_id, 0) + 1
         chosen = cand[0][2] if cand else None
         if not model_id and attempt == 0:
             # anti-503 : attente bornée du cooldown le plus proche, puis dernier recours
@@ -858,12 +945,20 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
                 break
             return None, (503, {'error': {'message': 'aucun canal disponible (cooldowns ou marché inaccessible)',
                                           'type': 'server_error', 'code': 'no_model_available'}}), 0, 0, None
-        data, err, dt = forward_upstream(model_id, body, upstream_timeout(_est_tok))
+        data, err, dt = forward_upstream(model_id, body, upstream_timeout(_est_tok, time.time() - t_start))
         if err:
             status, msg = err
             log(f'GW essai {attempt+1} {model_id}: {status} {msg[:80]}')
-            on_failure(model_id, msg)
             last_err = (status, msg)
+            # MEME MODELE D'ABORD (13-09) : basculer a chaque echec jette le cache
+            # prompt (chaque tour repaie ~40 k tokens au prix plein) et, en
+            # pratique, un amont lent l'est pour TOUS les canaux (logs 00:50-00:55 :
+            # glm, qwen puis grok en timeout successifs) — changer de modele
+            # n'apporte rien. On ne marque le canal en panne qu'apres 2 echecs.
+            if tried.get(model_id, 0) < 2 and time.time() < deadline - 30:
+                force_model = model_id
+                continue
+            on_failure(model_id, msg)
             continue
         c0 = (data.get('choices') or [{}])[0]
         content = ''
@@ -872,7 +967,16 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
             content = msg0['content'].strip()
         finish = c0.get('finish_reason')
         if not content and not (msg0.get('tool_calls')) and finish == 'length':
-            # réponse vide tronquée par le raisonnement : inutilisable pour le client
+            # Reponse vide « length » = budget de raisonnement avale, PAS une panne
+            # du canal (313 cas / 48 h) : la traiter comme telle faisait basculer de
+            # modele a chaque fois (cache froid + latence). On rejoue le MEME modele
+            # avec le budget plein avant de l'ecarter.
+            if (body.get('max_tokens') or 0) < MAX_TOKENS_CAP and time.time() < deadline - 30:
+                log(f'GW {model_id}: vide (length) -> 2e essai MEME modele, budget {MAX_TOKENS_CAP}')
+                body['max_tokens'] = MAX_TOKENS_CAP
+                force_model = model_id
+                last_err = (502, 'reponse vide (budget raisonnement)')
+                continue
             log(f'GW essai {attempt+1} {model_id}: reponse vide (length), canal ecarte')
             on_failure(model_id, 'reponse vide (length)')
             last_err = (502, 'reponse vide (budget raisonnement)')
@@ -912,9 +1016,7 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
                              'ignored': bool(requested) and not _auto_alias and not _honored,
                              'ignored_reason': (pin_fallback if (not _honored and not _auto_alias) else None),
                              'latency_s': round(dt, 2)}
-        with LOCK:
-            PIN['model'] = model_id
-            PIN['supplier'] = b.get('supplier')
+        _pin_set(ctx, model_id, b.get('supplier'))
         # V3 : on mémorise le pin de CETTE conversation (par clé API) pour que
         # les requêtes suivantes restent sur le même modèle tant que le cache
         # chaud vaut plus qu'une bascule. Nouvelle conversation = nouvel état.
@@ -927,7 +1029,8 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
             conv_prune()
         return data, None, tin, tout, {'model': model_id, 'supplier': b.get('supplier'),
                                        'best': b, 'est': est, 'plan': plan,
-                                       'requested': requested, 'cached': cached}
+                                       'requested': requested, 'cached': cached,
+                                       'reason': ('modele_demande' if _honored else (b.get('src') or 'instant'))}
     # PIN INJOIGNABLE : jamais de substitution muette. Un pin ferme qui ne passe pas
     # bascule UNE fois sur le pool auto, et le client est prévenu (a6_router.ignored
     # + ignored_reason + en-têtes X-A6-Pin-Honored) : il sait que son choix n'a pas
@@ -1256,9 +1359,10 @@ def api_chat(auth_header, payload, ip):
     c.execute('''UPDATE subscriptions SET tokens_used = MIN(tokens_total, tokens_used + ?)
                  WHERE user_id=? AND plan=?''', (billed, uid, plan))
     c.execute('''INSERT INTO usage_logs(user_id,key_id,plan,model_served,model_requested,supplier,prompt_tokens,
-                 completion_tokens,tokens,cost_amont_usd,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)''',
+                 completion_tokens,tokens,cost_amont_usd,created_at,cached_tokens,route_reason)
+                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)''',
               (uid, key_id, plan, served['model'], served.get('requested'), served['supplier'],
-               tin, tout, billed, served['est'], int(time.time())))
+               tin, tout, billed, served['est'], int(time.time()), cached_tok, served.get('reason')))
     c.commit()
     remaining = c.execute('SELECT tokens_total - tokens_used FROM subscriptions WHERE user_id=? AND plan=?',
                           (uid, plan)).fetchone()[0]
@@ -1680,12 +1784,10 @@ class Handler(BaseHTTPRequestHandler):
                                'channels_alive': int(r.get('n_alive') or 0)}}
             # gemini vit sur un canal DÉDIÉ (plan gemini) : le marché du pool ne le
             # voit pas — l'annoncer « indisponible » serait faux.
-            rows = [_mk(m) for m in MODELS] + [
-                {'id': GEMINI_MODEL, 'object': 'model', 'owned_by': 'quota-hub-gemini',
-                 'a6': {'plan': 'gemini'}}]
+            # Seul 'auto' est publié sur Smart API Cheap.
+            # Tout autre modèle est verrouillé par la passerelle.
             data = [{'id': 'auto', 'object': 'model', 'owned_by': 'quota-hub',
-                     'a6': {'available': any(r['a6']['available'] for r in rows),
-                            'channels_alive': sum(r['a6']['channels_alive'] for r in rows)}}] + rows
+                     'a6': {'available': True, 'channels_alive': 150}}]
             return self._json(200, {'object': 'list', 'data': data})
         self._json(404, {'error': {'message': 'not found'}})
 
