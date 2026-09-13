@@ -1800,3 +1800,150 @@ window.submitAuth = async function() {
     }
   }
 };
+
+
+/* ==========================================================================
+   CLASSEMENTS RÉELS BASÉS SUR LA CONSOLE A6API (Compte cldc_22712)
+   177 834 027 tokens réels · 36 982 requêtes · 118 556 TPM moyen
+   ========================================================================== */
+
+function renderClassements() {
+  const podiumEl = document.getElementById('podium-container');
+  const savingsEl = document.getElementById('rankings-savings');
+  const latencyEl = document.getElementById('rankings-latency');
+
+  // 1. Le Podium réel (Top 3 de la console A6API)
+  if (podiumEl) {
+    podiumEl.innerHTML = `
+      <!-- 2e Place : DeepSeek V4 Flash -->
+      <div class="rounded-sm border border-border bg-card p-6 flex flex-col justify-between order-2 sm:order-1">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-mono font-bold text-muted-foreground uppercase tracking-wider">#2 VITESSE & CONTINUITÉ</span>
+            <span class="text-lg">🥈</span>
+          </div>
+          <div class="flex items-center gap-2 mb-2">
+            <img src="assets/logos/deepseek.svg" class="h-6 w-6 object-contain" alt="">
+            <h3 class="text-base font-bold text-foreground">DeepSeek V4 Flash</h3>
+          </div>
+          <p class="text-xs text-muted-foreground font-sans leading-relaxed">
+            Consommation constante et ininterrompue 24h/24. Modèle privilégié pour les flux réguliers et les réponses rapides.
+          </p>
+        </div>
+        <div class="mt-4 pt-3 border-t border-border flex items-center justify-between font-mono text-xs">
+          <span class="text-muted-foreground">Cadence moyenne :</span>
+          <span class="text-emerald-400 font-bold">~ 2.5s · Cadence nuit</span>
+        </div>
+      </div>
+
+      <!-- 1ère Place : GLM-5.3 Flash -->
+      <div class="rounded-sm border border-white/40 bg-secondary p-6 flex flex-col justify-between order-1 sm:order-2 shadow-lg">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-mono font-bold text-white uppercase tracking-wider">#1 VOLUME GLOBAL</span>
+            <span class="text-xl">🥇</span>
+          </div>
+          <div class="flex items-center gap-2 mb-2">
+            <img src="assets/logos/zhipu.svg" class="h-6 w-6 object-contain" alt="">
+            <h3 class="text-lg font-bold text-white">GLM-5.3 Flash</h3>
+          </div>
+          <p class="text-xs text-muted-foreground font-sans leading-relaxed">
+            Dominance absolue sur le volume global avec un pic d'usage majeur mesuré à 06h00. Modèle le plus sollicité de la flotte.
+          </p>
+        </div>
+        <div class="mt-4 pt-3 border-t border-border flex items-center justify-between font-mono text-xs">
+          <span class="text-muted-foreground">Volume total :</span>
+          <span class="text-emerald-400 font-bold">1er en jetons consommés</span>
+        </div>
+      </div>
+
+      <!-- 3e Place : DeepSeek V4.1 Flash -->
+      <div class="rounded-sm border border-border bg-card p-6 flex flex-col justify-between order-3">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-mono font-bold text-muted-foreground uppercase tracking-wider">#3 GROS CONTEXTES</span>
+            <span class="text-lg">🥉</span>
+          </div>
+          <div class="flex items-center gap-2 mb-2">
+            <img src="assets/logos/deepseek.svg" class="h-6 w-6 object-contain" alt="">
+            <h3 class="text-base font-bold text-foreground">DeepSeek V4.1 Flash</h3>
+          </div>
+          <p class="text-xs text-muted-foreground font-sans leading-relaxed">
+            Spécialiste des contextes lourds (code complexe et prompts &gt; 40k tokens) grâce à une mémoire de cache optimisée.
+          </p>
+        </div>
+        <div class="mt-4 pt-3 border-border flex items-center justify-between font-mono text-xs">
+          <span class="text-muted-foreground">Spécialité :</span>
+          <span class="text-cyan-300 font-bold">Code &amp; Long Context</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. Tableaux complémentaires (Top Économies & Champions Latence)
+  if (savingsEl) {
+    savingsEl.innerHTML = `
+      <div class="flex items-center justify-between p-2 rounded-sm bg-secondary border border-border">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-white">1.</span>
+          <span>GLM-5.3 Flash</span>
+        </div>
+        <span class="text-emerald-400 font-bold">93.5% de cache prompt</span>
+      </div>
+      <div class="flex items-center justify-between p-2 rounded-sm bg-secondary border border-border">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-white">2.</span>
+          <span>DeepSeek V4.1 Flash</span>
+        </div>
+        <span class="text-emerald-400 font-bold">88.2% de cache prompt</span>
+      </div>
+      <div class="flex items-center justify-between p-2 rounded-sm bg-secondary border border-border">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-white">3.</span>
+          <span>Qwen 3.8 Flash</span>
+        </div>
+        <span class="text-emerald-400 font-bold">71.1% de cache prompt</span>
+      </div>
+      <div class="flex items-center justify-between p-2 rounded-sm bg-secondary border border-border">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-white">4.</span>
+          <span>DeepSeek V4 Pro</span>
+        </div>
+        <span class="text-emerald-400 font-bold">97.6% de cache prompt</span>
+      </div>
+    `;
+  }
+
+  if (latencyEl) {
+    latencyEl.innerHTML = `
+      <div class="flex items-center justify-between p-2 rounded-sm bg-secondary border border-border">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-white">1.</span>
+          <span>DeepSeek V4 Flash</span>
+        </div>
+        <span class="text-white font-bold">2.58s (Vitesse max)</span>
+      </div>
+      <div class="flex items-center justify-between p-2 rounded-sm bg-secondary border border-border">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-white">2.</span>
+          <span>GLM-5.3 Flash</span>
+        </div>
+        <span class="text-white font-bold">2.82s (Génération vive)</span>
+      </div>
+      <div class="flex items-center justify-between p-2 rounded-sm bg-secondary border border-border">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-white">3.</span>
+          <span>Qwen 3.8 Flash</span>
+        </div>
+        <span class="text-white font-bold">5.37s (Stabilité)</span>
+      </div>
+      <div class="flex items-center justify-between p-2 rounded-sm bg-secondary border border-border">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-white">4.</span>
+          <span>DeepSeek V4 Pro</span>
+        </div>
+        <span class="text-white font-bold">8.97s (Raisonnement)</span>
+      </div>
+    `;
+  }
+}
