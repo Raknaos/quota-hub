@@ -1550,6 +1550,7 @@ def chat_auto_stream(payload, plan, key_id, uid):
         _pin_set(ctx, model_id, b.get('supplier'))
         return {'resp': resp, 'prime': lines, 'model_id': model_id, 'best': b,
                 'uid': uid, 'plan': plan, 'key_id': key_id,
+                'sig': ctx.get('sig'),
                 'requested': payload.get('model'), 't_start': t_start,
                 'messages': payload.get('messages') or [],
                 'cid': 'chatcmpl-' + secrets.token_hex(12)}, None
@@ -2007,6 +2008,18 @@ class Handler(BaseHTTPRequestHandler):
                                              rl.get('requested'),
                                              'flux' if u else 'flux_estime',
                                              tin, tout, cached_tok, est)
+            # VERROU CACHE PAR CONVERSATION (13-09) : on mémorise le pin dans CONV
+            # pour que TOUTES les requêtes suivantes de ce chat restent sur le MEME
+            # modèle et ne jettent jamais 40k-65k tokens de cache à la poubelle !
+            sig = rl.get('sig')
+            if rl.get('key_id') is not None and sig:
+                with CONV_LOCK:
+                    CONV[(rl['key_id'], sig)] = {
+                        'model': rl['model_id'], 'supplier': b.get('supplier'),
+                        'ts': time.time(), 'tin': int(tin), 'tout': int(tout),
+                        'cached': int(cached_tok)
+                    }
+                conv_prune()
             log(f'FLUX {rl["model_id"]} via {b.get("supplier")} tok={tin}+{tout} '
                 f'cache={cached_tok} facture={billed} reste={remaining}')
         except Exception as ex:

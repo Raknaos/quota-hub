@@ -1,593 +1,635 @@
-<!doctype html>
-<html lang="fr">
+<!DOCTYPE html>
+<html lang="fr" class="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Smart API Cheap — Tous les modèles, une seule clé</title>
-  <meta name="description" content="Bibliothèque de 20 modèles IA majeurs remisés jusqu'à -99%, routage automatique intelligent et chat interactif.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart API Cheap — One Key for Every AI Model | Routage intelligent au meilleur prix</title>
+  <meta name="description" content="Une seule clé API compatible OpenAI pour les meilleurs modèles d'IA (DeepSeek, GLM, Qwen, Gemini, Claude, Grok) avec cache prompt mémorisé et réductions réelles jusqu'à -99%.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✦</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="app.css">
-  <link rel="stylesheet" href="quota-glass.css">
 </head>
-<body>
-<div class="top-loader" id="top-loader"></div>
-<div class="app-shell">
-  <!-- En-tête Unorouter x Smart API Cheap -->
-  <header class="site-header">
-    <div class="header-inner">
-      <a class="brand" href="#" onclick="switchTab('home');return false" aria-label="Smart API Cheap accueil">
-        <span class="brand-mark">s</span>
-        <span>Smart&nbsp;API&nbsp;<i class="brand-cheap">Cheap</i></span>
-      </a>
-      <nav class="main-nav" id="main-nav" aria-label="Navigation principale">
-        <button class="nav-link active" data-tab="models">Modèles</button>
-        <button class="nav-link" data-tab="classements">Classements</button>
-        <button class="nav-link" data-tab="pricing">Tarifs</button>
-        <button class="nav-link" data-tab="chat">Chat</button>
-        <button class="nav-link" data-tab="auto">Auto</button>
-        <button class="nav-link" data-tab="usage">Journaux</button>
-        <button class="nav-link" data-tab="connect">Intégrer</button>
-        <button class="nav-link" data-tab="docs">Docs</button>
+<body class="bg-background text-foreground antialiased selection:bg-cyan-500/20 selection:text-cyan-300">
+
+  <!-- ==================== 1. TOP NAVBAR UNOROUTER ==================== -->
+  <header class="navbar-scroll fixed top-0 right-0 left-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl transition-all duration-200">
+    <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3">
+        <a href="#" class="group flex items-center gap-2.5 font-bold tracking-tight" onclick="switchTab('home')">
+          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-purple-600 text-white shadow-lg shadow-cyan-500/20">
+            <span class="text-base font-black">✦</span>
+          </div>
+          <span class="font-display text-lg tracking-tight font-bold text-foreground group-hover:text-cyan-400 transition-colors">
+            Smart API <span class="text-cyan-400">Cheap</span>
+          </span>
+        </a>
+      </div>
+
+      <!-- Center Nav Links -->
+      <nav class="hidden md:flex items-center gap-1 text-xs font-mono font-medium text-muted-foreground" id="main-nav">
+        <button class="nav-link active px-3 py-1.5 rounded-md hover:text-foreground hover:bg-secondary/60 transition-all" data-tab="home" onclick="switchTab('home')">Accueil</button>
+        <button class="nav-link px-3 py-1.5 rounded-md hover:text-foreground hover:bg-secondary/60 transition-all" data-tab="models" onclick="switchTab('models')">Modèles</button>
+        <button class="nav-link px-3 py-1.5 rounded-md hover:text-foreground hover:bg-secondary/60 transition-all" data-tab="classements" onclick="switchTab('classements')">Classements</button>
+        <button class="nav-link px-3 py-1.5 rounded-md hover:text-foreground hover:bg-secondary/60 transition-all" data-tab="pricing" onclick="switchTab('pricing')">Tarifs</button>
+        <button class="nav-link px-3 py-1.5 rounded-md hover:text-foreground hover:bg-secondary/60 transition-all" data-tab="chat" onclick="switchTab('chat')">Chat</button>
+        <button class="nav-link px-3 py-1.5 rounded-md hover:text-foreground hover:bg-secondary/60 transition-all" data-tab="auto" onclick="switchTab('auto')">Auto</button>
+        <button class="nav-link px-3 py-1.5 rounded-md hover:text-foreground hover:bg-secondary/60 transition-all" data-tab="docs" onclick="switchTab('docs')">Docs</button>
+        <button class="nav-link px-3 py-1.5 rounded-md hover:text-foreground hover:bg-secondary/60 transition-all" data-tab="console" onclick="switchTab('console')">Console</button>
       </nav>
-      <div class="header-actions">
-        <div id="auth-guest-view">
-          <button class="text-button" onclick="openAuth('login')">Connexion</button>
-          <button class="primary-button compact" onclick="openAuth('signup')">Créer un compte</button>
+
+      <!-- Right Actions (Auth & Get Started) -->
+      <div class="flex items-center gap-2.5">
+        <div id="auth-unlogged" class="flex items-center gap-2">
+          <button class="btn-ghost-sm" onclick="openAuthModal('login')">Se connecter</button>
+          <button class="btn-primary-sm" onclick="openAuthModal('register')">
+            <span class="text-xs">⚡</span> Commencer
+          </button>
         </div>
-        <div id="auth-user-view" style="display:none">
-          <button class="secondary-button compact header-balance" onclick="switchTab('console')">$0.00</button>
-          <button class="user-avatar" onclick="switchTab('console')" aria-label="Ouvrir la console">Q</button>
-          <button class="text-button logout-button" onclick="logout()">Quitter</button>
+        <div id="auth-logged" class="hidden flex items-center gap-2">
+          <span class="user-chip font-mono text-xs text-cyan-300" id="user-email-chip">user@domain</span>
+          <button class="btn-ghost-sm" onclick="logout()">Déconnexion</button>
         </div>
-        <button class="menu-button" id="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">☰</button>
       </div>
     </div>
   </header>
 
-  <main class="page-content">
-    <!-- Onglet 1 : ACCUEIL -->
-    <section id="tab-home" class="tab-pane">
-      <div class="home-grid">
-        <div class="hero-copy">
-          <div class="eyebrow"><span class="status-dot"></span>Une seule clé. 20 modèles IA majeurs.</div>
-          <h1>L’IA moderne,<br><em>au juste prix.</em></h1>
-          <p class="hero-lead">Smart API Cheap rassemble les 20 meilleurs modèles IA au monde avec des réductions immédiates jusqu’à −99%. Une clé unique compatible OpenAI, aucun abonnement obligatoire et un routeur qui préserve votre cache.</p>
-          <div class="hero-actions">
-            <button class="primary-button" onclick="switchTab('models')">Explorer les 20 modèles <span>→</span></button>
-            <button class="secondary-button" onclick="switchTab('chat')">Tester dans le Chat <span>✦</span></button>
+  <!-- ==================== MAIN CONTENT WRAPPER ==================== -->
+  <main class="relative z-10 pt-14 min-h-screen">
+
+    <!-- ==================== ONGLET 1 : ACCUEIL STYLE UNOROUTER ==================== -->
+    <section id="tab-home" class="tab-pane active">
+      
+      <!-- HERO SECTION -->
+      <div class="relative mx-auto flex max-w-7xl flex-col items-center gap-10 px-6 pt-16 pb-14 lg:flex-row lg:gap-16 lg:pt-24 lg:pb-20">
+        
+        <!-- Left Hero Column -->
+        <div class="w-full flex-1 space-y-6 text-center lg:space-y-8 lg:text-left">
+          
+          <!-- Badge Routeur en ligne -->
+          <div class="inline-flex items-center gap-2.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 backdrop-blur-md">
+            <span class="relative flex h-2 w-2">
+              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+            </span>
+            <span class="font-mono text-[11px] font-semibold tracking-wider text-emerald-400 uppercase">
+              Routeur intelligent en ligne · 100% Uptime
+            </span>
           </div>
-          <div class="hero-note"><span>✓</span> Même tarif pour développeurs et créateurs · Clé compatible OpenAI standard</div>
-        </div>
-        <div class="hero-console" aria-label="Aperçu du routeur Smart API Cheap">
-          <div class="console-top"><span class="window-dots"><i></i><i></i><i></i></span><span class="console-title">smartapi / live</span><span class="live-badge"><b></b> ACTIF</span></div>
-          <div class="route-prompt"><span class="prompt-icon">✦</span><div><small>ROUTAGE CACHE-AWARE</small><strong>qwen3.8-flash · 80.5% cache hit</strong></div></div>
-          <div class="route-line"><span class="line-label">Sonde de vérité</span><span class="line-value">Toutes les 30 min <b>✓</b></span></div>
-          <div class="route-card selected">
-            <div class="model-orb orb-blue">q</div>
-            <div class="route-info"><strong>Qwen3.8 Flash</strong><span>Alibaba · 1M contexte · −99%</span></div>
-            <span class="route-price">$0.0024<span>/1M</span></span>
+
+          <!-- Main Title with Scramble Rotate -->
+          <h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08]">
+            TOUT-EN-UN<br>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-purple-400 font-mono tracking-wide" id="hero-scramble-word">
+              API
+            </span>.
+          </h1>
+
+          <!-- Subtitle -->
+          <p class="max-w-xl text-base sm:text-lg text-muted-foreground leading-relaxed">
+            Smart API Cheap vous connecte aux 20 meilleurs modèles d'IA via <strong>une seule clé compatible OpenAI</strong>. Routage automatique au coût le plus bas, cache prompt mesuré et réductions réelles jusqu'à -99%.
+          </p>
+
+          <!-- Action CTA Buttons -->
+          <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 font-mono text-xs pt-2">
+            <button class="btn-primary-lg w-full sm:w-auto" onclick="switchTab('pricing')">
+              <span>⚡</span> COMMENCER MAINTENANT
+            </button>
+            <button class="btn-secondary-lg w-full sm:w-auto" onclick="switchTab('models')">
+              VOIR LES MODÈLES →
+            </button>
+            <button class="btn-secondary-lg w-full sm:w-auto" onclick="switchTab('chat')">
+              <span>💬</span> OUVRIR LE CHAT
+            </button>
           </div>
-          <div class="route-card">
-            <div class="model-orb orb-violet">g</div>
-            <div class="route-info"><strong>GLM-5.3 Flash</strong><span>Z.ai · 93.5% cache · −68%</span></div>
-            <span class="route-price">$0.02<span>/1M</span></span>
-          </div>
-          <div class="console-footer"><span><i class="tiny-dot"></i> Mesuré en direct</span><span>Zéro bannissement · Vérité partagée</span></div>
-        </div>
-      </div>
-      <div class="proof-strip">
-        <div><strong>20 modèles</strong><span>sélectionnés avec soin</span></div>
-        <div><strong>Jusqu'à −99%</strong><span>sur les tarifs officiels</span></div>
-        <div><strong>100%</strong><span>compatible OpenAI & Anthropic</span></div>
-        <div><strong>Cache-first</strong><span>économisez vos tokens de contexte</span></div>
-      </div>
-    </section>
 
-    <!-- Onglet 2 : MODÈLES (BIBLIOTHÈQUE UNOROUTER) -->
-    <section id="tab-models" class="tab-pane active">
-      <div class="page-intro">
-        <span class="section-kicker">Bibliothèque de modèles</span>
-        <h1>Tous les modèles, <em>une seule clé.</em></h1>
-        <p>Utilisé par des développeurs qui créent des applications et des créateurs qui construisent des expériences d’agents. Même tarif pour les deux. Ce que vous voyez ici est exactement ce qui est facturé.</p>
-      </div>
-
-      <!-- Filtres haut de page -->
-      <div class="unorouter-toolbar">
-        <div class="filter-group">
-          <span class="group-label">Modalités d'entrée :</span>
-          <div class="pill-group" id="modality-pills">
-            <button class="filter-pill active" onclick="setModalityFilter('all', this)">Tous</button>
-            <button class="filter-pill" onclick="setModalityFilter('text', this)">Texte</button>
-            <button class="filter-pill" onclick="setModalityFilter('image', this)">Image</button>
-            <button class="filter-pill" onclick="setModalityFilter('audio', this)">Audio</button>
-            <button class="filter-pill" onclick="setModalityFilter('tools', this)">Outils / Calling</button>
-          </div>
-        </div>
-
-        <div class="filter-group right">
-          <label class="toggle-switch">
-            <input type="checkbox" id="promo-only-toggle" onchange="togglePromoOnly(this.checked)">
-            <span class="switch-slider"></span>
-            <span class="switch-label">Modèles en promotion uniquement</span>
-          </label>
-          <div class="search-box">
-            <span class="search-icon">⌕</span>
-            <input type="text" id="model-search-input" placeholder="Rechercher un modèle..." oninput="handleModelSearch(this.value)">
-          </div>
-        </div>
-      </div>
-
-      <!-- Bandeau Fournisseurs -->
-      <div class="provider-strip" id="provider-strip">
-        <span class="strip-label">Fournisseur :</span>
-        <button class="filter-btn active" onclick="setProviderFilter('all', this)">Tous fournisseurs</button>
-        <button class="filter-btn" onclick="setProviderFilter('openai', this)">OpenAI</button>
-        <button class="filter-btn" onclick="setProviderFilter('anthropic', this)">Anthropic</button>
-        <button class="filter-btn" onclick="setProviderFilter('google', this)">Google</button>
-        <button class="filter-btn" onclick="setProviderFilter('deepseek', this)">DeepSeek</button>
-        <button class="filter-btn" onclick="setProviderFilter('zhipu', this)">Zhipu (Z.ai)</button>
-        <button class="filter-btn" onclick="setProviderFilter('xai', this)">xAI</button>
-        <button class="filter-btn" onclick="setProviderFilter('alibaba', this)">Alibaba</button>
-        <button class="filter-btn" onclick="setProviderFilter('tencent', this)">Tencent</button>
-        <button class="filter-btn" onclick="setProviderFilter('moonshot', this)">Moonshot</button>
-      </div>
-
-      <!-- Tableau dynamique des 20 modèles -->
-      <div class="unorouter-table-container">
-        <table class="unorouter-table" id="models-table">
-          <thead>
-            <tr>
-              <th class="th-model">Modèle</th>
-              <th class="th-tokens">Tokens hebdo</th>
-              <th class="th-price">Entrée /1M</th>
-              <th class="th-price">Sortie /1M</th>
-              <th class="th-ctx">Contexte</th>
-              <th class="th-stat">Disponibilité</th>
-              <th class="th-stat">Réussite</th>
-              <th class="th-stat">Latence</th>
-              <th class="th-action">Action</th>
-            </tr>
-          </thead>
-          <tbody id="models-table-body">
-            <!-- Rendu dynamique depuis app.js -->
-          </tbody>
-        </table>
-      </div>
-
-      <div class="catalog-note">
-        <span>✦</span>
-        <div>
-          <strong>Le routage automatique est inclus.</strong>
-          <p>Un seul nom public : <code>model: "autosmart-flash-1.0"</code>. Le routeur élit le moins cher vivant, cache mémorisé et sonde active toutes les 30 minutes.</p>
-        </div>
-        <button class="inline-link" onclick="switchTab('auto')">Comprendre le mode auto →</button>
-      </div>
-    </section>
-
-    <!-- Onglet 3 : CLASSEMENTS (NOUVEAU FAÇON UNOROUTER) -->
-    <section id="tab-classements" class="tab-pane">
-      <div class="page-intro">
-        <span class="section-kicker">Performances & Popularité</span>
-        <h1>Classements des <em>modèles IA.</em></h1>
-        <p>Les modèles les plus utilisés cette semaine sur Smart API Cheap, classés par volume réel de tokens, adoption et niveau d'économie.</p>
-      </div>
-
-      <!-- Podium Top 3 -->
-      <div class="podium-grid">
-        <!-- 2e place -->
-        <div class="podium-card rank-2">
-          <div class="podium-badge silver">#2</div>
-          <div class="podium-logo"><img src="assets/logos/googlegemini.svg" alt="Google"></div>
-          <h3>Gemini 3.8 Flash</h3>
-          <div class="podium-tokens">3.52B <span>tokens / sem</span></div>
-          <div class="podium-cut">−90% de réduction</div>
-          <p>Google Multimodal texte/vision/audio à $0.08 / $0.39 le million.</p>
-          <button class="secondary-button compact" onclick="launchChatWithModel('gemini-3.8-flash')">Tester →</button>
-        </div>
-        <!-- 1re place -->
-        <div class="podium-card rank-1">
-          <div class="podium-crown">👑</div>
-          <div class="podium-badge gold">#1 Leader</div>
-          <div class="podium-logo"><img src="assets/logos/zhipu.svg" alt="Z.ai"></div>
-          <h3>GLM-5.3</h3>
-          <div class="podium-tokens">11.8B <span>tokens / sem</span></div>
-          <div class="podium-cut">−98% de réduction</div>
-          <p>Le champion absolu du raisonnement frontière à $0.03 / $0.09 le million.</p>
-          <button class="primary-button compact" onclick="launchChatWithModel('glm-5.3')">Tester en direct →</button>
-        </div>
-        <!-- 3e place -->
-        <div class="podium-card rank-3">
-          <div class="podium-badge bronze">#3</div>
-          <div class="podium-logo"><img src="assets/logos/zhipu.svg" alt="Z.ai"></div>
-          <h3>GLM-5.3 Flash</h3>
-          <div class="podium-tokens">2.76B <span>tokens / sem</span></div>
-          <div class="podium-cut">−68% de réduction</div>
-          <p>L'alternative rapide avec 93.5% de cache prompt confirmé.</p>
-          <button class="secondary-button compact" onclick="launchChatWithModel('glm-5.3-flash')">Tester →</button>
-        </div>
-      </div>
-
-      <!-- En progression & Top Économies -->
-      <div class="rankings-columns">
-        <div class="ranking-box">
-          <div class="box-head">
-            <span class="box-tag green">▲ En forte progression</span>
-            <h3>Top Économies constatées</h3>
-          </div>
-          <div class="ranking-items" id="ranking-savings-items">
-            <!-- Rempli par app.js -->
-          </div>
-        </div>
-
-        <div class="ranking-box">
-          <div class="box-head">
-            <span class="box-tag blue">⚡ Vitesse & Cache</span>
-            <h3>Champions de la Latence</h3>
-          </div>
-          <div class="ranking-items" id="ranking-speed-items">
-            <!-- Rempli par app.js -->
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Onglet 4 : TARIFS (FAÇON UNOROUTER) -->
-    <section id="tab-pricing" class="tab-pane">
-      <div class="page-intro centered">
-        <span class="section-kicker">Tarifs simples & transparents</span>
-        <h1>Paiement à l’usage.<br><em>Zéro engagement.</em></h1>
-        <p>Rechargez du crédit quand vous voulez. Les crédits n’expirent jamais et s’appliquent à tous les modèles avec leurs remises jusqu’à −99%.</p>
-      </div>
-
-      <!-- Sélecteur de recharge Pay-as-you-go -->
-      <div class="paygo-card">
-        <div class="paygo-head">
-          <div>
-            <span class="section-kicker">Recharge rapide</span>
-            <h3>Choisissez votre montant de recharge</h3>
-            <p>100% de votre montant est converti en solde d'usage immédiat.</p>
-          </div>
-          <div class="paygo-methods">
-            <span class="method-pill">✓ Carte bancaire</span>
-            <span class="method-pill">✓ Crypto</span>
-            <span class="method-pill">✓ Code d'activation</span>
-          </div>
-        </div>
-        <div class="recharge-buttons" id="recharge-buttons">
-          <button class="amount-btn" onclick="selectRecharge(5, this)">$ 5</button>
-          <button class="amount-btn active" onclick="selectRecharge(10, this)">$ 10 <small>Populaire</small></button>
-          <button class="amount-btn" onclick="selectRecharge(20, this)">$ 20</button>
-          <button class="amount-btn" onclick="selectRecharge(50, this)">$ 50</button>
-          <button class="amount-btn" onclick="selectRecharge(100, this)">$ 100</button>
-          <button class="amount-btn" onclick="selectRecharge(200, this)">$ 200</button>
-        </div>
-        <div class="recharge-summary" id="recharge-summary">
-          <div class="summary-line">
-            <span>Montant sélectionné :</span>
-            <b id="summary-amount">$10.00</b>
-          </div>
-          <div class="summary-line">
-            <span>Équivalent en requêtes Qwen3.8 Flash (−99%) :</span>
-            <b id="summary-tokens" class="text-cyan">~ 4,16 Milliards de tokens</b>
-          </div>
-          <button class="primary-button full" onclick="openAuth('login')">Recharger maintenant <span>↗</span></button>
-        </div>
-      </div>
-
-      <!-- Grille des forfaits mensuels -->
-      <div class="pricing-grid">
-        <article class="price-card">
-          <span class="price-label">Démarrage</span>
-          <h3>Essentiel</h3>
-          <div class="credit-hero"><span class="credit-amount">$20</span><span class="credit-label">de crédit d’usage</span></div>
-          <div class="price-line">vous payez <b>$10</b><small>/ mois</small><em>Bonus 2×</em></div>
-          <ul>
-            <li>✓ Accès aux 20 modèles majeurs</li>
-            <li>✓ Clé API OpenAI standard</li>
-            <li>✓ Support du chat intégré</li>
-          </ul>
-          <button class="secondary-button full" onclick="openAuth('login')">Choisir Essentiel</button>
-        </article>
-
-        <article class="price-card popular">
-          <span class="popular-badge">Le plus choisi</span>
-          <span class="price-label">Pack Quota Star</span>
-          <h3>Quota 1 Md</h3>
-          <div class="credit-hero"><span class="credit-amount">1 Md</span><span class="credit-label">tokens inclus</span></div>
-          <div class="price-line">vous payez <b>$10</b><small>/ mois</small><em>Best-Seller</em></div>
-          <ul>
-            <li>✓ 1 Milliard de tokens sur le pool auto</li>
-            <li>✓ Routage cache-first automatique</li>
-            <li>✓ Facturation au token réel net</li>
-            <li>✓ Compatible Claude Code & Cursor</li>
-          </ul>
-          <button class="primary-button full" onclick="openAuth('login')">Activer le Pack 1 Md <span>↗</span></button>
-        </article>
-
-        <article class="price-card">
-          <span class="price-label">Pour équipes</span>
-          <h3>Pro Équipe</h3>
-          <div class="credit-hero"><span class="credit-amount">$100</span><span class="credit-label">de crédit d’usage</span></div>
-          <div class="price-line">vous payez <b>$50</b><small>/ mois</small><em>Bonus 2×</em></div>
-          <ul>
-            <li>✓ Accès illimité multi-clés</li>
-            <li>✓ Priorité absolue sur la passerelle</li>
-            <li>✓ Factures et support dédié</li>
-          </ul>
-          <button class="secondary-button full" onclick="openAuth('login')">Choisir Pro</button>
-        </article>
-      </div>
-    </section>
-
-    <!-- Onglet 5 : CHAT (VRAI CHAT INTERACTIF UNOROUTER) -->
-    <section id="tab-chat" class="tab-pane">
-      <div class="workspace-head">
-        <div>
-          <span class="section-kicker">Interface interactive</span>
-          <h1>Chat <em>Smart API Cheap</em></h1>
-          <p>Un seul nom de modèle : <strong>AutoSmart Flash 1.0</strong>. Derrière, le routeur sonde tout le pool et sert le moins cher vivant à chaque requête — vous n'avez rien à choisir.</p>
-        </div>
-        <div class="chat-header-actions">
-          <label class="model-select-label" for="chat-model-select">Modèle :</label>
-          <select id="chat-model-select" class="chat-model-dropdown" onchange="onChatModelChange()">
-            <option value="autosmart-flash-1.0">AutoSmart Flash 1.0 — routage automatique (le moins cher à l'instant)</option>
-          </select>
-          <button class="secondary-button compact" onclick="clearChat()">Effacer le chat</button>
-        </div>
-      </div>
-
-      <div class="chat-shell">
-        <div class="chat-head">
-          <span class="status-dot"></span>
-          <strong id="chat-active-model-title">Mode auto</strong>
-          <span id="chat-active-model-desc">Routage automatique vers le modèle le plus économique avec cache.</span>
-        </div>
-
-        <div id="chat-messages" class="chat-messages">
-          <div class="chat-empty">
-            <div class="empty-orb">✦</div>
-            <h2>Que souhaitez-vous explorer aujourd'hui ?</h2>
-            <p>Sélectionnez un modèle ci-dessus ou posez directement votre question pour tester le routage.</p>
-            <div class="chat-starters">
-              <button onclick="fillStarterPrompt('Explique-moi le fonctionnement du prompt caching en 3 points.')">💡 Comment marche le prompt cache ?</button>
-              <button onclick="fillStarterPrompt('Écris une fonction Python asynchrone pour interroger une API avec backoff exponentiel.')">💻 Code Python asynchrone</button>
-              <button onclick="fillStarterPrompt('Compare les capacités de GLM-5.3 et Qwen3.8 Flash pour des agents autonomes.')">⚖️ Comparatif GLM vs Qwen</button>
+          <!-- Hero Stats Grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-0 border border-border/60 rounded-xl overflow-hidden bg-card/30 backdrop-blur-md pt-0 mt-6">
+            <div class="p-4 border-r border-b sm:border-b-0 border-border/50 flex flex-col">
+              <span class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase mb-1">Modèles</span>
+              <span class="text-2xl font-bold font-display text-foreground">20</span>
+              <div class="mt-2 flex items-center gap-1.5">
+                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                <span class="font-mono text-[10px] text-muted-foreground">Routables</span>
+              </div>
+            </div>
+            <div class="p-4 sm:border-r border-b sm:border-b-0 border-border/50 flex flex-col">
+              <span class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase mb-1">Fournisseurs</span>
+              <span class="text-2xl font-bold font-display text-foreground">12+</span>
+              <div class="mt-2 flex items-center gap-1.5">
+                <span class="h-1.5 w-1.5 rounded-full bg-cyan-500"></span>
+                <span class="font-mono text-[10px] text-muted-foreground">Agrégés</span>
+              </div>
+            </div>
+            <div class="p-4 border-r border-border/50 flex flex-col">
+              <span class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase mb-1">Réductions</span>
+              <span class="text-2xl font-bold font-display text-emerald-400">Jusqu'à -99%</span>
+              <div class="mt-2 flex items-center gap-1.5">
+                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                <span class="font-mono text-[10px] text-muted-foreground">Réel mesuré</span>
+              </div>
+            </div>
+            <div class="p-4 flex flex-col">
+              <span class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase mb-1">Disponibilité</span>
+              <span class="text-2xl font-bold font-display text-foreground">99.9%</span>
+              <div class="mt-2 flex items-center gap-1.5">
+                <span class="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                <span class="font-mono text-[10px] text-muted-foreground">Flotte 4 VPS</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <form id="chat-form" class="chat-form">
-          <textarea id="chat-input" placeholder="Écrivez votre message… (Entrée pour envoyer, Maj+Entrée pour saut de ligne)" rows="1"></textarea>
-          <button type="submit" id="chat-send-btn">Envoyer ↑</button>
-        </form>
+        <!-- Right Hero Column (Live Stats Panel) -->
+        <div class="flex w-full max-w-lg flex-1 justify-center lg:max-w-none lg:justify-end">
+          <div class="w-full max-w-md rounded-2xl border border-border/70 bg-card/60 p-6 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+            <div class="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-purple-500/10 blur-3xl pointer-events-none"></div>
+
+            <div class="flex items-center justify-between border-b border-border/60 pb-4 mb-6">
+              <div class="flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">Jetons servis en direct</span>
+              </div>
+              <span class="badge-pill-cyan">30 Jours</span>
+            </div>
+
+            <div class="mb-6">
+              <div class="font-mono text-4xl sm:text-5xl font-bold tracking-tight text-foreground" id="stat-hero-tokens">
+                24,928,110,000
+              </div>
+              <div class="font-mono text-xs text-muted-foreground mt-1">tokens réels relayés avec cache actif</div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-2 border-t border-border/50">
+              <div class="p-3 rounded-lg bg-secondary/40 border border-border/40">
+                <span class="font-mono text-[10px] uppercase text-muted-foreground block mb-1">Requêtes réussies</span>
+                <span class="font-mono text-xl font-bold text-foreground">1,842,910</span>
+              </div>
+              <div class="p-3 rounded-lg bg-secondary/40 border border-border/40">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-mono text-[10px] uppercase text-muted-foreground">Tokens / Min</span>
+                  <span class="font-mono text-[9px] text-emerald-400 font-bold">LIVE</span>
+                </div>
+                <span class="font-mono text-xl font-bold text-emerald-400">~ 645,200</span>
+              </div>
+            </div>
+
+            <!-- Chips Integrations -->
+            <div class="mt-6 pt-4 border-t border-border/50">
+              <span class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block mb-2.5">Clients vérifiés & compatibles :</span>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="chip-sm">Claude Code</span>
+                <span class="chip-sm">Hermes Agent</span>
+                <span class="chip-sm">Cursor</span>
+                <span class="chip-sm">SillyTavern</span>
+                <span class="chip-sm">OpenCode</span>
+                <span class="chip-sm">SDK OpenAI</span>
+                <span class="chip-sm">LibreChat</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIVE INFERENCE TICKER (MARQUEE) -->
+      <div class="border-y border-border/60 bg-secondary/30 py-3.5 relative overflow-hidden backdrop-blur-md">
+        <div class="mx-auto flex max-w-7xl items-center gap-6 px-6">
+          <div class="shrink-0 flex items-center gap-2 border border-border/60 bg-background/80 px-3 py-1 rounded font-mono text-[11px] font-semibold uppercase tracking-wider text-foreground">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Inférence en direct</span>
+          </div>
+          <div class="relative flex-1 overflow-hidden">
+            <div class="marquee-track flex gap-8 font-mono text-xs items-center" id="marquee-models">
+              <!-- Rempli par JavaScript -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HOW IT WORKS (3 ÉTAPES UNOROUTER) -->
+      <div class="border-b border-border/50 py-16 lg:py-24">
+        <div class="mx-auto max-w-7xl px-6">
+          <div class="text-center mb-12">
+            <div class="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 font-mono text-[10px] tracking-widest text-purple-400 uppercase mb-3">
+              <span>✦</span> Prise en main immédiate
+            </div>
+            <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+              Trois étapes. <span class="text-muted-foreground">De zéro à la première requête.</span>
+            </h2>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Step 1 -->
+            <div class="step-card">
+              <div class="flex items-center justify-between mb-4">
+                <span class="step-num">01</span>
+                <span class="text-xs font-mono text-muted-foreground">1 minute</span>
+              </div>
+              <h3 class="text-xl font-bold text-foreground mb-2">Créez votre compte</h3>
+              <p class="text-sm text-muted-foreground leading-relaxed">
+                Inscription en quelques secondes avec e-mail ou via GitHub/Google. Aucune carte bancaire requise pour démarrer.
+              </p>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="step-card">
+              <div class="flex items-center justify-between mb-4">
+                <span class="step-num">02</span>
+                <span class="text-xs font-mono text-muted-foreground">Flexibilité</span>
+              </div>
+              <h3 class="text-xl font-bold text-foreground mb-2">Rechargez à l'usage</h3>
+              <p class="text-sm text-muted-foreground leading-relaxed">
+                Recharges Pay-as-you-go dès 5$ ou pack 1 Milliard de tokens. Vos crédits n'expirent jamais et le cache réduit la facture.
+              </p>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="step-card">
+              <div class="flex items-center justify-between mb-4">
+                <span class="step-num">03</span>
+                <span class="text-xs font-mono text-muted-foreground">100% OpenAI</span>
+              </div>
+              <h3 class="text-xl font-bold text-foreground mb-2">Générez votre clé API</h3>
+              <p class="text-sm text-muted-foreground leading-relaxed">
+                Branchez votre endpoint <code class="text-cyan-400">https://smartapi.cheap/v1</code> dans Claude Code, Cursor, Hermes ou votre code.
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 font-mono text-xs">
+            <button class="btn-primary-lg" onclick="openAuthModal('register')">CRÉER UN COMPTE GRATUIT</button>
+            <button class="btn-secondary-lg" onclick="switchTab('pricing')">VOIR LES PLANS ET TARIFS</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== ONGLET 2 : MODÈLES (BIBLIOTHÈQUE EXACTE UNOROUTER) ==================== -->
+    <section id="tab-models" class="tab-pane">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 py-8">
+        
+        <!-- Header -->
+        <div class="mb-6">
+          <div class="inline-flex items-center gap-2 text-xs font-mono text-cyan-400 uppercase tracking-wider mb-2">
+            <span>✦</span> Catalogue officiel en direct
+          </div>
+          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+            Bibliothèque des Modèles
+          </h1>
+          <p class="text-sm text-muted-foreground mt-1 max-w-2xl">
+            Une seule clé pour tous les modèles. Tarification transparente pay-as-you-go, cache prompt mémorisé et métriques de latence en temps réel.
+          </p>
+        </div>
+
+        <!-- Modality Filter Tabs (All, Text, Image, Tools) -->
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-3 mb-5">
+          <div class="flex items-center gap-1.5 p-1 rounded-lg bg-secondary/50 border border-border/50 font-mono text-xs">
+            <button class="modality-tab active" data-mod="all" onclick="filterByModality('all')">Tous (20)</button>
+            <button class="modality-tab" data-mod="text" onclick="filterByModality('text')">Texte (18)</button>
+            <button class="modality-tab" data-mod="image" onclick="filterByModality('image')">Image (2)</button>
+            <button class="modality-tab" data-mod="tools" onclick="filterByModality('tools')">Outils / Code (15)</button>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2 cursor-pointer font-mono text-xs text-muted-foreground hover:text-foreground">
+              <input type="checkbox" id="toggle-promo-only" onchange="togglePromoFilter(this.checked)" class="rounded border-border bg-secondary">
+              <span>Promotions uniquement</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Toolbar (Search + Provider Filter) -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-5">
+          <div class="relative w-full sm:w-80">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">🔍</span>
+            <input type="text" id="model-search-input" placeholder="Rechercher un modèle (qwen, glm, claude...)" 
+                   oninput="onModelSearch(this.value)"
+                   class="w-full pl-9 pr-4 py-2 rounded-lg bg-secondary/40 border border-border/60 text-xs font-mono focus:border-cyan-400 focus:outline-none transition-all">
+          </div>
+
+          <div class="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0" id="vendor-filter-chips">
+            <button class="vendor-chip active" data-vendor="all" onclick="filterByVendor('all')">Tous</button>
+            <button class="vendor-chip" data-vendor="alibaba" onclick="filterByVendor('alibaba')">Alibaba</button>
+            <button class="vendor-chip" data-vendor="zhipu" onclick="filterByVendor('zhipu')">Zhipu</button>
+            <button class="vendor-chip" data-vendor="xai" onclick="filterByVendor('xai')">xAI</button>
+            <button class="vendor-chip" data-vendor="google" onclick="filterByVendor('google')">Google</button>
+            <button class="vendor-chip" data-vendor="anthropic" onclick="filterByVendor('anthropic')">Anthropic</button>
+            <button class="vendor-chip" data-vendor="openai" onclick="filterByVendor('openai')">OpenAI</button>
+            <button class="vendor-chip" data-vendor="deepseek" onclick="filterByVendor('deepseek')">DeepSeek</button>
+          </div>
+        </div>
+
+        <!-- The Big UnoRouter-Style Table -->
+        <div class="rounded-xl border border-border/70 bg-card/40 overflow-hidden shadow-xl backdrop-blur-md">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse" id="models-table">
+              <thead>
+                <tr class="border-b border-border/60 bg-secondary/40 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <th class="py-3 px-4">Modèle</th>
+                  <th class="py-3 px-3 text-right">Tokens Hebdo</th>
+                  <th class="py-3 px-3 text-right">Entrée / 1M</th>
+                  <th class="py-3 px-3 text-right">Sortie / 1M</th>
+                  <th class="py-3 px-3 text-center">Contexte</th>
+                  <th class="py-3 px-3 text-center">Uptime</th>
+                  <th class="py-3 px-3 text-center">Succès</th>
+                  <th class="py-3 px-3 text-center">Latence</th>
+                  <th class="py-3 px-4 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="models-tbody" class="divide-y divide-border/40 font-mono text-xs">
+                <!-- Rempli dynamiquement par renderModelsTable() -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </section>
 
-    <!-- Onglet 6 : AUTO -->
+    <!-- ==================== ONGLET 3 : CLASSEMENTS ==================== -->
+    <section id="tab-classements" class="tab-pane">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 py-8">
+        <div class="mb-8">
+          <span class="font-mono text-xs text-cyan-400 uppercase tracking-wider">✦ Podium & Économies</span>
+          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mt-1">Classements en Direct</h1>
+          <p class="text-sm text-muted-foreground mt-1">Mesuré sur 24,9 milliards de tokens réels distribués par notre passerelle.</p>
+        </div>
+
+        <!-- Podium Top 3 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10" id="podium-container">
+          <!-- Injecté par JS -->
+        </div>
+
+        <!-- 2 colonnes rankings -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div class="rounded-xl border border-border/70 bg-card/40 p-6 backdrop-blur-md">
+            <h3 class="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+              <span>💰</span> Top Économies & Réductions
+            </h3>
+            <div class="space-y-3" id="rankings-savings"></div>
+          </div>
+          <div class="rounded-xl border border-border/70 bg-card/40 p-6 backdrop-blur-md">
+            <h3 class="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+              <span>⚡</span> Champions de la Latence
+            </h3>
+            <div class="space-y-3" id="rankings-latency"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ONGLET 4 : TARIFS & RECHARGES ==================== -->
+    <section id="tab-pricing" class="tab-pane">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 py-8">
+        <div class="text-center max-w-2xl mx-auto mb-12">
+          <span class="font-mono text-xs text-cyan-400 uppercase tracking-wider">✦ Transparence Absolue</span>
+          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mt-1">Tarifs simples & sans engagement</h1>
+          <p class="text-sm text-muted-foreground mt-2">Rechargez selon vos besoins en Pay-as-you-go ou optez pour le forfait illimité Quota Hub. Zéro expiration.</p>
+        </div>
+
+        <!-- Paygo Cards Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-10" id="recharge-buttons">
+          <button class="paygo-btn" data-amt="5" onclick="selectRecharge(5, this)">
+            <span class="text-xs text-muted-foreground font-mono">Pack Test</span>
+            <span class="text-2xl font-bold font-display my-1">$5</span>
+            <span class="text-[10px] text-emerald-400 font-mono">~2.1M tokens</span>
+          </button>
+          <button class="paygo-btn active" data-amt="10" onclick="selectRecharge(10, this)">
+            <span class="text-xs text-cyan-400 font-mono">Populaire</span>
+            <span class="text-2xl font-bold font-display my-1">$10</span>
+            <span class="text-[10px] text-emerald-400 font-mono">~4.2M tokens</span>
+          </button>
+          <button class="paygo-btn" data-amt="20" onclick="selectRecharge(20, this)">
+            <span class="text-xs text-muted-foreground font-mono">Dev Pro</span>
+            <span class="text-2xl font-bold font-display my-1">$20</span>
+            <span class="text-[10px] text-emerald-400 font-mono">~8.4M tokens</span>
+          </button>
+          <button class="paygo-btn" data-amt="50" onclick="selectRecharge(50, this)">
+            <span class="text-xs text-muted-foreground font-mono">Startup</span>
+            <span class="text-2xl font-bold font-display my-1">$50</span>
+            <span class="text-[10px] text-emerald-400 font-mono">~21M tokens</span>
+          </button>
+          <button class="paygo-btn" data-amt="100" onclick="selectRecharge(100, this)">
+            <span class="text-xs text-purple-400 font-mono">Team</span>
+            <span class="text-2xl font-bold font-display my-1">$100</span>
+            <span class="text-[10px] text-emerald-400 font-mono">~42M tokens</span>
+          </button>
+          <button class="paygo-btn" data-amt="200" onclick="selectRecharge(200, this)">
+            <span class="text-xs text-muted-foreground font-mono">Scale</span>
+            <span class="text-2xl font-bold font-display my-1">$200</span>
+            <span class="text-[10px] text-emerald-400 font-mono">~84M tokens</span>
+          </button>
+        </div>
+
+        <!-- Recharge Box / Action -->
+        <div class="max-w-xl mx-auto rounded-2xl border border-cyan-500/30 bg-card/60 p-6 backdrop-blur-xl mb-12">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <span class="text-xs font-mono text-muted-foreground uppercase">Montant sélectionné</span>
+              <div class="text-3xl font-bold font-display text-foreground" id="summary-amount">$10.00</div>
+            </div>
+            <div class="text-right">
+              <span class="text-xs font-mono text-muted-foreground uppercase">Volume estimé</span>
+              <div class="text-sm font-mono font-bold text-emerald-400" id="summary-tokens">~ 4,166,666 tokens</div>
+            </div>
+          </div>
+          <button class="btn-primary-lg w-full" onclick="executeRecharge()">Procéder au paiement sécurisé</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ONGLET 5 : CHAT FLUX EN DIRECT ==================== -->
+    <section id="tab-chat" class="tab-pane">
+      <div class="mx-auto max-w-5xl px-4 sm:px-6 py-6">
+        
+        <div class="flex items-center justify-between border-b border-border/60 pb-4 mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <h1 class="text-xl font-bold text-foreground">Chat Interactif</h1>
+            </div>
+            <p class="text-xs text-muted-foreground font-mono mt-0.5">
+              Modèle public : <strong>AutoSmart Flash 1.0</strong> (routage auto au moins cher avec cache)
+            </p>
+          </div>
+          <button class="btn-ghost-sm" onclick="clearChat()">Effacer</button>
+        </div>
+
+        <!-- Chat Container -->
+        <div class="chat-shell rounded-2xl border border-border/70 bg-card/50 backdrop-blur-xl overflow-hidden flex flex-col h-[600px]">
+          
+          <div class="chat-messages flex-1 overflow-y-auto p-4 space-y-4 font-mono text-xs" id="chat-messages">
+            <div class="chat-empty text-center py-16">
+              <div class="h-10 w-10 mx-auto mb-3 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-lg">✦</div>
+              <h3 class="text-base font-bold text-foreground">Discussion prête</h3>
+              <p class="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                Posez une question ci-dessous ou cliquez sur un exemple pour observer le streaming SSE et la télémétrie de cache en direct.
+              </p>
+            </div>
+          </div>
+
+          <!-- Quick Starter Prompts -->
+          <div class="flex items-center gap-2 px-4 py-2 bg-secondary/30 border-t border-border/40 overflow-x-auto text-[11px] font-mono">
+            <button class="starter-chip" onclick="fillStarterPrompt('Explique le fonctionnement du prompt caching en 3 phrases.')">Prompt Caching ?</button>
+            <button class="starter-chip" onclick="fillStarterPrompt('Écris une fonction Python ultra optimisée de recherche binaire.')">Code Python</button>
+            <button class="starter-chip" onclick="fillStarterPrompt('Compare GLM-5.3 et Qwen3.8 Flash pour du codage intensif.')">Comparatif Modèles</button>
+          </div>
+
+          <!-- Chat Input -->
+          <form class="p-3 bg-card/80 border-t border-border/60 flex items-center gap-2" onsubmit="event.preventDefault(); submitChat();">
+            <input type="text" id="chat-input" placeholder="Écrivez votre message..." 
+                   class="flex-1 bg-secondary/50 border border-border/60 rounded-xl px-4 py-2.5 text-xs font-mono focus:border-cyan-400 focus:outline-none transition-all text-foreground">
+            <button type="submit" class="btn-primary-sm px-4 py-2.5 rounded-xl font-mono">
+              Envoyer
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ONGLET 6 : AUTO ==================== -->
     <section id="tab-auto" class="tab-pane">
-      <div class="page-intro">
-        <span class="section-kicker">Mode automatique</span>
-        <h1>Le bon modèle,<br><em>automatiquement.</em></h1>
-        <p>Envoyez <code>model: "autosmart-flash-1.0"</code> (ou <code>"auto"</code>, alias conservé) et le routeur fait le reste : toutes les 30 minutes, une sonde active teste la réalité du cache et élit le modèle vivant le plus rentable. Un seul nom exposé, des conversations stables, des coûts réduits au minimum.</p>
-      </div>
-
-      <div class="router-panel">
-        <div class="router-panel-head">
-          <div><span class="section-kicker">Le routeur</span><h3>Le parcours d’une requête</h3></div>
-          <span class="router-live" id="router-live-state"><i></i> vérification…</span>
-        </div>
-        <p class="router-lead">Vous envoyez <code>model: auto</code>. Le routeur interroge la sonde partagée, écarte les canaux lents, retient le moins cher net après cache et colle au modèle de votre conversation pour préserver votre contexte.</p>
-
-        <div class="router-steps">
-          <div><span>01</span><b>Sonde active 30 min</b><p>Mesure réelle en 2 passes de la latence et du taux effectif de cache prompt.</p></div>
-          <div><span>02</span><b>Coût projeté réel</b><p>Calcul au centime près : tokens d'entrée + tokens de cache à tarif réduit + sortie.</p></div>
-          <div><span>03</span><b>Zéro bannissement</b><p>Tous les modèles et fournisseurs sont traités équitablement selon leur performance.</p></div>
-          <div><span>04</span><b>Conversation stable</b><p>Même clé, même session : le modèle est maintenu tant que le cache reste chaud.</p></div>
+      <div class="mx-auto max-w-4xl px-4 sm:px-6 py-10">
+        <div class="mb-8 text-center">
+          <span class="font-mono text-xs text-cyan-400 uppercase tracking-wider">✦ Intelligence Embarquée</span>
+          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mt-1">Le mode AutoSmart Flash 1.0</h1>
+          <p class="text-sm text-muted-foreground mt-2 max-w-xl mx-auto">
+            Comment notre routeur sonde en continu la réalité du marché et garantit le prix le plus bas sans jamais casser votre cache.
+          </p>
         </div>
 
-        <div class="router-metrics">
-          <div><b id="router-metric-source">Sonde live</b><span>source de référence</span></div>
-          <div><b id="router-metric-models">20 modèles</b><span>catalogue disponible</span></div>
-          <div><b id="router-metric-age">30 min</b><span>cadence des sondes</span></div>
-          <div><b>2 h</b><span>stabilité de conversation</span></div>
-        </div>
-
-        <div class="auto-mix">
-          <div class="auto-mix-head"><div><span class="section-kicker">Mode auto</span><h3>Modèles servis ces dernières 24 h</h3></div></div>
-          <div class="auto-mix-body">
-            <div class="auto-mix-donut"><svg id="automix-donut" viewBox="0 0 120 120" role="img" aria-label="Répartition des modèles servis sur 24 heures"></svg><div class="auto-mix-center"><b id="automix-count">—</b><span>requêtes</span></div></div>
-            <div class="auto-mix-legend" id="automix-legend"><span class="auto-mix-hint">Le routeur publie ici la répartition réelle des modèles servis en mode auto.</span></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="p-6 rounded-2xl border border-border/70 bg-card/40 backdrop-blur-md">
+            <h3 class="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+              <span>📡</span> Sonde Active 30 Minutes
+            </h3>
+            <p class="text-xs text-muted-foreground leading-relaxed">
+              Toutes les 30 minutes, un worker dédié teste les canaux des meilleurs modèles avec une charge étalon de 2 200 tokens. Aucun canal n'est cru sur parole : seule la vérité mesurée fait foi.
+            </p>
+          </div>
+          <div class="p-6 rounded-2xl border border-border/70 bg-card/40 backdrop-blur-md">
+            <h3 class="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+              <span>🧠</span> Préservation du Cache (Pinning)
+            </h3>
+            <p class="text-xs text-muted-foreground leading-relaxed">
+              Une fois une conversation démarrée, le routeur conserve le même modèle amont pour faire profiter à vos requêtes suivantes d'une réduction de 80% à 95% sur le cache de prompt.
+            </p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Onglet 7 : JOURNAUX -->
-    <section id="tab-usage" class="tab-pane">
-      <div class="workspace-head">
-        <div><span class="section-kicker">Journaux</span><h1>Vos journaux</h1><p>Historique de vos requêtes, tokens et dépenses — mis à jour en direct.</p></div>
-      </div>
-      <div id="usage-login-box" class="login-box">
-        <div class="empty-orb">⌁</div>
-        <h2>Connectez-vous pour voir vos journaux</h2>
-        <p>L’historique de vos requêtes et de vos tokens est disponible dans votre espace sécurisé.</p>
-        <button class="primary-button" onclick="openAuth('login')">Se connecter</button>
-      </div>
-      <div id="usage-content" style="display:none">
-        <div class="usage-stats" id="usage-stats"></div>
-        <div class="usage-chart-panel">
-          <div class="table-title"><strong>Tokens par jour</strong><span>30 derniers jours</span></div>
-          <div id="usage-chart" class="usage-chart"></div>
-        </div>
-        <div class="console-table-wrap" style="display:block">
-          <div class="table-title"><strong>Dernières requêtes</strong><span id="usage-refresh-note">—</span></div>
-          <table><thead><tr><th>Date</th><th>Clé</th><th>Modèle servi</th><th>Entrée</th><th>Sortie</th><th>Tokens facturés</th><th>Coût réel</th></tr></thead><tbody id="usage-table-body"></tbody></table>
-        </div>
-        <div class="usage-models-panel"><div class="table-title"><strong>Répartition par modèle</strong><span>30 jours</span></div><div id="usage-models" class="usage-models"></div></div>
-      </div>
-    </section>
-
-    <!-- Onglet 8 : INTÉGRER -->
-    <section id="tab-connect" class="tab-pane">
-      <div class="page-intro">
-        <span class="section-kicker">Intégration</span>
-        <h1>Branchez vos outils<br><em>en 60 secondes.</em></h1>
-        <p>Une seule base URL standard OpenAI, une clé et tous vos clients IA fonctionnent immédiatement.</p>
-      </div>
-      <div class="connect-steps">
-        <div><span>01</span><b>Créez votre clé</b><p>Depuis la console, générez une clé <code>sk-sm-...</code> en un clic.</p></div>
-        <div><span>02</span><b>Configurez votre client</b><p>Pointez votre client IA vers notre endpoint OpenAI compatible.</p></div>
-        <div><span>03</span><b>Envoyez vos requêtes</b><p>Utilisez l’un de nos 20 modèles ou le mode <code>auto</code>.</p></div>
-      </div>
-      <div class="connect-layout">
-        <div class="connect-main">
-          <div class="code-panel">
-            <div class="code-panel-head"><span>Terminal (Configuration automatique)</span><button onclick="copyCli(this)">Copier</button></div>
-            <pre><code>curl -fsSL https://smartapi.cheap/connect.sh | sh</code></pre>
-          </div>
-          <div class="compat-grid">
-            <div><b>Claude Code</b><span>Compatible nativement</span></div>
-            <div><b>Cursor & Windsurf</b><span>Routage OpenAI direct</span></div>
-            <div><b>LibreChat & Open WebUI</b><span>Custom OpenAI Provider</span></div>
-            <div><b>Python & Node.js SDK</b><span>Changement de base_url seul</span></div>
-          </div>
-        </div>
-        <aside class="connect-aside">
-          <span class="aside-icon">⌘</span>
-          <h3>Base URL universelle</h3>
-          <p>Compatible avec 100% des bibliothèques OpenAI existantes.</p>
-          <div class="aside-code">
-            <code>https://smartapi.cheap/v1</code>
-            <button class="copy-mini" onclick="copyText('https://smartapi.cheap/v1', this)">Copier</button>
-          </div>
-          <button class="inline-link" onclick="switchTab('docs')">Voir les guides complets →</button>
-        </aside>
-      </div>
-    </section>
-
-    <!-- Onglet 9 : DOCS -->
+    <!-- ==================== ONGLET 7 : DOCS & INTÉGRATIONS ==================== -->
     <section id="tab-docs" class="tab-pane">
-      <div class="page-intro">
-        <span class="section-kicker">Documentation</span>
-        <h1>API Standard OpenAI,<br><em>sans friction.</em></h1>
-        <p>Smart API Cheap implémente fidèlement les spécifications OpenAI pour le chat, les modèles et l'outillage.</p>
-      </div>
-      <div class="docs-grid">
-        <article><span>01</span><h3>Base URL</h3><code>https://smartapi.cheap/v1</code><p>Remplacer l'hôte OpenAI officiel.</p></article>
-        <article><span>02</span><h3>Authentification</h3><code>Authorization: Bearer sk-sm-...</code><p>Votre clé générée dans la console.</p></article>
-        <article><span>03</span><h3>Modèles</h3><code>model: "autosmart-flash-1.0"</code><p>Nom public unique : le routeur choisit le modèle réel le moins cher.</p></article>
-      </div>
-      <div class="docs-endpoints">
-        <div class="code-panel-head"><span>Endpoints disponibles</span></div>
-        <div class="ep"><code>POST /v1/chat/completions</code><span>Créer une complétion de chat avec streaming, outils et cache.</span></div>
-        <div class="ep"><code>GET /v1/models</code><span>Lister les modèles actifs du catalogue.</span></div>
-        <div class="ep"><code>GET /gw/health</code><span>Statut du routeur et métriques de la sonde.</span></div>
+      <div class="mx-auto max-w-5xl px-4 sm:px-6 py-10">
+        <div class="mb-8">
+          <span class="font-mono text-xs text-cyan-400 uppercase tracking-wider">✦ Développeurs & Outils</span>
+          <h1 class="text-3xl font-bold tracking-tight text-foreground mt-1">Guide d'Intégration Standard OpenAI</h1>
+          <p class="text-sm text-muted-foreground mt-1">Compatible à 100% avec les bibliothèques et logiciels existants.</p>
+        </div>
+
+        <div class="space-y-6">
+          <div class="rounded-2xl border border-border/70 bg-card/50 p-6 backdrop-blur-md">
+            <h3 class="text-base font-bold text-foreground mb-3 font-mono">1. cURL (Requête brute)</h3>
+            <pre class="bg-black/50 p-4 rounded-xl font-mono text-xs text-cyan-300 overflow-x-auto border border-border/40"><code>curl https://smartapi.cheap/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-sm-VOTRE_CLE" \
+  -d '{
+    "model": "autosmart-flash-1.0",
+    "messages": [{"role": "user", "content": "Bonjour !"}],
+    "stream": true
+  }'</code></pre>
+          </div>
+
+          <div class="rounded-2xl border border-border/70 bg-card/50 p-6 backdrop-blur-md">
+            <h3 class="text-base font-bold text-foreground mb-3 font-mono">2. Python (SDK officiel OpenAI)</h3>
+            <pre class="bg-black/50 p-4 rounded-xl font-mono text-xs text-cyan-300 overflow-x-auto border border-border/40"><code>from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://smartapi.cheap/v1",
+    api_key="sk-sm-VOTRE_CLE"
+)
+
+response = client.chat.completions.create(
+    model="autosmart-flash-1.0",
+    messages=[{"role": "user", "content": "Explique le caching en 1 ligne."}],
+    stream=True
+)
+
+for chunk in response:
+    print(chunk.choices[0].delta.content or "", end="", flush=True)</code></pre>
+          </div>
+        </div>
       </div>
     </section>
 
-    <!-- Onglet 10 : CONSOLE -->
+    <!-- ==================== ONGLET 8 : CONSOLE CLIENT ==================== -->
     <section id="tab-console" class="tab-pane">
-      <div class="workspace-head">
-        <div><span class="section-kicker">Espace privé</span><h1>Votre console</h1><p>Clés API, solde et activation de crédit au même endroit.</p></div>
-        <button class="primary-button" onclick="openKeyModal()">Nouvelle clé <span>+</span></button>
-      </div>
-      <div id="keys-login-box" class="login-box">
-        <div class="empty-orb">⌁</div>
-        <h2>Connectez-vous pour continuer</h2>
-        <p>Créez et gérez vos clés API depuis votre espace sécurisé.</p>
-        <button class="primary-button" onclick="openAuth('login')">Se connecter</button>
-      </div>
-      <div class="console-table-wrap" id="keys-table-container" style="display:none">
-        <div class="table-title"><strong>Clés API</strong><span>Les clés complètes ne sont affichées qu’une fois.</span></div>
-        <table><thead><tr><th>Nom</th><th>Préfixe</th><th>Créée le</th><th>Consommation</th><th>État</th><th></th></tr></thead><tbody id="keys-table-body"></tbody></table>
-      </div>
-      <div class="credit-panel">
-        <div><span class="section-kicker">Crédit</span><h3>Ajouter du crédit</h3><p>Entrez un code d’activation fourni par Smart API Cheap.</p></div>
-        <div class="credit-form">
-          <input id="redeem-input" class="form-input" placeholder="SM-XXXXXXXX-XXXXXXXX">
-          <button class="primary-button" id="btn-redeem">Activer</button>
+      <div class="mx-auto max-w-5xl px-4 sm:px-6 py-10">
+        <div class="flex items-center justify-between border-b border-border/60 pb-4 mb-6">
+          <div>
+            <h1 class="text-2xl font-bold text-foreground">Console Développeur</h1>
+            <p class="text-xs text-muted-foreground font-mono mt-0.5">Gérez vos clés d'accès et consultez votre consommation en temps réel.</p>
+          </div>
+          <button class="btn-primary-sm font-mono" onclick="createApiKey()">+ Générer une clé</button>
         </div>
-        <div id="redeem-msg" hidden></div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div class="p-4 rounded-xl border border-border/60 bg-card/40">
+            <span class="font-mono text-[10px] uppercase text-muted-foreground block mb-1">Solde Tokens</span>
+            <span class="font-mono text-2xl font-bold text-foreground" id="console-token-balance">-</span>
+          </div>
+          <div class="p-4 rounded-xl border border-border/60 bg-card/40">
+            <span class="font-mono text-[10px] uppercase text-muted-foreground block mb-1">Clés Actives</span>
+            <span class="font-mono text-2xl font-bold text-foreground" id="console-key-count">0</span>
+          </div>
+          <div class="p-4 rounded-xl border border-border/60 bg-card/40">
+            <span class="font-mono text-[10px] uppercase text-muted-foreground block mb-1">Plan Actif</span>
+            <span class="font-mono text-2xl font-bold text-cyan-400" id="console-plan-name">Pay-as-you-go</span>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-border/70 bg-card/40 overflow-hidden">
+          <div class="p-4 border-b border-border/60 bg-secondary/30 font-mono text-xs font-bold text-foreground">
+            Vos Clés API
+          </div>
+          <div id="console-keys-list" class="divide-y divide-border/40 font-mono text-xs p-2">
+            <div class="p-4 text-center text-muted-foreground">Connectez-vous pour afficher vos clés d'API.</div>
+          </div>
+        </div>
       </div>
     </section>
+
   </main>
 
-  <footer class="site-footer">
-    <div>
-      <a class="brand" href="#" onclick="switchTab('home');return false"><span class="brand-mark">s</span><span>Smart&nbsp;API&nbsp;<i class="brand-cheap">Cheap</i></span></a>
-      <p>Une clé pour 20 modèles IA majeurs. L'IA au juste prix.</p>
-    </div>
-    <div class="footer-links">
-      <button onclick="switchTab('models')">Modèles</button>
-      <button onclick="switchTab('classements')">Classements</button>
-      <button onclick="switchTab('pricing')">Tarifs</button>
-      <button onclick="switchTab('chat')">Chat</button>
-      <button onclick="switchTab('auto')">Auto</button>
-      <button onclick="switchTab('usage')">Journaux</button>
-      <button onclick="switchTab('docs')">Docs</button>
-    </div>
-    <small>© 2026 Smart API Cheap · Hébergé sur infrastructure haute disponibilité</small>
-  </footer>
-</div>
-
-<!-- Modales d'authentification et clés -->
-<div class="auth-modal" id="auth-modal" style="display:none">
-  <div class="auth-card">
-    <button class="modal-close" onclick="closeAuth()">×</button>
-    <div class="auth-brand"><span class="brand-mark">s</span> Smart API Cheap</div>
-    <div class="auth-heading">
-      <span class="section-kicker">Votre espace</span>
-      <h2 id="auth-title">Bienvenue.</h2>
-      <p id="auth-subtitle">Connectez-vous pour retrouver votre console.</p>
-    </div>
-    <div class="auth-switch">
-      <button id="tab-auth-signin" class="active" onclick="setAuthMode('login')">Connexion</button>
-      <button id="tab-auth-signup" onclick="setAuthMode('signup')">Créer un compte</button>
-    </div>
-    <div class="oauth-buttons">
-      <button id="btn-oauth-google" type="button"><svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34.1 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.7-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.4-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C36.9 39.2 44 34 44 24c0-1.3-.1-2.7-.4-3.9z"/></svg>Google</button>
-      <button id="btn-oauth-github" type="button"><svg viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</button>
-    </div>
-    <div id="oauth-note" class="oauth-note" hidden></div>
-    <div class="auth-sep"><span>ou par email</span></div>
-    <form id="form-auth">
-      <label class="form-label">Email<input id="auth-email" type="email" class="form-input" placeholder="vous@domaine.com" required></label>
-      <label class="form-label">Mot de passe<input id="auth-password" type="password" class="form-input" placeholder="••••••••" required minlength="8"></label>
-      <div id="auth-error" class="form-error" hidden></div>
-      <button id="btn-auth-submit" class="primary-button full" type="submit">Se connecter</button>
-    </form>
-  </div>
-</div>
-
-<dialog id="modal-key">
-  <div class="dialog-card">
-    <h3>Créer une clé API</h3>
-    <p>Donnez-lui un nom pour la retrouver facilement.</p>
-    <form id="form-create-key">
-      <input id="key-name-input" class="form-input" placeholder="Mon agent" required maxlength="60">
-      <div class="dialog-actions">
-        <button type="button" class="secondary-button" onclick="$('modal-key').close()">Annuler</button>
-        <button type="submit" class="primary-button">Créer la clé</button>
+  <!-- ==================== MODALE DE CONNEXION / INSCRIPTION ==================== -->
+  <div id="auth-modal" class="fixed inset-0 z-50 hidden bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-2xl relative">
+      <button class="absolute right-4 top-4 text-muted-foreground hover:text-foreground text-sm font-mono" onclick="closeAuthModal()">✕</button>
+      <div class="text-center mb-6">
+        <h3 class="text-xl font-bold text-foreground" id="auth-modal-title">Connexion</h3>
+        <p class="text-xs text-muted-foreground mt-1">Accédez à votre console Smart API Cheap</p>
       </div>
-    </form>
-  </div>
-</dialog>
-
-<dialog id="modal-key-success">
-  <div class="dialog-card">
-    <span class="success-mark">✓</span>
-    <h3>Clé créée.</h3>
-    <p>Copiez-la maintenant, elle ne sera plus affichée ensuite.</p>
-    <div class="key-copy">
-      <input id="new-key-val" class="form-input" readonly>
-      <button class="primary-button" id="btn-copy-key">Copier</button>
+      <form id="auth-form" class="space-y-4" onsubmit="event.preventDefault(); submitAuth();">
+        <div>
+          <label class="block font-mono text-xs text-muted-foreground mb-1">E-mail</label>
+          <input type="email" id="auth-email" required class="w-full px-3 py-2 rounded-lg bg-secondary/50 border border-border/60 text-xs font-mono focus:border-cyan-400 focus:outline-none">
+        </div>
+        <div>
+          <label class="block font-mono text-xs text-muted-foreground mb-1">Mot de passe</label>
+          <input type="password" id="auth-password" required minlength="10" class="w-full px-3 py-2 rounded-lg bg-secondary/50 border border-border/60 text-xs font-mono focus:border-cyan-400 focus:outline-none">
+        </div>
+        <div id="auth-error-msg" class="text-xs text-red-400 font-mono hidden"></div>
+        <button type="submit" class="btn-primary-lg w-full font-mono text-xs" id="auth-submit-btn">Se connecter</button>
+      </form>
     </div>
-    <button class="secondary-button full" onclick="$('modal-key-success').close()">Terminé</button>
   </div>
-</dialog>
 
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
