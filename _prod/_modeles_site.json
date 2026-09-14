@@ -1,0 +1,162 @@
+[
+ {
+  "id": "qwen3.8-flash",
+  "vendor": "?",
+  "in_off": "$0.16",
+  "in_ours": "$0.0024",
+  "out_off": "$0.47",
+  "out_ours": "$0.0070"
+ },
+ {
+  "id": "glm-5.3-flash",
+  "vendor": "?",
+  "in_off": "$0.07",
+  "in_ours": "$0.02",
+  "out_off": "$0.25",
+  "out_ours": "$0.08"
+ },
+ {
+  "id": "glm-5.3",
+  "vendor": "?",
+  "in_off": "$1.40",
+  "in_ours": "$0.03",
+  "out_off": "$4.40",
+  "out_ours": "$0.09"
+ },
+ {
+  "id": "grok-4.6",
+  "vendor": "?",
+  "in_off": "$2.00",
+  "in_ours": "$0.05",
+  "out_off": "$6.00",
+  "out_ours": "$0.15"
+ },
+ {
+  "id": "gemini-3.8-flash",
+  "vendor": "?",
+  "in_off": "$0.75",
+  "in_ours": "$0.08",
+  "out_off": "$3.75",
+  "out_ours": "$0.39"
+ },
+ {
+  "id": "gemini-3.7-flash",
+  "vendor": "?",
+  "in_off": "$0.75",
+  "in_ours": "$0.09",
+  "out_off": "$3.75",
+  "out_ours": "$0.47"
+ },
+ {
+  "id": "deepseek-v4.1-flash",
+  "vendor": "?",
+  "in_off": "$0.18",
+  "in_ours": "$0.18",
+  "out_off": "$0.54",
+  "out_ours": "$0.54"
+ },
+ {
+  "id": "deepseek-v4-pro",
+  "vendor": "?",
+  "in_off": "$1.32",
+  "in_ours": "$0.04",
+  "out_off": "$3.96",
+  "out_ours": "$0.11"
+ },
+ {
+  "id": "claude-fable-5.1",
+  "vendor": "?",
+  "in_off": "$10.00",
+  "in_ours": "$1.69",
+  "out_off": "$50.00",
+  "out_ours": "$8.45"
+ },
+ {
+  "id": "claude-fable-5",
+  "vendor": "?",
+  "in_off": "$10.00",
+  "in_ours": "$1.32",
+  "out_off": "$50.00",
+  "out_ours": "$6.60"
+ },
+ {
+  "id": "claude-opus-5",
+  "vendor": "?",
+  "in_off": "$5.00",
+  "in_ours": "$1.88",
+  "out_off": "$25.00",
+  "out_ours": "$9.38"
+ },
+ {
+  "id": "claude-sonnet-5",
+  "vendor": "?",
+  "in_off": "$2.00",
+  "in_ours": "$0.26",
+  "out_off": "$10.00",
+  "out_ours": "$1.32"
+ },
+ {
+  "id": "gpt-6-astra",
+  "vendor": "?",
+  "in_off": "$10.00",
+  "in_ours": "$1.50",
+  "out_off": "$50.00",
+  "out_ours": "$7.50"
+ },
+ {
+  "id": "gpt-5.6-sol",
+  "vendor": "?",
+  "in_off": "$4.00",
+  "in_ours": "$1.00",
+  "out_off": "$20.00",
+  "out_ours": "$5.00"
+ },
+ {
+  "id": "gpt-5.6-terra",
+  "vendor": "?",
+  "in_off": "$2.00",
+  "in_ours": "$1.80",
+  "out_off": "$12.00",
+  "out_ours": "$10.80"
+ },
+ {
+  "id": "gpt-5.6-luna",
+  "vendor": "?",
+  "in_off": "$0.20",
+  "in_ours": "$0.04",
+  "out_off": "$1.20",
+  "out_ours": "$0.24"
+ },
+ {
+  "id": "qwen3.8-max",
+  "vendor": "?",
+  "in_off": "$2.00",
+  "in_ours": "$1.85",
+  "out_off": "$6.00",
+  "out_ours": "$5.54"
+ },
+ {
+  "id": "hy4-preview",
+  "vendor": "?",
+  "in_off": "$0.83",
+  "in_ours": "$0.04",
+  "out_off": "$2.50",
+  "out_ours": "$0.13"
+ },
+ {
+  "id": "kimi-k3",
+  "vendor": "?",
+  "in_off": "$3.00",
+  "in_ours": "$0.05",
+  "out_off": "$15.00",
+  "out_ours": "$0.27"
+ },
+ {
+  "id": "gpt-image-2.5-flare",
+  "vendor": "?",
+  "in_off": "—",
+  "in_ours": "—",
+  "out_off": "$0.04/img",
+  "out_ours": "$0.01/img"
+ }
+]
