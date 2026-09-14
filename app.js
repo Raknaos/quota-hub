@@ -2275,13 +2275,64 @@ window.selectPaygoAmount = function(amt, btn) {
   btn.classList.add('active', 'border-white', 'bg-secondary');
   btn.classList.remove('border-border', 'bg-card');
 
+  APP_STATE.selectedRecharge = amt;          // montant retenu pour le paiement
   const amtEl = document.getElementById('paygo-selected-amount');
   if (amtEl) amtEl.innerText = '$' + amt + '.00';
 };
 
-window.executePaygoPayment = function() {
-  openAuthModal('login');
+/* PAIEMENT RÉEL (Stripe Checkout hébergé). Aucune donnée de carte ne passe par
+   le site : la passerelle crée la session, Stripe encaisse, et le crédit n'est
+   accordé que par le webhook signé de Stripe. */
+window.startCheckout = async function(kind, value) {
+  const sess = localStorage.getItem('qh_session') || sessionStorage.getItem('qh_session') || APP_STATE.session || '';
+  if (!sess) {
+    try { sessionStorage.setItem('qh_checkout', JSON.stringify({ kind, value })); } catch (e) {}
+    openAuthModal('login');
+    return;
+  }
+  const body = (kind === 'pack') ? { pack: value } : { amount: value };
+  try {
+    const r = await fetch('/api/gw?path=api/pay/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-QH-Session': sess },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (d && d.url) { window.location.href = d.url; return; }
+    alert((d && d.error && d.error.message) || 'Paiement indisponible pour le moment.');
+  } catch (e) {
+    alert('Paiement indisponible : connexion au serveur impossible.');
+  }
 };
+window.executePaygoPayment = function() {
+  window.startCheckout('amount', APP_STATE.selectedRecharge || 10);
+};
+
+/* Retour de Stripe : on rafraîchit le solde et on confirme (le crédit vient du webhook). */
+(function handleCheckoutReturn() {
+  try {
+    const q = new URLSearchParams(window.location.search);
+    const st = q.get('paiement');
+    if (!st) {
+      const pending = sessionStorage.getItem('qh_checkout');
+      if (pending && (localStorage.getItem('qh_session') || sessionStorage.getItem('qh_session'))) {
+        sessionStorage.removeItem('qh_checkout');
+        const it = JSON.parse(pending);
+        setTimeout(() => window.startCheckout(it.kind, it.value), 600);
+      }
+      return;
+    }
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setTimeout(() => {
+      if (st === 'ok') {
+        if (window.refreshMe) window.refreshMe();
+        alert('Paiement reçu. Votre crédit est ajouté dès la confirmation de Stripe (quelques secondes).');
+      } else if (st === 'annule') {
+        alert('Paiement annulé — aucun montant débité.');
+      }
+    }, 300);
+  } catch (e) {}
+})();
 
 /* Recharge depuis le TABLEAU DE BORD. Le bouton appelait executeRechargeFromDash()
    qui n'existait nulle part (bouton mort, erreur JS au clic). La grille de packs

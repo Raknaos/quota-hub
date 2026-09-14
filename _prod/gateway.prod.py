@@ -421,6 +421,153 @@ CREDIT_GRANT_USD = {                       # $ de credit par code, si le code n'
 # (le client paie, l'ops cree un code du bon montant, le client l'active).
 PACK_CREDIT_USD = {20.0: 40.0, 50.0: 100.0, 100.0: 200.0, 200.0: 400.0}
 
+# ── PAIEMENT STRIPE (14-09) ─────────────────────────────────────────────────
+# Encaissement réel par Stripe Checkout hébergé : aucune donnée de carte ne
+# touche nos serveurs. Les clés vivent dans le .env de la passerelle, JAMAIS au
+# front ni dans un log :
+#   QH_STRIPE_SECRET_KEY      sk_…   (clé secrète, saisie par l'ops sur le VPS)
+#   QH_STRIPE_WEBHOOK_SECRET  whsec_… (secret du endpoint déclaré chez Stripe)
+# Le crédit n'est accordé QUE par le webhook signé par Stripe — jamais par le
+# retour navigateur — et une session ne crédite qu'UNE fois (payments UNIQUE).
+STRIPE_SK = os.environ.get('QH_STRIPE_SECRET_KEY', '')
+STRIPE_WH = os.environ.get('QH_STRIPE_WEBHOOK_SECRET', '')
+STRIPE_API = 'https://api.stripe.com/v1'
+PAY_SUCCESS_URL = os.environ.get('QH_PAY_SUCCESS_URL', 'https://smartapi.cheap/?paiement=ok')
+PAY_CANCEL_URL = os.environ.get('QH_PAY_CANCEL_URL', 'https://smartapi.cheap/?paiement=annule')
+
+def _stripe_post(path, params, idem=None, timeout=25):
+    data = urllib.parse.urlencode(params).encode()
+    req = urllib.request.Request(STRIPE_API + path, data=data, method='POST')
+    req.add_header('Authorization', 'Bearer ' + STRIPE_SK)
+    req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+    if idem:
+        req.add_header('Idempotency-Key', idem)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+def pay_checkout(uid, payload):
+    """Cree une session Stripe Checkout pour un pack. NE CREDITE RIEN ici."""
+    if not STRIPE_SK:
+        return err(503, "paiement en ligne non configuré (clé Stripe absente côté serveur)",
+                   'payments_unavailable')
+    # Deux formes : {pack: 20} = abonnement (credit x2) ; {amount: 10} = recharge
+    # pay-as-you-go (1 $ paye = 1 $ d'usage).
+    try:
+        if payload.get('pack') is not None:
+            paid = float(payload['pack'])
+            if paid not in PACK_CREDIT_USD:
+                return err(400, 'pack inconnu (20, 50, 100, 200)')
+            credit = float(PACK_CREDIT_USD[paid])
+        elif payload.get('amount') is not None:
+            paid = float(payload['amount'])
+            if paid < 1 or paid > 1000:
+                return err(400, 'montant hors limites (1 à 1000 $)')
+            credit = paid
+        else:
+            return err(400, 'pack ou amount requis')
+    except Exception:
+        return err(400, 'montant invalide')
+    paid = round(paid, 2)
+    credit = round(credit, 2)
+    c = db()
+    u = c.execute('SELECT email FROM users WHERE id=?', (uid,)).fetchone()
+    c.close()
+    params = {
+        'mode': 'payment',
+        'success_url': PAY_SUCCESS_URL,
+        'cancel_url': PAY_CANCEL_URL,
+        'client_reference_id': str(uid),
+        'metadata[uid]': str(uid),
+        'metadata[pack_usd]': '%.2f' % paid,
+        'metadata[credit_usd]': '%.0f' % credit,
+        'line_items[0][quantity]': '1',
+        'line_items[0][price_data][currency]': 'usd',
+        'line_items[0][price_data][unit_amount]': str(int(round(paid * 100))),
+        'line_items[0][price_data][product_data][name]':
+            'Quota.Hub — %.0f $ de crédit' % credit,
+        'line_items[0][price_data][product_data][description]':
+            'Crédit utilisable à l\'usage sur AutoSmart Flash 1.0. 1 $ payé = 1 $ d\'usage.',
+    }
+    if u and u['email']:
+        params['customer_email'] = u['email']
+    idem = str(payload.get('idem') or '')
+    if not re.fullmatch(r'[A-Za-z0-9_-]{8,64}', idem):
+        idem = None
+    try:
+        s = _stripe_post('/checkout/sessions', params, idem=idem)
+    except urllib.error.HTTPError as e:
+        log('STRIPE checkout HTTP ' + str(e.code) + ': ' + e.read().decode()[:200])
+        return err(502, 'Stripe a refusé la demande de paiement', 'upstream_error')
+    except Exception as e:
+        log('STRIPE checkout exception: ' + str(e)[:120])
+        return err(502, 'paiement indisponible pour le moment', 'upstream_error')
+    log('STRIPE session créée uid=%s payé=%.2f credit=%.2f' % (uid, paid, credit))
+    return 200, {'status': 'ok', 'url': s.get('url'), 'session': s.get('id'),
+                 'paid_usd': paid, 'credit_usd': credit}
+
+def stripe_verify(raw_body, sig_header, tolerance=300):
+    """Verifie la signature Stripe (schema v1) sur le CORPS BRUT. Temps constant."""
+    if not STRIPE_WH or not sig_header:
+        return False
+    try:
+        parts = dict(p.split('=', 1) for p in str(sig_header).split(',') if '=' in p)
+        t = int(parts.get('t', '0'))
+        v1 = parts.get('v1', '')
+    except Exception:
+        return False
+    if abs(time.time() - t) > tolerance:
+        return False
+    raw = raw_body if isinstance(raw_body, bytes) else str(raw_body).encode()
+    want = hmac.new(STRIPE_WH.encode(), str(t).encode() + b'.' + raw, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(want, v1)
+
+def pay_webhook(raw_body, sig_header):
+    """LE SEUL endroit qui crédite un paiement. Exige la signature Stripe."""
+    if not STRIPE_WH:
+        return 503, {'error': {'message': 'webhook non configuré'}}
+    if not stripe_verify(raw_body, sig_header):
+        log('STRIPE webhook: signature INVALIDE (rejeté)')
+        return 403, {'error': {'message': 'signature invalide'}}
+    try:
+        ev = json.loads(raw_body.decode('utf-8') if isinstance(raw_body, bytes) else str(raw_body))
+    except Exception:
+        return 400, {'error': {'message': 'json invalide'}}
+    if ev.get('type') != 'checkout.session.completed':
+        return 200, {'received': True, 'ignored': ev.get('type')}
+    obj = (ev.get('data') or {}).get('object') or {}
+    meta = obj.get('metadata') or {}
+    sid = obj.get('id') or ''
+    if not sid:
+        return 400, {'error': {'message': 'session sans id'}}
+    paid_cents = int(obj.get('amount_total') or 0)      # montant REELLEMENT paye
+    try:
+        uid = int(meta.get('uid') or obj.get('client_reference_id') or 0)
+        credit = float(meta.get('credit_usd') or 0)
+    except Exception:
+        uid, credit = 0, 0.0
+    if not uid or credit <= 0:
+        log('STRIPE webhook: metadata incomplète ' + sid[:20])
+        return 200, {'received': True, 'ignored': 'metadata'}
+    c = db()
+    if c.execute('SELECT id FROM payments WHERE stripe_session=?', (sid,)).fetchone():
+        c.close()
+        log('STRIPE webhook: doublon ignoré ' + sid[:20])
+        return 200, {'received': True, 'duplicate': True}
+    c.execute('INSERT INTO payments(user_id,stripe_session,amount_usd,credit_usd,currency,status,created_at)'
+              ' VALUES(?,?,?,?,?,?,?)',
+              (uid, sid, round(paid_cents / 100.0, 2), credit,
+               (obj.get('currency') or 'usd'), 'paid', int(time.time())))
+    # UPSERT : si la ligne d'abonnement n'existe pas encore, on la CRÉE. Un
+    # paiement encaissé ne doit jamais se perdre dans un UPDATE sans cible.
+    c.execute('''INSERT INTO subscriptions(user_id,plan,usd_total,usd_used,activated_at,status)
+                 VALUES(?, 'auto', ?, 0, ?, 'active')
+                 ON CONFLICT(user_id, plan) DO UPDATE SET usd_total = usd_total + ?,
+                 status='active', activated_at = COALESCE(activated_at, ?)''',
+              (uid, credit, int(time.time()), credit, int(time.time())))
+    c.commit(); c.close()
+    log('STRIPE PAYE %s… uid=%s payé=%.2f$ crédité=%.2f$' % (sid[:18], uid, paid_cents / 100.0, credit))
+    return 200, {'received': True}
+
 def usd_cost(model_id, tin, tout, cached_tok=0, fallback=None):
     """Cout client en $ d'une requete : tarif FIXE du modele servi x tokens reels.
     Le cache garde son avantage (−90 % sur les tokens servis du cache amont).
@@ -595,6 +742,17 @@ def init_db():
     _ensure_cols(c, 'subscriptions', 'usd_used REAL NOT NULL DEFAULT 0')
     _ensure_cols(c, 'codes', 'usd REAL')
     _ensure_cols(c, 'usage_logs', 'cost_client_usd REAL')
+    # 14-09 : journal des paiements Stripe. UNIQUE sur la session : une session
+    # Stripe ne peut pas créditer deux fois, même si le webhook est rejoué.
+    c.execute('''CREATE TABLE IF NOT EXISTS payments(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        stripe_session TEXT UNIQUE,
+        amount_usd REAL NOT NULL DEFAULT 0,
+        credit_usd REAL NOT NULL DEFAULT 0,
+        currency TEXT DEFAULT 'usd',
+        status TEXT NOT NULL DEFAULT 'paid',
+        created_at INTEGER)''')
     c.execute('CREATE TABLE IF NOT EXISTS migrations(name TEXT PRIMARY KEY, applied_at INTEGER)')
     # Reprise UNE SEULE FOIS : le reste a consommer est converti a l'ancienne regle
     # affichee au client (1 Md tokens = 10 $) — personne ne perd ni ne gagne de credit.
@@ -2487,6 +2645,13 @@ class Handler(BaseHTTPRequestHandler):
             status, obj = admin_codes(self.headers.get('X-Admin-Token', ''), payload)
             return self._json(status, obj)
 
+        # WEBHOOK STRIPE : public (Stripe ne connaît pas notre HMAC) mais
+        # authentifié par SA propre signature, vérifiée sur le corps brut.
+        # À placer AVANT le contrôle de signature du front.
+        if path == '/api/pay/webhook':
+            status, obj = pay_webhook(body, self.headers.get('Stripe-Signature', ''))
+            return self._json(status, obj)
+
         # tout le reste exige la signature du front Vercel
         # SAUF /v1/chat/completions : endpoint public OpenAI-compatible, protégé
         # par la clé sk-qh-* (auth applicative). Le secret HMAC ne protège que
@@ -2504,6 +2669,11 @@ class Handler(BaseHTTPRequestHandler):
             if not uid:
                 return self._json(401, {'error': {'message': 'session absente ou expirée'}})
             status, obj = create_key(uid, payload)
+        elif path == '/api/pay/checkout':
+            uid = session_user(self.headers.get('X-QH-Session', ''))
+            if not uid:
+                return self._json(401, {'error': {'message': 'session absente ou expirée'}})
+            status, obj = pay_checkout(uid, payload)
         elif path == '/api/redeem':
             uid = session_user(self.headers.get('X-QH-Session', ''))
             if not uid:

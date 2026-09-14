@@ -2,11 +2,26 @@
   "version": 2,
   "cleanUrls": true,
   "functions": {
-    "api/gw.js": { "maxDuration": 120 }
+    "api/gw.js": {
+      "maxDuration": 120
+    }
   },
   "rewrites": [
-    { "source": "/api/auto-mix", "destination": "/api/gw?path=api/auto-mix" },
-    { "source": "/gw/:path*", "destination": "/api/gw?path=:path*" },
-    { "source": "/v1/:path*", "destination": "/api/gw?path=v1/:path*" }
+    {
+      "source": "/api/stripe/webhook",
+      "destination": "/api/gw?path=api/pay/webhook"
+    },
+    {
+      "source": "/api/auto-mix",
+      "destination": "/api/gw?path=api/auto-mix"
+    },
+    {
+      "source": "/gw/:path*",
+      "destination": "/api/gw?path=:path*"
+    },
+    {
+      "source": "/v1/:path*",
+      "destination": "/api/gw?path=v1/:path*"
+    }
   ]
 }

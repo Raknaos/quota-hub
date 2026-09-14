@@ -49,6 +49,15 @@ export default async function handler(req, res) {
     if (v) headers[h] = Array.isArray(v) ? v[0] : v;
   }
 
+  // Webhook Stripe : la requête est authentifiée par la signature de STRIPE,
+  // vérifiée sur le corps brut côté passerelle. On ne peut donc pas y ajouter
+  // notre HMAC (Stripe ne le connaît pas) — on relaie sa signature telle quelle.
+  const IS_STRIPE_HOOK = (path === '/api/pay/webhook');
+  if (IS_STRIPE_HOOK) {
+    const ss = req.headers['stripe-signature'];
+    if (ss) headers['stripe-signature'] = Array.isArray(ss) ? ss[0] : ss;
+  }
+
   let body = null;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     const chunks = [];
@@ -68,10 +77,12 @@ export default async function handler(req, res) {
   if (body && body.length) {
     headers['content-length'] = String(body.length); // sinon Node part en chunked et la passerelle lit un body vide → 403
   }
-  headers['x-qh-sig'] = crypto
-    .createHmac('sha256', SECRET)
-    .update(`${ts}|${path}|${crypto.createHash('sha256').update(body || '').digest('hex')}|${headers['authorization'] || ''}`)
-    .digest('hex');
+  if (!IS_STRIPE_HOOK) {
+    headers['x-qh-sig'] = crypto
+      .createHmac('sha256', SECRET)
+      .update(`${ts}|${path}|${crypto.createHash('sha256').update(body || '').digest('hex')}|${headers['authorization'] || ''}`)
+      .digest('hex');
+  }
 
   // Failover : primaire + répliques (dédupliquées). Un nœud n'est abandonné que
   // s'il est réellement injoignable (connexion refusée / pin TLS / DNS) — jamais
