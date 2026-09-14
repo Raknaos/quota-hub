@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Quota.Hub Gateway v1 — Passerelle d'abonnement IA.
-Produit : abonnement $10 = 1 milliard de tokens (30 jours).
+Produit : crédit pay-as-you-go — nos tarifs fixes par modèle ($/1M tokens,
+table du site alignée UnoRouter). Le solde se recharge et s'AJOUTE au crédit restant.
 Le client NE CHOISIT PAS le modèle : le routeur interne sert TOUJOURS
 le canal le moins cher vivant (floor fiabilité 80 %, hystérésis 15 %
 pour préserver le cache de prompts, cooldowns automatiques).
@@ -384,6 +385,76 @@ def observed_cost(model_id):
         if d is not None:
             OBS['d'], OBS['ts'] = d, now
     return (OBS['d'] or {}).get(model_id)
+
+# ── RENTABILITÉ PAR MODÈLE (14-09) ──────────────────────────────────────────
+# La marge se calcule sur NOS TARIFS FIXES ($ / 1M tokens entrée-sortie, table
+# du site alignée UnoRouter) face au coût amont réellement payé. Mesuré sur
+# 7 jours : deepseek-v4.1-flash 94 %, glm 92 %, grok 89 %, deepseek-v4-flash
+# 76 %, qwen 75 %. Les tarifs étant fixes, c'est au ROUTEUR d'écarter une
+# véritable perte — pas à l'affichage de bouger.
+PROF = {'d': None, 'ts': 0.0}
+PROF_TTL = 1800
+SELL_PRICES = {          # $ par 1M tokens : (entree, sortie) — NOS TARIFS FIXES
+    'qwen3.8-flash':                 (0.0024, 0.0070),
+    'glm-5.3-flash':                 (0.02,   0.08),
+    'deepseek-v4.1-flash':           (0.18,   0.54),
+    'grok-4.6':                      (0.05,   0.15),
+    'deepseek-v4-pro':               (0.04,   0.11),
+    'deepseek-v4-flash':             (0.01,   0.03),
+    'deepseek-v4-flash-vision-exp':  (0.01,   0.03),
+}
+PROFIT_FLOOR = float(os.environ.get('QH_PROFIT_FLOOR', '0'))     # marge mini exigee (%)
+PROFIT_MIN_REQ = int(os.environ.get('QH_PROFIT_MIN_REQ', '50'))  # echantillon minimum
+
+def profit_margin(model_id):
+    """Marge MESUREE (7 j) = 1 - cout amont / revenu a NOS TARIFS FIXES.
+    None si echantillon trop faible ou tarif inconnu.
+    NB : l'ancienne base "1 Md de tokens factures = 10 $" n'existe plus ; prise
+    comme reference elle donnait des marges fausses (deepseek-v4.1-flash vu a
+    -26 % alors qu'a 0,18/0,54 $ par million il degage ~94 %)."""
+    now = time.time()
+    if PROF['d'] is None or now - PROF['ts'] > PROF_TTL:
+        d = None
+        try:
+            c = db()
+            rows = c.execute('SELECT model_served, COALESCE(SUM(prompt_tokens),0),'
+                             ' COALESCE(SUM(completion_tokens),0),'
+                             ' COALESCE(SUM(cost_amont_usd),0), COUNT(*)'
+                             ' FROM usage_logs WHERE created_at > ?'
+                             ' GROUP BY model_served', (int(now) - 7 * 86400,)).fetchall()
+            c.close()
+            d = {}
+            for m, pin, pout, cost, n in rows:
+                p = SELL_PRICES.get(m)
+                if not p or n < PROFIT_MIN_REQ:
+                    continue
+                rev = pin / 1e6 * p[0] + pout / 1e6 * p[1]
+                if rev > 0:
+                    d[m] = ((rev - cost) / rev) * 100.0
+        except Exception as e:
+            log('PROF indisponible: ' + str(e)[:60])
+        if d is not None:
+            PROF['d'], PROF['ts'] = d, now
+    return (PROF['d'] or {}).get(model_id)
+
+def keep_profitable(models):
+    """Ecarte un modele dont la marge MESUREE passe sous le seuil (defaut 0 % :
+    seules les vraies pertes), et seulement s'il reste une alternative. On ne
+    refuse jamais tout : mieux vaut servir a marge faible qu'un 503."""
+    if len(models) < 2:
+        return models
+    keep, drop = [], []
+    for m in models:
+        mg = profit_margin(m)
+        if mg is not None and mg < PROFIT_FLOOR:
+            drop.append('%s(%.0f%%)' % (m, mg))
+        else:
+            keep.append(m)
+    if drop and keep:
+        log('PROFIT ecarte %s : marge mesuree < seuil %.0f%%' % (','.join(drop), PROFIT_FLOOR))
+        return keep
+    return models
+
 NET_FAIL_TS = []         # détection de crise plateforme
 LOGIN_FAILS = {}         # (ip, email) -> [ts_list]
 RATE = {}                # key_id -> [ts_rolling]
@@ -1055,6 +1126,9 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
             models = honest
         elif live_fast:
             models = live_fast
+    # 14-09 : un modèle servi à perte est écarté tant qu'une alternative rentable vit.
+    if plan == 'auto':
+        models = keep_profitable(models)
     last_err = None
     t_start = time.time()
     deadline = t_start + REQUEST_BUDGET_S
@@ -1574,6 +1648,9 @@ def chat_auto_stream(payload, plan, key_id, uid):
             models = honest
         elif live_fast:
             models = live_fast
+    # 14-09 : même garde de rentabilité sur le chemin flux.
+    if plan == 'auto':
+        models = keep_profitable(models)
     last_err, t_start = None, time.time()
     for attempt in range(3):
         if attempt and time.time() - t_start > REQUEST_BUDGET_S - 20:
