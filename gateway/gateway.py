@@ -158,6 +158,12 @@ CONV_LOCK = threading.Lock()
 # réel explose. Dès qu'une requête porte un vrai contexte, les canaux sans cache
 # sont écartés du choix tant qu'un canal cache-capable existe dans le pool.
 CACHE_MIN_TOKENS = 1500    # taille de prompt au-delà de laquelle le cache pèse vraiment
+CACHE_HONEST_MIN = 0.30    # cache RÉEL minimal pour rester éligible aux gros prompts
+# Pool « véloce » : candidats pour les gros prompts (résumé/compression). Cette
+# liste DOIT rester cohérente avec MODELS — le 13-09 elle est silencieusement
+# passée de 3 à 2 entrées (sortie de deepseek-v4-flash) et n'a gardé QUE les deux
+# canaux sans cache, ce qui a fait 86 % de la facture amont à 3 % et 0 % de hit.
+POOL_VELOCE = ['qwen3.8-flash', 'glm-5.3-flash', 'deepseek-v4.1-flash', 'deepseek-v4-flash']
 
 def has_cache(b, model_id=None):
     """Le canal propose-t-il un VRAI cache prompt actif ?
@@ -301,11 +307,20 @@ def refresh_observed_cache():
                             WHERE created_at > ? AND prompt_tokens >= 2000
                             GROUP BY model_served, supplier''', (since,)).fetchall()
         c.close()
+        acc = {}
         for m, sup, tot_in, tot_cac, n in rows:
             if tot_in and tot_in > 0 and n >= 5:
-                rate = float(tot_cac or 0) / float(tot_in)
-                d[(m, sup)] = rate
-                d[m] = max(d.get(m, 0.0), rate)
+                d[(m, sup)] = float(tot_cac or 0) / float(tot_in)
+                a = acc.setdefault(m, [0, 0])
+                a[0] += int(tot_in)
+                a[1] += int(tot_cac or 0)
+        # Niveau MODELE = moyenne PONDEREE par les tokens (14-09). L'ancien
+        # max() entre fournisseurs laissait croire que glm-5.3-flash cachait a
+        # 26.6 % alors que le canal reellement servi tournait a 3 %. Le routeur
+        # amont choisit seul son canal : c'est donc le taux moyen — pas le
+        # meilleur cas — qui decrit ce qu'on paie vraiment.
+        for m, (ti, tc) in acc.items():
+            d[m] = (float(tc) / float(ti)) if ti else 0.0
     except Exception as e:
         log('OBS_CACHE indisponible: ' + str(e)[:60])
     OBS_CACHE['d'] = d
@@ -329,6 +344,19 @@ def get_real_cache_hit(model_id, supplier=None):
     if model_id in d:
         return max(0.0, min(0.95, d[model_id]))
     return None
+
+def real_cache_rate(model_id, supplier=None):
+    """Taux de cache REELLEMENT honore (0.0 - 0.95), sans jamais croire le marche.
+    Priorite 1 : sonde active des 20 min. Priorite 2 : moyenne observee sur nos
+    24 h. Sinon 0.0. On ne se rabat JAMAIS sur les chiffres annonces par l'amont :
+    glm-5.3-flash affiche 53 % de cache chez 新3 pour 3 % reellement factures."""
+    p = probe_cache_hit(model_id)
+    if p is not None:
+        return p
+    r = get_real_cache_hit(model_id, supplier)
+    if r is not None:
+        return r
+    return 0.0
 
 def observed_cost(model_id):
     """(cout observe /M tokens, nb requetes) sur nos 7 derniers jours, ou None."""
@@ -1002,10 +1030,14 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
     pin_fallback = None
     if not req and _est_tok >= 8000 and plan == 'auto':
         # Prompt volumineux (résumé/compression) : privilégier les modèles véloces
-        # pour garantir une réponse < 40s et éviter le mur des 120s Vercel.
-        fast_preferred = [m for m in ['glm-5.3-flash', 'deepseek-v4-flash', 'deepseek-v4.1-flash'] if m in models]
-        live_fast = [m for m in fast_preferred if not in_cooldown(m)[0] and ((market30_best(m) or {}).get('best') or (market_get(m) or {}).get('best'))]
-        if live_fast:
+        # pour garantir une réponse < 40s et éviter le mur des 120s Vercel — mais
+        # UNIQUEMENT ceux dont le cache est réellement honoré (cf. flux).
+        pool = [m for m in POOL_VELOCE if m in models]
+        live_fast = [m for m in pool if not in_cooldown(m)[0] and ((market30_best(m) or {}).get('best') or (market_get(m) or {}).get('best'))]
+        honest = [m for m in live_fast if real_cache_rate(m) >= CACHE_HONEST_MIN]
+        if honest:
+            models = honest
+        elif live_fast:
             models = live_fast
     last_err = None
     t_start = time.time()
@@ -1521,13 +1553,20 @@ def chat_auto_stream(payload, plan, key_id, uid):
                 'message': 'images reçues mais aucun canal vision actif pour le moment — réessayez plus tard ou retirer les images',
                 'type': 'invalid_request_error', 'code': 'vision_unavailable'}})
     if not has_images(payload) and _est_tok >= 8000 and plan == 'auto':
-        # gros prompt (compression/résumé) : modèles véloces d'abord, mêmes raisons
-        fast_preferred = [m for m in ['glm-5.3-flash', 'deepseek-v4-flash', 'deepseek-v4.1-flash']
-                          if m in models]
-        live_fast = [m for m in fast_preferred
+        # Gros prompt (compression/résumé) : on ne garde QUE les modèles dont le
+        # cache est réellement honoré chez l'amont. Le 13-09 16:37 la liste
+        # codée en dur s'était réduite à ['glm-5.3-flash','deepseek-v4.1-flash']
+        # (sortie de deepseek-v4-flash du pool) : 86 % de la facture amont est
+        # partie sur des canaux à 3 % et 0 % de hit, quand qwen3.8-flash tenait
+        # 85 %. On lit la mesure, pas la liste.
+        pool = [m for m in POOL_VELOCE if m in models]
+        live_fast = [m for m in pool
                      if not in_cooldown(m)[0] and ((market30_best(m) or {}).get('best')
                                                    or (market_get(m) or {}).get('best'))]
-        if live_fast:
+        honest = [m for m in live_fast if real_cache_rate(m) >= CACHE_HONEST_MIN]
+        if honest:
+            models = honest
+        elif live_fast:
             models = live_fast
     last_err, t_start = None, time.time()
     for attempt in range(3):
