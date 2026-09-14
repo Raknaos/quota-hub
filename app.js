@@ -1652,6 +1652,36 @@ window.submitCreateKey = async function() {
   }
 };
 
+/* Ouverture / fermeture de la modale de clé. Les deux boutons du site
+   ("+ Créer une clé" du tableau de bord, croix de fermeture, "J'ai bien noté ma clé")
+   appelaient openCreateKeyModal() / closeKeyModal() qui n'existaient NULLE PART :
+   impossible de générer une clé API depuis le site. */
+window.openCreateKeyModal = function() {
+  const m = document.getElementById('key-modal');
+  if (!m) return;
+  const form = document.getElementById('key-create-form');
+  const box = document.getElementById('key-result-box');
+  if (form) form.classList.remove('hidden');
+  if (box) box.classList.add('hidden');
+  const nameEl = document.getElementById('new-key-name');
+  if (nameEl) nameEl.value = '';
+  m.classList.remove('hidden');
+  m.style.display = 'flex';
+};
+
+window.closeKeyModal = function() {
+  const m = document.getElementById('key-modal');
+  if (!m) return;
+  m.classList.add('hidden');
+  m.style.display = 'none';
+  const box = document.getElementById('key-result-box');
+  if (box) box.classList.add('hidden');
+  const form = document.getElementById('key-create-form');
+  if (form) form.classList.remove('hidden');
+  const nameEl = document.getElementById('new-key-name');
+  if (nameEl) nameEl.value = '';
+};
+
 // 5. Révocation de Clé API
 window.revokeKey = async function(keyId) {
   if (!confirm('Confirmez-vous la révocation immédiate de cette clé API ?')) return;
