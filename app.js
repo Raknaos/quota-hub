@@ -488,6 +488,43 @@ const MODELS_DATA = [
   }
 ];
 
+/* === VÉRITÉ DES MESURES (14-09) ============================================
+   Constat d'audit : ce tableau affichait des statistiques fabriquées en dur
+   (99,8 % de succès, 2,20 s de latence, 1,45 B tokens/semaine...) alors que la
+   mesure réelle donnait ~83 % de succès et p50 = 22,4 s.
+   Désormais : AUCUNE valeur inventée.
+   - `tokens_weekly` / `availability` : aucune source de mesure -> « — ».
+   - `success` / `latency` : remplis par la sonde réelle (/api/prices).
+   - `discount` : RECALCULÉ depuis les prix affichés (officiel vs nôtre) pour
+     rester cohérent avec ce que le visiteur voit.
+   ========================================================================= */
+function numFromPrice(s) {
+  const v = parseFloat(String(s == null ? '' : s).replace(/[^0-9.]/g, ''));
+  return isFinite(v) ? v : NaN;
+}
+function recomputeDiscount(m) {
+  const off = numFromPrice(m.input_official);
+  const own = numFromPrice(m.input_ours);
+  if (isFinite(off) && isFinite(own) && off > 0 && own > 0 && own < off) {
+    m.discount_num = Math.round((1 - own / off) * 100);
+    m.discount = '−' + m.discount_num + '%';
+  } else {
+    m.discount_num = 0;
+    m.discount = '—';
+  }
+}
+function sanitizeModelStats() {
+  MODELS_DATA.forEach(m => {
+    m.tokens_weekly = '—';
+    m.tokens_num = 0;
+    m.availability = '—';
+    m.success = '—';
+    m.latency = '—';
+    recomputeDiscount(m);
+  });
+}
+sanitizeModelStats();
+
 /* === FILTRES DU CATALOGUE === */
 const FILTER_STATE = {
   modality: 'all',
@@ -1481,13 +1518,22 @@ async function loadLivePlatformStats() {
       if (elTokens && data.total_tokens) {
         elTokens.innerText = Number(data.total_tokens).toLocaleString('fr-FR');
       }
-      const elTpm = document.querySelector('#tab-home .text-emerald-400.font-mono.text-xl');
+      const elTpm = $('stat-tpm') || document.querySelector('#tab-home .text-emerald-400.font-mono.text-xl');
       if (elTpm && data.tokens_per_minute) {
         elTpm.innerText = '~ ' + Number(data.tokens_per_minute).toLocaleString('fr-FR');
       }
-      const elReqs = document.querySelector('#tab-home .font-mono.text-xl.font-bold.text-foreground');
+      const elReqs = $('stat-total-requests') || document.querySelector('#tab-home .font-mono.text-xl.font-bold.text-foreground');
       if (elReqs && data.total_requests) {
         elReqs.innerText = Number(data.total_requests).toLocaleString('fr-FR');
+      }
+      // Mesures RÉELLES (14-09) : part de cache facturée et latence p50 du 1er jeton.
+      const elCache = $('stat-cache-share');
+      if (elCache && typeof data.cache_share === 'number' && data.cache_share > 0) {
+        elCache.innerText = (data.cache_share * 100).toFixed(0) + '%';
+      }
+      const elP50 = $('stat-p50');
+      if (elP50 && data.p50_first_token_ms_24h) {
+        elP50.innerText = '~ ' + (data.p50_first_token_ms_24h / 1000).toFixed(1) + 's';
       }
     }
   } catch (err) {
@@ -1512,6 +1558,8 @@ async function syncModelsWithLiveMarket() {
           if (best.out_now) match.output_ours = '$' + Number(best.out_now).toFixed(4);
           if (best.latency_s) match.latency = Number(best.latency_s).toFixed(2) + 's';
           if (best.sr24) match.success = best.sr24.toFixed(1) + '%';
+          // la remise est recalculée sur les prix RÉELS qui viennent d'arriver
+          recomputeDiscount(match);
         }
       });
       renderModelsTableUno();

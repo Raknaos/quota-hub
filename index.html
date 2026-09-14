@@ -202,11 +202,11 @@
               </div>
             </div>
             <div class="p-4 flex flex-col">
-              <span class="font-mono text-[10px] tracking-widest text-muted-foreground uppercase mb-1">Disponibilité</span>
-              <span class="text-2xl font-bold font-sans text-foreground">99.9%</span>
+              <span class="font-mono text-[10px] tracking-widest text-muted-foreground uppercase mb-1">Cache prompt amont</span>
+              <span class="text-2xl font-bold font-sans text-foreground" id="stat-cache-share">—</span>
               <div class="mt-2 flex items-center gap-1.5">
                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                <span class="font-mono text-[10px] text-muted-foreground">Flotte 4 VPS</span>
+                <span class="font-mono text-[10px] text-muted-foreground">Part mesurée sur la facturation</span>
               </div>
             </div>
           </div>
@@ -226,22 +226,22 @@
 
             <div class="mb-6">
               <div class="font-mono text-4xl sm:text-5xl font-bold tracking-tight text-foreground" id="stat-hero-tokens">
-                177,834,027
+                —
               </div>
-              <div class="font-mono text-[11px] text-muted-foreground mt-1.5">tokens réels consommés sur la clé A6API amont</div>
+              <div class="font-mono text-[11px] text-muted-foreground mt-1.5">tokens facturés (remise cache amont déduite)</div>
             </div>
 
             <div class="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
               <div class="p-3.5 rounded-xs bg-[#0d0d0d] border border-white/5">
                 <span class="font-mono text-[9px] uppercase tracking-wider text-muted-foreground block mb-1">Requêtes traitées</span>
-                <span class="font-mono text-xl font-bold text-foreground">36,982</span>
+                <span class="font-mono text-xl font-bold text-foreground" id="stat-total-requests">—</span>
               </div>
               <div class="p-3.5 rounded-xs bg-[#0d0d0d] border border-white/5">
                 <div class="flex items-center justify-between mb-1">
                   <span class="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Débit / min</span>
                   <span class="font-mono text-[8px] text-emerald-400 font-bold px-1.5 py-0.2 rounded-xs bg-emerald-500/10 border border-emerald-500/20">LIVE</span>
                 </div>
-                <span class="font-mono text-xl font-bold text-emerald-400">~ 118,556</span>
+                <span class="font-mono text-xl font-bold text-emerald-400" id="stat-tpm">—</span>
               </div>
             </div>
 
@@ -895,9 +895,9 @@ for chunk in response:
               <span class="text-[10px] text-muted-foreground">Verrou CONV actif</span>
             </div>
             <div class="p-3 rounded-sm bg-secondary border border-border">
-              <span class="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Latence Moyenne</span>
-              <div class="text-base font-bold text-foreground">~ 2.5s</div>
-              <span class="text-[10px] text-emerald-400 font-semibold">Streaming direct</span>
+              <span class="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Latence 1er jeton</span>
+              <div class="text-base font-bold text-foreground" id="stat-p50">—</div>
+              <span class="text-[10px] text-emerald-400 font-semibold">p50 mesurée sur 24 h</span>
             </div>
             <div class="p-3 rounded-sm bg-secondary border border-border">
               <span class="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Modalités</span>
