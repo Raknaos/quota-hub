@@ -47,6 +47,29 @@ Le champ `model` est ignoré : le client ne choisit jamais le modèle servi.
 - SDK OpenAI : `base_url = "https://smartapi.cheap/v1"`.
 - `GET /api/me` → solde, clés, consommation.
 
+## Paiement (Stripe)
+
+Le client paie sur **Stripe Checkout hébergé** (aucune donnée de carte ne touche le
+site). Le crédit n'est accordé **que** par le webhook signé de Stripe — jamais par le
+retour navigateur — et une session ne crédite qu'**une fois** (`payments.stripe_session`
+UNIQUE, rejeu de webhook sans effet).
+
+| Route | Rôle |
+|---|---|
+| `POST /api/pay/checkout` (session requise) | crée la session Stripe. `{pack:20}` = abonnement → **40 $** ; `{amount:10}` = recharge 1:1 → **10 $** |
+| `POST /api/stripe/webhook` (public, signé Stripe) | `checkout.session.completed` → crédite `usd_total`, journalise dans `payments` |
+
+Clés à poser **par l'ops, sur chaque nœud** (jamais au front, jamais dans un log) :
+
+```bash
+ssh -i <clé> root@<nœud> "bash /opt/quota-hub/_stripe_keys.sh"   # saisie masquée
+```
+
+Côté Stripe : endpoint `https://smartapi.cheap/api/stripe/webhook`, événement
+`checkout.session.completed`, puis copier le *Signing secret* (`whsec_…`).
+Tant que les clés sont absentes, le site répond « paiement non configuré » —
+il n'invente jamais un encaissement.
+
 ## Ops (SSH, loopback uniquement)
 
 - Codes : `curl -sk -X POST https://127.0.0.1:8890/admin/codes -H 'X-Admin-Token: …' -d '{"plan":"auto"}'`
