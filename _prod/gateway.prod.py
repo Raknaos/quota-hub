@@ -1446,6 +1446,15 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
                     'ts': time.time(), 'tin': int(tin), 'tout': int(tout),
                     'cached': int(cached)}
             conv_prune()
+        # Appel d'outil ecrit en TEXTE (qwen3.8-flash, intermittent) -> natif.
+        if not (msg0.get('tool_calls')):
+            _tc, _rest = text_toolcalls(msg0.get('content') or '', body.get('tools'))
+            if _tc:
+                msg0['tool_calls'] = _tc
+                msg0['content'] = _rest or None
+                c0['message'] = msg0
+                c0['finish_reason'] = 'tool_calls'
+                log('GW %s: tool_call TEXTE -> natif converti (%d)' % (model_id, len(_tc)))
         return data, None, tin, tout, {'model': model_id, 'supplier': b.get('supplier'),
                                        'best': b, 'est': est, 'plan': plan,
                                        'lat_ms': int(dt * 1000),
@@ -1750,6 +1759,46 @@ def redeem(uid, payload):
 # le client ne voit que PUBLIC_MODEL_ID.
 _SAFE_DELTA = ('role', 'content', 'reasoning_content', 'tool_calls')
 
+def _tc_hold_prefix(t):
+    """Vrai si t (lstrippé, minuscules) peut encore devenir un appel d'outil texte."""
+    t = t.lstrip().lower()
+    base = '<tool_call'
+    return base.startswith(t) or t.startswith(base)
+
+# --- Appel d'outil ecrit EN TEXTE -> appel natif (mesure 14-09) --------------
+# Certains canaux (qwen3.8-flash) emettent PARFOIS l'appel d'outil en texte :
+#   <tool_call name="terminal">{"command": "..."}</tool_call>
+# au lieu d'un tool_calls natif. Le client affiche alors du texte brut et
+# reste figé (« parfois ça s'arrête comme ça »). On convertit ici.
+_TC_OPEN = ('<tool_call', '<tool', '<')
+
+def text_toolcalls(content, tools=None):
+    """(tool_calls_natifs, contenu_restant) si le texte EST un appel d'outil."""
+    if not content or '<tool' not in content.lower():
+        return None, content
+    import re as _re
+    rx = _re.compile(r'<\s*tool_call\s+name\s*=\s*["\']?([\w.\-]+)["\']?\s*>\s*(\{.*?\})\s*<\s*/\s*tool_call\s*>',
+                     _re.S | _re.I)
+    ok = {t.get('function', {}).get('name') for t in (tools or [])
+          if isinstance(t, dict) and isinstance(t.get('function'), dict)}
+    found = []
+    for m in rx.finditer(content):
+        name = m.group(1)
+        if ok and name not in ok:
+            continue
+        try:
+            args = json.loads(m.group(2))
+        except Exception:
+            continue
+        found.append((m.start(), m.end(), name, json.dumps(args, ensure_ascii=False)))
+    if not found:
+        return None, content
+    calls = [{'id': 'call_qhtext%d' % i, 'type': 'function',
+              'function': {'name': n, 'arguments': a}}
+             for i, (_, _, n, a) in enumerate(found)]
+    rest = rx.sub('', content).strip()
+    return calls, rest
+
 def sse_chunk(delta, finish=None, idx=0, usage=None, cid='chatcmpl-qh'):
     """Chunk SSE public, compatible SDK OpenAI. Identité de marque uniquement."""
     ev = {'id': cid, 'object': 'chat.completion.chunk',
@@ -1900,6 +1949,7 @@ def chat_auto_stream(payload, plan, key_id, uid):
                 'sig': ctx.get('sig'),
                 'requested': payload.get('model'), 't_start': t_start,
                 'messages': payload.get('messages') or [],
+                'tools': payload.get('tools') or [],
                 'cid': 'chatcmpl-' + secrets.token_hex(12)}, None
     if last_err is None:
         last_err = (-1, 'aucun canal')
@@ -2319,6 +2369,11 @@ class Handler(BaseHTTPRequestHandler):
 
         resp = rl['resp']
         content, usage, finish = [], None, None
+        # Garde tool-call-texte : tant que le contenu pourrait être un appel
+        # d'outil écrit en texte, on le MAINTIENT (il ne part pas au client).
+        hold = True
+        held = []          # fragments de contenu maintenus
+        relayed_native = False   # un tool_calls natif est déjà passé
         try:
             wsend(sse_chunk({'role': 'assistant'}, None, 0, None, cid))
             pending = list(rl.get('prime') or [])
@@ -2356,7 +2411,45 @@ class Handler(BaseHTTPRequestHandler):
                     content.append(delta['content'])
                 # seuls les champs de contenu passent : aucune fuite de canal
                 pub = {k: v for k, v in delta.items() if k in _SAFE_DELTA}
-                wsend(sse_chunk(pub, None, c0.get('index') or 0, None, cid))
+                if isinstance(delta.get('content'), str) and hold:
+                    held.append(delta['content'])
+                    _acc = ''.join(held)
+                    if relayed_native or delta.get('tool_calls'):
+                        # deja un appel natif : le texte est du raisonnement
+                        hold = False
+                        for _h in held[:-1]:
+                            wsend(sse_chunk({'content': _h}, None, c0.get('index') or 0, None, cid))
+                        pub.pop('content', None)
+                        wsend(sse_chunk(pub, None, c0.get('index') or 0, None, cid))
+                    elif _tc_hold_prefix(_acc):
+                        pub.pop('content', None)          # maintenu : rien au client
+                    else:
+                        hold = False                       # texte normal : on relache
+                        for _h in held:
+                            wsend(sse_chunk({'content': _h}, None, c0.get('index') or 0, None, cid))
+                        pub.pop('content', None)
+                        held = []
+                else:
+                    if pub.get('tool_calls'):
+                        relayed_native = True
+                    wsend(sse_chunk(pub, None, c0.get('index') or 0, None, cid))
+            # Fin de flux : un appel d'outil en texte maintenu devient natif.
+            if hold and held:
+                _calls, _rest = text_toolcalls(''.join(held), rl.get('tools'))
+                if _calls:
+                    log('STREAM %s: tool_call TEXTE -> natif converti (%d)'
+                        % (rl.get('model_id'), len(_calls)))
+                    for i, tc in enumerate(_calls):
+                        wsend(sse_chunk({'tool_calls': [{
+                            'index': i, 'id': tc['id'], 'type': 'function',
+                            'function': tc['function']}]}, None, 0, None, cid))
+                    if _rest:
+                        wsend(sse_chunk({'content': _rest}, None, 0, None, cid))
+                    finish = 'tool_calls'
+                else:
+                    for _h in held:
+                        wsend(sse_chunk({'content': _h}, None, 0, None, cid))
+            held = []
             if not usage:
                 wsend(sse_chunk({}, finish or 'stop', 0, None, cid))
             wsend(b'data: [DONE]\n\n')
