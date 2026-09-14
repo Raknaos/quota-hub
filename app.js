@@ -1554,8 +1554,10 @@ async function syncModelsWithLiveMarket() {
         const match = MODELS_DATA.find(x => x.id.toLowerCase() === mId.toLowerCase());
         if (match && live.top && live.top.length > 0) {
           const best = live.top[0];
-          if (best.in_now) match.input_ours = '$' + Number(best.in_now).toFixed(4);
-          if (best.out_now) match.output_ours = '$' + Number(best.out_now).toFixed(4);
+          // 14-09 : on n'écrase PLUS notre prix de vente par le prix d'achat amont.
+          // Afficher best.in_now (= ce qu'on paie à A6API) revenait à publier la marge,
+          // et faisait afficher un prix INFÉRIEUR au prix de vente voulu. Ne sont
+          // rafraîchies en direct que les MESURES (fiabilité, latence).
           if (best.latency_s) match.latency = Number(best.latency_s).toFixed(2) + 's';
           if (best.sr24) match.success = best.sr24.toFixed(1) + '%';
           // la remise est recalculée sur les prix RÉELS qui viennent d'arriver

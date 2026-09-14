@@ -606,10 +606,12 @@ def market30_public(d30=None):
         tops = ent.get('top') or []
         pub = []
         for t in tops[:1]:
-            pub.append({'in_now': t.get('in_now'), 'out_now': t.get('out_now'),
-                        'cache_now': t.get('cache_now'), 'sr24': t.get('sr24'),
-                        'latency_s': t.get('latency_s'), 'n24': t.get('n24'),
-                        'available': t.get('available'), 'worst': t.get('worst')})
+            # 14-09 : AUCUN PRIX N'EST PUBLIÉ. Avant, cette vue exposait le prix
+            # d'achat A6API tel quel -> le visiteur en déduisait directement la
+            # marge. Ne sortent plus que les MESURES (fiabilité, volume, latence).
+            pub.append({'sr24': t.get('sr24'), 'latency_s': t.get('latency_s'),
+                        'n24': t.get('n24'), 'available': t.get('available'),
+                        'worst': t.get('worst')})
         out['models'][mid] = {'top': pub, 'n_channels': len(tops)}
     return out
 
@@ -1666,7 +1668,10 @@ def api_chat(auth_header, payload, ip, want_stream=False):
                      WHERE user_id=? AND plan=?''', (uid, plan)).fetchone()
     if not s or s['status'] != 'active' or s['tokens_used'] >= s['tokens_total']:
         c.close()
-        return err(402, f"abonnement {plan} inactif ou tokens épuisés — activez un code d'abonnement",
+        # 14-09 : plus de « quota » a vie. Le solde est un CREDIT qui s'ajoute a
+        # chaque recharge (cf. redeem : tokens_total = tokens_total + recharge).
+        # Les codes d'erreur restent ceux du standard OpenAI pour la compatibilite SDK.
+        return err(402, f"crédit épuisé (plan {plan}) — rechargez votre crédit pour continuer",
                    'quota_exceeded', 'insufficient_quota')
     if not isinstance(payload.get('messages'), list) or not payload['messages']:
         c.close()
