@@ -11,7 +11,15 @@ const APP_STATE = {
 };
 
 const $ = id => document.getElementById(id);
-const fmtBalanceUSD = tokens => '$' + Math.max(0, (tokens || 0) / 1e9 * 10).toFixed(2);
+/* Le credit est un MONTANT EN DOLLARS (1 $ paye = 1 $ d'usage) : la passerelle
+   renvoie deja le solde en $ (subscription.<plan>.credit_usd). L'ancienne
+   conversion "1 Md de tokens = 10 $" n'existe plus nulle part. */
+const fmtUsd = usd => '$' + Math.max(0, Number(usd) || 0).toFixed(2);
+const creditUsdOf = (plan) => {
+  const s = (APP_STATE.me?.subscription || {})[plan] || {};
+  if (s.credit_usd != null) return Number(s.credit_usd) || 0;
+  return Math.max(0, (Number(s.usd_total) || 0) - (Number(s.usd_used) || 0));
+};
 
 /* Modele PUBLIC unique : le routeur sonde tous les modeles du pool, elit le
    moins cher vivant (cache reel compris) et le sert sous ce nom de marque.
@@ -716,9 +724,9 @@ window.selectRecharge = function(amount, btn) {
   const summaryTok = $('summary-tokens');
   if (summaryAmt) summaryAmt.textContent = '$' + amount.toFixed(2);
 
-  // Calcul d'équivalence de tokens sur Qwen3.8 Flash (0.0024$/1M in, 0.0070$/1M out -> moyen ~0.0035$/1M)
-  const tokB = (amount / 0.0024).toFixed(2);
-  if (summaryTok) summaryTok.textContent = `~ ${(amount / 0.0024).toLocaleString('fr-FR', {maximumFractionDigits: 1})} Millions de tokens réels`;
+  // 1 $ paye = 1 $ d'usage. Plus d'equivalence en tokens : elle dependait du
+  // modele servi, donc elle etait fausse pour tous les modeles sauf un.
+  if (summaryTok) summaryTok.textContent = `$${amount.toFixed(2)} de crédit, sans date limite`;
 };
 
 /* === CHAT INTERACTIF === */
@@ -1071,8 +1079,7 @@ function setAuthUI() {
 }
 
 function renderMe() {
-  const auto = APP_STATE.me?.subscription?.auto || {};
-  const balance = fmtBalanceUSD((auto.tokens_total || 0) - (auto.tokens_used || 0));
+  const balance = fmtUsd(creditUsdOf('auto'));
   const pill = document.querySelector('.header-balance');
   if (pill) pill.textContent = balance;
   APP_STATE.keys = APP_STATE.me?.keys || [];
@@ -1159,7 +1166,7 @@ async function loadUsage() {
   $('usage-stats').innerHTML =
     `<div class="usage-stat"><b>${nf(d.totals?.requests)}</b><span>Requêtes au total</span></div>` +
     `<div class="usage-stat"><b>${nf(d.totals?.tokens)}</b><span>Tokens facturés</span></div>` +
-    `<div class="usage-stat"><b>$${Number(d.totals?.cost_usd || 0).toFixed(4)}</b><span>Coût réel des requêtes</span></div>`;
+    `<div class="usage-stat"><b>$${Number(d.totals?.cost_usd || 0).toFixed(4)}</b><span>Déduit de votre crédit</span></div>`;
 
   const days = d.per_day || [], mx = Math.max(1, ...days.map(x => x.tokens || 0));
   $('usage-chart').innerHTML = days.length ? days.map(x => `
@@ -1672,13 +1679,16 @@ async function loadDashboardUsageLogs() {
       headers: { 'X-QH-Session': sess }
     });
     const data = await res.json();
-    if (data && data.logs && data.logs.length > 0) {
-      tbody.innerHTML = data.logs.map(l => `
+    // La passerelle renvoie "rows" (pas "logs") : la table du tableau de bord
+    // restait donc vide. Cost = ce qui a ete DEBITE du credit, jamais notre cout.
+    const logs = (data && (data.rows || data.logs)) || [];
+    if (logs.length > 0) {
+      tbody.innerHTML = logs.map(l => `
         <tr class="hover:bg-secondary/40 transition-colors">
-          <td class="py-3 px-4 text-muted-foreground">${new Date(l.created_at * 1000).toLocaleTimeString('fr-FR')}</td>
-          <td class="py-3 px-4 font-bold text-foreground">${l.model_public || 'AutoSmart Flash 1.0'}</td>
-          <td class="py-3 px-4 text-right">${Number(l.prompt_tokens || 0).toLocaleString('fr-FR')}</td>
-          <td class="py-3 px-4 text-right text-emerald-400 font-bold">${Number(l.cached_tokens || 0).toLocaleString('fr-FR')}</td>
+          <td class="py-3 px-4 text-muted-foreground">${new Date((l.ts || l.created_at || 0) * 1000).toLocaleTimeString('fr-FR')}</td>
+          <td class="py-3 px-4 font-bold text-foreground">${l.model || l.model_public || 'AutoSmart Flash 1.0'}</td>
+          <td class="py-3 px-4 text-right">${Number(l.in != null ? l.in : (l.prompt_tokens || 0)).toLocaleString('fr-FR')}</td>
+          <td class="py-3 px-4 text-right text-emerald-400 font-bold">${Number(l.cached != null ? l.cached : (l.cached_tokens || 0)).toLocaleString('fr-FR')}</td>
           <td class="py-3 px-4 text-right text-cyan-300">$${Number(l.cost_usd || 0).toFixed(5)}</td>
         </tr>
       `).join('');
@@ -1720,7 +1730,12 @@ window.addEventListener('DOMContentLoaded', () => {
           const planEl = $('dash-stat-plan');
           if (planEl) planEl.innerText = d.user.plan || 'Pay-as-you-go';
           const tokEl = $('dash-stat-tokens');
-          if (tokEl) tokEl.innerText = (d.user.balance_tokens != null ? Number(d.user.balance_tokens).toLocaleString('fr-FR') : 'Illimité');
+          if (tokEl) {
+            const sa = (d.subscription || {}).auto || {};
+            const credit = (sa.credit_usd != null) ? Number(sa.credit_usd)
+              : Math.max(0, (Number(sa.usd_total) || 0) - (Number(sa.usd_used) || 0));
+            tokEl.innerText = fmtUsd(credit);
+          }
         }
       }).catch(() => {});
   }
@@ -2236,6 +2251,18 @@ window.selectPaygoAmount = function(amt, btn) {
 
 window.executePaygoPayment = function() {
   openAuthModal('login');
+};
+
+/* Recharge depuis le TABLEAU DE BORD. Le bouton appelait executeRechargeFromDash()
+   qui n'existait nulle part (bouton mort, erreur JS au clic). La grille de packs
+   vit sur l'onglet Tarifs : on y renvoie en preselectionnant le montant. */
+window.executeRechargeFromDash = function(amount) {
+  if (typeof window.switchTab === 'function') window.switchTab('pricing');
+  const cards = Array.from(document.querySelectorAll('.paygo-card'));
+  const btn = cards.find(b => (b.getAttribute('onclick') || '').includes('selectPaygoAmount(' + amount));
+  if (btn && typeof window.selectPaygoAmount === 'function') window.selectPaygoAmount(amount, btn);
+  const sel = document.getElementById('paygo-selected-amount');
+  if (sel && sel.scrollIntoView) sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
 // Surcharger les appels d'initialisation pour appliquer ces raffinements

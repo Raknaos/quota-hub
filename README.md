@@ -71,9 +71,36 @@ passe SSH root désactivé sur les nœuds exposés, fail2ban actif partout · jo
 borné et `MemoryMax` posés par unité · clés et abonnements orphelins neutralisés
 sans suppression.
 
-## Points ouverts
+## Crédit (règle appliquée depuis le 14-09)
 
-- **Conversion $ ↔ tokens** : deux bases circulent encore dans le front — l'affichage
-  du solde utilise `1e9 tokens = $10` (`fmtBalanceUSD`) tandis que la grille de
-  recharge annonce `$5 = 2,1 M tokens`. À trancher puis à unifier avant toute
-  communication chiffrée.
+**1 $ payé = 1 $ d'usage.** Le solde est un montant en **dollars**, plus un compteur
+de tokens à vie (l'ancien « 1 Md de tokens » n'existe plus). Chaque requête débite le
+coût réel de ce qu'elle a consommée, au **tarif fixe du modèle servi** :
+
+```
+coût = (tokens entrée − 90 % des tokens servis du cache) / 1M × prix_entrée
+     + tokens sortie / 1M × prix_sortie
+```
+
+Les tokens restent journalisés (`usage_logs`) pour l'audit et les statistiques, mais
+ne plafonnent plus rien : c'est `usd_used >= usd_total` qui déclenche le 402.
+
+**Abonnements** (même principe qu'UnoRouter) : le crédit reçu est le **double** du
+montant payé.
+
+| Payé | Crédit reçu |
+|---|---|
+| 20 $ | **40 $** |
+| 50 $ | **100 $** |
+| 100 $ | **200 $** |
+| 200 $ | **400 $** |
+
+Côté ops, un pack se matérialise par un code d'activation :
+`curl -sk -X POST https://127.0.0.1:8890/admin/codes -H 'X-Admin-Token: …' -d '{"pack":20}'`
+→ code qui crédite 40 $. `{"usd":7.5}` crée un montant libre, `{}` le montant par
+défaut du plan. Le solde **s'ajoute** à chaque recharge, il n'est jamais remis à zéro.
+
+Reprise des soldes existants (faite une fois, marqueur `migrations.usd_credit_v1`) :
+le reste à consommer est converti à l'ancienne règle affichée au client
+(1 Md tokens = 10 $) — personne ne perd ni ne gagne de crédit au changement de base.
+*13 abonnements repris le 14-09 sur le primaire.*

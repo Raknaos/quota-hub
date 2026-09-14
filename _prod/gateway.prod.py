@@ -396,15 +396,42 @@ PROF = {'d': None, 'ts': 0.0}
 PROF_TTL = 1800
 SELL_PRICES = {          # $ par 1M tokens : (entree, sortie) — NOS TARIFS FIXES
     'qwen3.8-flash':                 (0.0024, 0.0070),
-    'glm-5.3-flash':                 (0.02,   0.08),
-    'deepseek-v4.1-flash':           (0.18,   0.54),
+    'glm-5.3-flash':                 (0.06,   0.20),
+    'deepseek-v4.1-flash':           (0.09,   0.27),
     'grok-4.6':                      (0.05,   0.15),
-    'deepseek-v4-pro':               (0.04,   0.11),
+    'deepseek-v4-pro':               (0.04,   0.07),
     'deepseek-v4-flash':             (0.01,   0.03),
     'deepseek-v4-flash-vision-exp':  (0.01,   0.03),
 }
 PROFIT_FLOOR = float(os.environ.get('QH_PROFIT_FLOOR', '0'))     # marge mini exigee (%)
 PROFIT_MIN_REQ = int(os.environ.get('QH_PROFIT_MIN_REQ', '50'))  # echantillon minimum
+
+# ── CREDIT EN DOLLARS (14-09) ────────────────────────────────────────────────
+# Regle produit : 1 $ paye = 1 $ d'usage. Le solde du client est un MONTANT EN
+# DOLLARS ; chaque requete debite le cout reel de ce qu'elle a consomme, au tarif
+# FIXE du modele servi ($ / 1M tokens, table SELL_PRICES = prix affiches au client).
+# Le credit d'un code est un montant en $ (codes.usd) qui S'AJOUTE au solde.
+CREDIT_GRANT_USD = {                       # $ de credit par code, si le code n'en porte pas
+    'auto':   float(os.environ.get('QH_CREDIT_AUTO_USD', '10')),
+    'gemini': float(os.environ.get('QH_CREDIT_GEMINI_USD', '10')),
+}
+
+# PACKS ABONNEMENT (meme principe qu'UnoRouter, verifie avec le client le 14-09) :
+# le credit recu est le DOUBLE du montant paye. Le reglement se fait hors ligne
+# (le client paie, l'ops cree un code du bon montant, le client l'active).
+PACK_CREDIT_USD = {20.0: 40.0, 50.0: 100.0, 100.0: 200.0, 200.0: 400.0}
+
+def usd_cost(model_id, tin, tout, cached_tok=0, fallback=None):
+    """Cout client en $ d'une requete : tarif FIXE du modele servi x tokens reels.
+    Le cache garde son avantage (−90 % sur les tokens servis du cache amont).
+    Modele absent de la table : pass-through du cout amont (jamais de prix invente)."""
+    p = SELL_PRICES.get(model_id)
+    if not p:
+        p = SELL_PRICES.get(str(model_id).replace('-vision-exp', ''))
+    if not p:
+        return round(float(fallback or 0.0), 8)
+    billed_in = max(0, int(tin) - int(int(cached_tok) * 0.9))
+    return round(billed_in / 1e6 * p[0] + int(tout) / 1e6 * p[1], 8)
 
 def profit_margin(model_id):
     """Marge MESUREE (7 j) = 1 - cout amont / revenu a NOS TARIFS FIXES.
@@ -562,6 +589,23 @@ def init_db():
     _ensure_cols(c, 'usage_logs', 'cached_tokens INTEGER DEFAULT 0')
     _ensure_cols(c, 'usage_logs', 'route_reason TEXT')
     _ensure_cols(c, 'usage_logs', 'model_public TEXT')
+    # 14-09 : CREDIT EN DOLLARS. Le solde client est un montant en $, plus un
+    # compteur de tokens a vie. Les colonnes tokens* restent pour l'audit/stats.
+    _ensure_cols(c, 'subscriptions', 'usd_total REAL NOT NULL DEFAULT 0')
+    _ensure_cols(c, 'subscriptions', 'usd_used REAL NOT NULL DEFAULT 0')
+    _ensure_cols(c, 'codes', 'usd REAL')
+    _ensure_cols(c, 'usage_logs', 'cost_client_usd REAL')
+    c.execute('CREATE TABLE IF NOT EXISTS migrations(name TEXT PRIMARY KEY, applied_at INTEGER)')
+    # Reprise UNE SEULE FOIS : le reste a consommer est converti a l'ancienne regle
+    # affichee au client (1 Md tokens = 10 $) — personne ne perd ni ne gagne de credit.
+    if not c.execute("SELECT 1 FROM migrations WHERE name='usd_credit_v1'").fetchone():
+        n = c.execute('''UPDATE subscriptions SET
+                         usd_total = ROUND(MAX(0, tokens_total - tokens_used) / 1e9 * 10.0, 4),
+                         usd_used = 0
+                         WHERE tokens_total > 0 AND usd_total = 0''').rowcount
+        c.execute('INSERT INTO migrations(name, applied_at) VALUES(?,?)',
+                  ('usd_credit_v1', int(time.time())))
+        log(f'MIGRATION usd_credit_v1: {n} abonnement(s) repris (1 Md tok = 10 $)')
     # 14-09 : latence RÉELLE du 1er jeton (ms). Le site affichait « ~2.5s » en dur
     # alors que la mesure donnait p50 = 22,4 s. On mesure pour de vrai.
     _ensure_cols(c, 'usage_logs', 'latency_ms INTEGER DEFAULT 0')
@@ -1439,12 +1483,18 @@ def login(payload, ip):
     return 200, {'status': 'ok', 'session': session_token(row['id'])}
 
 def subscription_view(c, uid):
-    rows = c.execute('SELECT plan, tokens_total, tokens_used, activated_at, status FROM subscriptions WHERE user_id=?', (uid,)).fetchall()
+    rows = c.execute('SELECT plan, tokens_total, tokens_used, usd_total, usd_used, activated_at, status'
+                     ' FROM subscriptions WHERE user_id=?', (uid,)).fetchall()
     out = {}
     for r in rows:
         d = dict(r); out[d.pop('plan')] = d
     for p in PLANS:
-        out.setdefault(p, {'tokens_total': 0, 'tokens_used': 0, 'status': 'inactive', 'activated_at': None})
+        out.setdefault(p, {'tokens_total': 0, 'tokens_used': 0, 'usd_total': 0.0,
+                           'usd_used': 0.0, 'status': 'inactive', 'activated_at': None})
+    # solde affichable au client : ce que le site montre (arrondi 4 dec., jamais negatif)
+    for d in out.values():
+        d['credit_usd'] = round(max(0.0, float(d.get('usd_total') or 0)
+                                    - float(d.get('usd_used') or 0)), 4)
     return out
 
 def me(uid):
@@ -1505,7 +1555,7 @@ def redeem(uid, payload):
         return err(400, 'format de code invalide')
     ch = hashlib.sha256(code.encode()).hexdigest()
     c = db()
-    row = c.execute('SELECT id, tokens, plan FROM codes WHERE code_hash=? AND used_by IS NULL', (ch,)).fetchone()
+    row = c.execute('SELECT id, tokens, usd, plan FROM codes WHERE code_hash=? AND used_by IS NULL', (ch,)).fetchone()
     if not row:
         c.close()
         return err(404, 'code inconnu ou déjà utilisé')
@@ -1514,15 +1564,22 @@ def redeem(uid, payload):
     if c.total_changes == 0:
         c.close()
         return err(409, 'code déjà utilisé')
-    c.execute('''INSERT INTO subscriptions(user_id,plan,tokens_total,tokens_used,activated_at,status)
-                 VALUES(?,?,?,0,?,'active')
+    # CREDIT EN DOLLARS : le code porte un montant en $ ; a defaut, le montant du
+    # plan. Le credit S'AJOUTE au solde existant (jamais de remise a zero).
+    try:
+        usd = round(max(0.0, float(row['usd'])), 4) if row['usd'] is not None \
+            else round(max(0.0, float(CREDIT_GRANT_USD.get(plan, 10.0))), 4)
+    except Exception:
+        usd = round(max(0.0, float(CREDIT_GRANT_USD.get(plan, 10.0))), 4)
+    c.execute('''INSERT INTO subscriptions(user_id,plan,tokens_total,tokens_used,usd_total,usd_used,activated_at,status)
+                 VALUES(?,?,?,0,?,0,?,'active')
                  ON CONFLICT(user_id, plan) DO UPDATE SET tokens_total=tokens_total+?,
-                 status='active', activated_at=COALESCE(activated_at,?)''',
-              (uid, plan, row['tokens'], int(time.time()), row['tokens'], int(time.time())))
+                 usd_total=usd_total+?, status='active', activated_at=COALESCE(activated_at,?)''',
+              (uid, plan, row['tokens'], usd, int(time.time()), row['tokens'], usd, int(time.time())))
     c.commit()
     sub = subscription_view(c, uid)
     c.close()
-    return 200, {'status': 'ok', 'plan': plan, 'subscription': sub}
+    return 200, {'status': 'ok', 'plan': plan, 'credit_added_usd': usd, 'subscription': sub}
 
 # ── FLUX RÉEL (13-09) ───────────────────────────────────────────────────────
 # L'amont expose un vrai SSE (mesuré : 33-37 chunks étalés sur 1,3-5,2 s, et
@@ -1695,25 +1752,30 @@ def chat_auto_stream(payload, plan, key_id, uid):
 
 def bill_and_log(uid, plan, key_id, real_model, supplier, requested, reason,
                  tin, tout, cached_tok, est, latency_ms=0):
-    """Facturation + journal UNIQUES (chemin non-stream et chemin flux)."""
+    """Facturation + journal UNIQUES (chemin non-stream et chemin flux).
+    DEBIT EN DOLLARS (14-09) : le credit est un solde en $ (1 $ paye = 1 $ d'usage).
+    Chaque requete debite le cout reel de ce qu'elle a consomme au tarif FIXE du
+    modele servi. Les tokens restent journalises (audit, stats) mais ne plafonnent plus."""
     tokens = int(tin + tout)
     # FACTURATION CACHE : les tokens servis depuis le cache amont coûtent ~12x
     # moins cher → ils sont comptés à 10 % au client. C'est le cœur du prix.
     billed = max(0, tokens - int(cached_tok * 0.9))
+    cost_usd = usd_cost(real_model, tin, tout, cached_tok, fallback=est)
     c = db()
-    c.execute('''UPDATE subscriptions SET tokens_used = MIN(tokens_total, tokens_used + ?)
-                 WHERE user_id=? AND plan=?''', (billed, uid, plan))
+    c.execute('''UPDATE subscriptions SET tokens_used = MIN(tokens_total, tokens_used + ?),
+                 usd_used = usd_used + ? WHERE user_id=? AND plan=?''',
+              (billed, cost_usd, uid, plan))
     c.execute('''INSERT INTO usage_logs(user_id,key_id,plan,model_served,model_public,model_requested,supplier,prompt_tokens,
-                 completion_tokens,tokens,cost_amont_usd,created_at,cached_tokens,route_reason,latency_ms)
-                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                 completion_tokens,tokens,cost_amont_usd,cost_client_usd,created_at,cached_tokens,route_reason,latency_ms)
+                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
               (uid, key_id, plan, real_model, PUBLIC_MODEL_NAME, requested, supplier,
-               tin, tout, billed, est, int(time.time()), cached_tok, reason,
+               tin, tout, billed, est, cost_usd, int(time.time()), cached_tok, reason,
                int(latency_ms or 0)))
     c.commit()
-    remaining = c.execute('SELECT tokens_total - tokens_used FROM subscriptions WHERE user_id=? AND plan=?',
-                          (uid, plan)).fetchone()[0]
+    row = c.execute('SELECT tokens_total - tokens_used, usd_total - usd_used'
+                    ' FROM subscriptions WHERE user_id=? AND plan=?', (uid, plan)).fetchone()
     c.close()
-    return billed, max(0, remaining)
+    return billed, max(0, row[0]), max(0.0, round(float(row[1] or 0), 4))
 
 def pin_headers(obj):
     """Traçabilité du pin pour le client (aucun nom de chaîne amont exposé) :
@@ -1741,9 +1803,9 @@ def api_chat(auth_header, payload, ip, want_stream=False):
     if rate_limited(key_id):
         c.close()
         return err(429, 'limite de 60 requêtes/min atteinte', 'rate_limit', 'rate_limit_error')
-    s = c.execute('''SELECT tokens_total, tokens_used, status FROM subscriptions
+    s = c.execute('''SELECT tokens_total, tokens_used, usd_total, usd_used, status FROM subscriptions
                      WHERE user_id=? AND plan=?''', (uid, plan)).fetchone()
-    if not s or s['status'] != 'active' or s['tokens_used'] >= s['tokens_total']:
+    if not s or s['status'] != 'active' or float(s['usd_used'] or 0) >= float(s['usd_total'] or 0):
         c.close()
         # 14-09 : plus de « quota » a vie. Le solde est un CREDIT qui s'ajoute a
         # chaque recharge (cf. redeem : tokens_total = tokens_total + recharge).
@@ -1780,13 +1842,15 @@ def api_chat(auth_header, payload, ip, want_stream=False):
     cached_tok = int(served.get('cached', 0))
     # débit : jamais au-delà du plafond ; l'amont a consommé, on impute le volume réel corrigé
     _reason = str(served.get('reason') or 'gw') + ('+img' if has_images(payload) else '')
-    billed, remaining = bill_and_log(uid, plan, key_id, served['model'], served['supplier'],
+    billed, remaining, usd_left = bill_and_log(uid, plan, key_id, served['model'], served['supplier'],
                                      served.get('requested'), _reason,
                                      tin, tout, cached_tok, served['est'],
                                      int(served.get('lat_ms') or 0))
     data['quota_hub'] = {'plan': plan, 'tokens_billed': billed, 'tokens_raw': tokens,
                          'cache_tokens': cached_tok, 'cache_savings_tokens': tokens - billed,
-                         'tokens_remaining': remaining, 'served_model': PUBLIC_MODEL_NAME}
+                         'tokens_remaining': remaining, 'served_model': PUBLIC_MODEL_NAME,
+                         'cost_usd': usd_cost(served['model'], tin, tout, cached_tok, served['est']),
+                         'credit_usd_remaining': usd_left}
     return 200, data
 
 # ── Connexion sociale : Google / GitHub (10-09) ─────────────────────────────
@@ -1946,16 +2010,33 @@ def admin_codes(admin_token, payload):
     if plan not in PLANS:
         return err(400, 'plan invalide (auto ou gemini)')
     tokens = int(payload.get('tokens') or PLAN_DEFAULT[plan])
+    # CREDIT DU CODE EN DOLLARS (14-09) : montant explicite > pack > montant du plan.
+    # Un PACK (abonnement) credite le double du montant paye.
+    try:
+        if payload.get('usd') is not None:
+            usd = float(payload['usd'])
+        elif payload.get('pack') is not None:
+            pack = float(payload['pack'])
+            if pack not in PACK_CREDIT_USD:
+                return err(400, 'pack inconnu (20, 50, 100, 200)')
+            usd = float(PACK_CREDIT_USD[pack])
+        else:
+            usd = float(CREDIT_GRANT_USD.get(plan, 10.0))
+    except Exception:
+        return err(400, 'usd invalide')
+    if usd < 0 or usd > 100000:
+        return err(400, 'usd hors limites')
+    usd = round(usd, 4)
     count = min(int(payload.get('count') or 1), 50)
     out = []
     c = db()
     for _ in range(count):
         code = 'SM-' + secrets.token_hex(4).upper() + '-' + secrets.token_hex(4).upper()
-        c.execute('INSERT INTO codes(code_hash,tokens,plan,created_at) VALUES(?,?,?,?)',
-                  (hashlib.sha256(code.encode()).hexdigest(), tokens, plan, int(time.time())))
+        c.execute('INSERT INTO codes(code_hash,tokens,usd,plan,created_at) VALUES(?,?,?,?,?)',
+                  (hashlib.sha256(code.encode()).hexdigest(), tokens, usd, plan, int(time.time())))
         out.append(code)
     c.commit(); c.close()
-    return 200, {'status': 'ok', 'codes': out, 'tokens_each': tokens, 'plan': plan}
+    return 200, {'status': 'ok', 'codes': out, 'usd_each': usd, 'tokens_each': tokens, 'plan': plan}
 
 def admin_stats(admin_token):
     if not ADMIN_TOKEN or not hmac.compare_digest(admin_token, ADMIN_TOKEN):
@@ -1963,12 +2044,17 @@ def admin_stats(admin_token):
     c = db()
     by_plan = {}
     for r in c.execute('''SELECT plan, COUNT(*) n, COALESCE(SUM(tokens_total),0) sold,
-                          COALESCE(SUM(tokens_used),0) used FROM subscriptions
+                          COALESCE(SUM(tokens_used),0) used,
+                          COALESCE(SUM(usd_total),0) usd_sold,
+                          COALESCE(SUM(usd_used),0) usd_used FROM subscriptions
                           WHERE status='active' GROUP BY plan''').fetchall():
-        by_plan[r['plan']] = {'subs': r['n'], 'tokens_sold': r['sold'], 'tokens_used': r['used']}
+        by_plan[r['plan']] = {'subs': r['n'], 'tokens_sold': r['sold'], 'tokens_used': r['used'],
+                              'usd_sold': round(r['usd_sold'], 4), 'usd_used': round(r['usd_used'], 4),
+                              'usd_left': round(max(0.0, r['usd_sold'] - r['usd_used']), 4)}
     s = {'users': c.execute('SELECT COUNT(*) FROM users').fetchone()[0],
          'plans': by_plan,
          'tokens_amont_cost_usd': round(c.execute('SELECT COALESCE(SUM(cost_amont_usd),0) FROM usage_logs').fetchone()[0], 4),
+         'revenu_client_usd': round(c.execute('SELECT COALESCE(SUM(cost_client_usd),0) FROM usage_logs').fetchone()[0], 4),
          'requests': c.execute('SELECT COUNT(*) FROM usage_logs').fetchone()[0],
          'pin': dict(PIN), 'cooldowns': {m: round(u - time.time()) for m, (u, _) in COOLDOWN.items() if u > time.time()}}
     c.close()
@@ -2151,7 +2237,7 @@ class Handler(BaseHTTPRequestHandler):
                      + cached_tok * b.get('cache_read', b.get('in', 0))
                      + tout * b.get('out', 0)) / 1e6, 8)
         try:
-            billed, remaining = bill_and_log(rl['uid'], rl['plan'], rl['key_id'],
+            billed, remaining, usd_left = bill_and_log(rl['uid'], rl['plan'], rl['key_id'],
                                              rl['model_id'], b.get('supplier'),
                                              rl.get('requested'),
                                              ('flux' if u else 'flux_estime') + ('+img' if has_images({'messages': rl.get('messages') or []}) else ''),
@@ -2170,7 +2256,7 @@ class Handler(BaseHTTPRequestHandler):
                     }
                 conv_prune()
             log(f'FLUX {rl["model_id"]} via {b.get("supplier")} tok={tin}+{tout} '
-                f'cache={cached_tok} facture={billed} reste={remaining}')
+                f'cache={cached_tok} facture={billed} reste_tok={remaining} credit_usd={usd_left}')
         except Exception as ex:
             log(f'FACTURATION flux KO: {type(ex).__name__}: {str(ex)[:90]}')
 
@@ -2274,7 +2360,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(status, obj)
         if path == '/api/usage':
             # JOURNAUX du client : ses dernières requêtes + totaux 30 j (par jour,
-            # par modèle) + totaux globaux. Jamais de nom de canal amont exposé.
+            # par modèle) + totaux globaux. Jamais de nom de canal amont exposé,
+            # et jamais son COUT D'ACHAT : on ne sert que ce qui a été débité au
+            # client (cost_client_usd, au tarif fixe). Le coût amont reste /admin.
             if not check_sig(self.headers, path, b''):
                 return self._json(403, {'error': {'message': 'signature invalide'}})
             uid = session_user(self.headers.get('X-QH-Session', ''))
@@ -2289,14 +2377,14 @@ class Handler(BaseHTTPRequestHandler):
                 c = db()
                 rows = c.execute(
                     'SELECT u.id, u.plan, u.model_public, u.model_requested, u.prompt_tokens, '
-                    'u.completion_tokens, u.tokens, u.cost_amont_usd, u.created_at, '
+                    'u.completion_tokens, u.tokens, u.cost_client_usd, u.cached_tokens, u.created_at, '
                     'k.name AS key_name FROM usage_logs u '
                     'LEFT JOIN api_keys k ON k.id=u.key_id '
                     'WHERE u.user_id=? ORDER BY u.id DESC LIMIT ?', (uid, limit)).fetchall()
                 since = int(time.time()) - 30 * 86400
                 per_day = c.execute(
                     "SELECT date(created_at,'unixepoch') d, COUNT(*) n, SUM(tokens) tok, "
-                    "SUM(cost_amont_usd) cost FROM usage_logs WHERE user_id=? AND created_at>=? "
+                    "SUM(cost_client_usd) cost FROM usage_logs WHERE user_id=? AND created_at>=? "
                     "GROUP BY d ORDER BY d", (uid, since)).fetchall()
                 per_model = c.execute(
                     'SELECT COALESCE(model_public, ?) mp, COUNT(*) n, SUM(tokens) tok FROM usage_logs '
@@ -2304,13 +2392,13 @@ class Handler(BaseHTTPRequestHandler):
                     'ORDER BY tok DESC LIMIT 12', (PUBLIC_MODEL_NAME, uid, since)).fetchall()
                 per_key = c.execute(
                     'SELECT k.name AS name, COUNT(*) n, COALESCE(SUM(u.tokens),0) tok, '
-                    'COALESCE(SUM(u.cost_amont_usd),0) cost FROM usage_logs u '
+                    'COALESCE(SUM(u.cost_client_usd),0) cost FROM usage_logs u '
                     'LEFT JOIN api_keys k ON k.id=u.key_id '
                     'WHERE u.user_id=? AND u.created_at>=? GROUP BY k.name '
                     'ORDER BY tok DESC LIMIT 12', (uid, since)).fetchall()
                 tot = c.execute(
                     'SELECT COUNT(*) n, COALESCE(SUM(tokens),0) tok, '
-                    'COALESCE(SUM(cost_amont_usd),0) cost FROM usage_logs WHERE user_id=?',
+                    'COALESCE(SUM(cost_client_usd),0) cost FROM usage_logs WHERE user_id=?',
                     (uid,)).fetchone()
                 c.close()
             except Exception as ex:
@@ -2323,7 +2411,8 @@ class Handler(BaseHTTPRequestHandler):
                           'model': (r['model_public'] or PUBLIC_MODEL_NAME),
                           'requested': r['model_requested'], 'in': int(r['prompt_tokens'] or 0),
                           'out': int(r['completion_tokens'] or 0), 'tokens': int(r['tokens'] or 0),
-                          'cost_usd': round(r['cost_amont_usd'] or 0, 6),
+                          'cached': int(r['cached_tokens'] or 0),
+                          'cost_usd': round(r['cost_client_usd'] or 0, 6),
                           'key': r['key_name'] or '',
                           'ts': int(r['created_at'] or 0)} for r in rows],
                 'per_day': [{'d': r['d'], 'n': r['n'], 'tokens': int(r['tok'] or 0),
