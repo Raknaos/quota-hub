@@ -74,6 +74,10 @@ export default async function handler(req, res) {
 
   const ts = String(Math.floor(Date.now() / 1000));
   headers['x-qh-ts'] = ts;
+  // Marqueur d'entree : via Vercel il y a un mur de 120 s cote fonction serverless,
+  // la passerelle doit donc rendre la main avant (budget court). Une requete qui
+  // arrive EN DIRECT (flotte, lab) n'a pas ce mur et recoit un budget long.
+  headers['x-qh-via-vercel'] = '1';
   if (body && body.length) {
     headers['content-length'] = String(body.length); // sinon Node part en chunked et la passerelle lit un body vide → 403
   }

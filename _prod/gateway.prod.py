@@ -132,6 +132,12 @@ COOLDOWN_WAIT_MAX_S = 15                           # anti-503 : attente bornée 
 # ── Budget de temps (front Vercel : maxDuration 120 s) ──────────────────────
 REQUEST_BUDGET_S = 105                             # mur interne : on rend la main AVANT Vercel (120 s)
 FIRST_BYTE_MAX_S = 75                              # attente max du 1er chunk streaming avant bascule
+# 14-09 (Victor/502) : ces plafonds sont cales sur le mur Vercel de 120 s. Une
+# requete qui ARRIVE EN DIRECT (flotte, lab GitHub) n'a pas ce mur : sans ceci,
+# un prompt de 150 k tokens a froid (prefill > 105 s, canal sain) etait tue par
+# NOTRE garde-fou — faux 502 « instable » alors que l'amont repondait.
+DIRECT_REQUEST_BUDGET_S = 900                      # lab/flotte : pas de mur Vercel
+DIRECT_FIRST_BYTE_MAX_S = 600                      # prefill 150 k tokens mesure > 105 s
 HEARTBEAT_S = 8                                    # keep-alive SSE pendant l'attente amont
 STREAM_TIMEOUT_S = 100                             # lecture amont bornée sous le plafond Vercel
 MAX_TOKENS_CAP = 8000                              # plafond par requête (résumés de compression)
@@ -1111,13 +1117,17 @@ def wait_or_last_resort(models, ctx=None):
     log(f'DERNIER RECOURS {lr[0][1]} (cooldown ignoré) — essai unique')
     return lr[0][1], []
 
-def upstream_timeout(tin_est, elapsed=0.0):
+def upstream_timeout(tin_est, elapsed=0.0, direct=False):
     """Budget d'attente amont adapte a la taille du prompt ET au temps deja
     consomme. Avant : 75 s pour un gros contexte, soit 75 s + 75 s face a un mur
     Vercel de 120 s — le 2e essai (cache chaud) etait donc toujours coupe avant
     d'avoir repondu (151 « 502 tous canaux epuises » en 48 h, logs 00:50-00:55).
     Le 1er essai reste genereux (le pre-remplissage d'un 40 k prompt n'est pas
     instantane), le suivant se limite a ce qui reste dans le budget."""
+    if direct:
+        base = DIRECT_FIRST_BYTE_MAX_S if tin_est >= 8000 else 120
+        room = DIRECT_REQUEST_BUDGET_S - elapsed - 10
+        return int(max(30, min(base, room)))
     base = 70 if tin_est >= 8000 else 40
     room = REQUEST_BUDGET_S - elapsed - 8
     return int(max(12, min(base, room)))
@@ -1263,7 +1273,7 @@ def has_images(payload):
                     return True
     return False
 
-def chat_auto(payload, is_stream, plan='auto', key_id=None):
+def chat_auto(payload, is_stream, plan='auto', key_id=None, direct=False):
     """Routage du plan : essaie jusqu'à 3 canaux, facture l'usage réel, cooldowns.
 
     Plan 'auto'   : famille flash polyvalente (qwen/glm/deepseek v4/grok), TOUS
@@ -1333,7 +1343,7 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
         models = keep_profitable(models)
     last_err = None
     t_start = time.time()
-    deadline = t_start + REQUEST_BUDGET_S
+    deadline = t_start + (DIRECT_REQUEST_BUDGET_S if direct else REQUEST_BUDGET_S)
     force_model = None          # 2e essai sur le MEME canal (protege le cache)
     tried = {}
     for attempt in range(3):
@@ -1361,7 +1371,8 @@ def chat_auto(payload, is_stream, plan='auto', key_id=None):
                 break
             return None, (503, {'error': {'message': 'aucun canal disponible (cooldowns ou marché inaccessible)',
                                           'type': 'server_error', 'code': 'no_model_available'}}), 0, 0, None
-        data, err, dt = forward_upstream(model_id, body, upstream_timeout(_est_tok, time.time() - t_start))
+        data, err, dt = forward_upstream(model_id, body,
+                                   upstream_timeout(_est_tok, time.time() - t_start, direct=direct))
         if err:
             status, msg = err
             log(f'GW essai {attempt+1} {model_id}: {status} {msg[:80]}')
@@ -1872,7 +1883,7 @@ def _stream_prime(resp, budget_s):
             if c0.get('delta') or c0.get('finish_reason') or c0.get('message'):
                 return lines, True, None
 
-def chat_auto_stream(payload, plan, key_id, uid):
+def chat_auto_stream(payload, plan, key_id, uid, direct=False):
     """Comme chat_auto, mais renvoie un relais SSE VIVANT. Le canal est validé
     par son 1er chunk avant tout engagement côté client."""
     try:
@@ -1917,19 +1928,22 @@ def chat_auto_stream(payload, plan, key_id, uid):
         models = keep_profitable(models)
     last_err, t_start = None, time.time()
     for attempt in range(3):
-        if attempt and time.time() - t_start > REQUEST_BUDGET_S - 20:
+        _bud = DIRECT_REQUEST_BUDGET_S if direct else REQUEST_BUDGET_S
+        if attempt and time.time() - t_start > _bud - 20:
             break
         model_id, cand = pick_model(models, ctx)
         if not model_id:
             break
         chosen = cand[0][2] if cand else None
-        resp, oerr = _open_upstream_stream(model_id, body, FIRST_BYTE_MAX_S)
+        resp, oerr = _open_upstream_stream(model_id, body,
+                                           DIRECT_FIRST_BYTE_MAX_S if direct else FIRST_BYTE_MAX_S)
         if oerr:
             log(f'STREAM essai {attempt+1} {model_id}: {oerr[0]} {oerr[1][:70]}')
             last_err = oerr
             on_failure(model_id, oerr[1])
             continue
-        lines, ok, perr = _stream_prime(resp, FIRST_BYTE_MAX_S)
+        lines, ok, perr = _stream_prime(resp,
+                                        DIRECT_FIRST_BYTE_MAX_S if direct else FIRST_BYTE_MAX_S)
         if not ok:
             try:
                 resp.close()
@@ -1995,7 +2009,7 @@ def pin_headers(obj):
     return {'X-A6-Model-Requested': str(req), 'X-A6-Model-Served': str(srv or ''),
             'X-A6-Pin-Honored': 'false' if a6.get('ignored') else 'true'}
 
-def api_chat(auth_header, payload, ip, want_stream=False):
+def api_chat(auth_header, payload, ip, want_stream=False, direct=False):
     """Le cœur : clé sk-sm-*/sk-qh-* -> abonnement -> routage auto -> metering réel."""
     if not (auth_header.startswith('Bearer sk-qh-') or auth_header.startswith('Bearer sk-sm-')):
         return err(401, 'clé API manquante (Authorization: Bearer sk-qh-…)', 'auth_error', 'authentication_error')
@@ -2037,13 +2051,13 @@ def api_chat(auth_header, payload, ip, want_stream=False):
         # 1er byte → encore plus de chances de timeout). Le seul repli utile est
         # gardé dans le handler (_sse) pour les clients qui demandent stream:true
         # mais dont le front ne supporte pas les chunks.
-        relay, se = chat_auto_stream(payload, plan, key_id, uid)
+        relay, se = chat_auto_stream(payload, plan, key_id, uid, direct=direct)
         if relay:
             return 200, {'__relay__': relay}
         log(f'STREAM indisponible ({se[0]}) -> erreur directe (repli non-stream supprime)')
         return se[0], se[1]
 
-    data, e, tin, tout, served = chat_auto(payload, bool(payload.get('stream')), plan, key_id)
+    data, e, tin, tout, served = chat_auto(payload, bool(payload.get('stream')), plan, key_id, direct=direct)
     if e:
         return e[0], e[1]
     tokens = int(tin + tout)
@@ -2776,8 +2790,11 @@ class Handler(BaseHTTPRequestHandler):
             status, obj = redeem(uid, payload)
         elif path == '/v1/chat/completions':
             stream_wanted = bool(payload.get('stream'))
+            # entree directe (flotte : pas de marqueur X-QH-Via-Vercel pose par le
+            # proxy Vercel) -> budget long ; le front public garde le plafond 105 s.
             status, obj = api_chat(self.headers.get('Authorization', ''), payload, ip,
-                                   want_stream=stream_wanted)
+                                   want_stream=stream_wanted,
+                                   direct=not self.headers.get('X-QH-Via-Vercel'))
             if status == 200 and isinstance(obj, dict) and '__relay__' in obj:
                 return self._relay_sse(obj['__relay__'])
             _hx = pin_headers(obj) if isinstance(obj, dict) else {}
