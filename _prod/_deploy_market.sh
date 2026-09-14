@@ -24,7 +24,7 @@ User=qh
 Group=qh
 WorkingDirectory=/opt/quota-hub
 Environment=QH_MARKET_PORT=8891
-Environment=QH_MARKET_INTERVAL=120
+Environment=QH_MARKET_INTERVAL=1200
 Environment=QH_DB=/opt/quota-hub/hub.db
 ExecStart=/usr/bin/python3 /opt/quota-hub/market30.py
 Restart=always

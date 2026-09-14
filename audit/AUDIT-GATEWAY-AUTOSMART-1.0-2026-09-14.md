@@ -169,3 +169,48 @@ Le « trafic public » mesuré est en réalité **un test de charge interne** (c
 Le tableau « Modèles » du site est également codé en dur (`MODELS_DATA`) : succès 99,8 %, latence 2,20 s, 1,45 B tokens/semaine, remise −99 %.
 
 Enfin, l'audit de sécurité signale qu'un **fragment d'empreinte du mot de passe root** (préfixe, jamais la valeur) a été capté dans son transcript local : à considérer comme exposé, ce qui confirme la priorité n°1.
+
+---
+
+# CORRECTIONS APPLIQUÉES — 14 septembre 2026
+
+Toutes les corrections ci-dessous sont **déployées en production et vérifiées par mesure**.
+
+## 🔴 Faille P0 trouvée APRÈS le rapport des 3 agents (par recoupement direct)
+
+### Code source de la passerelle téléchargeable publiquement
+`https://smartapi.cheap/gateway/gateway.py` renvoyait **HTTP 200** : le code source complet, `market30.py`, `connect.sh`, `supabase_schema.sql` et `PLAN_50_TACHES.md` étaient accessibles à n'importe qui. Le projet Vercel sert **la racine du dépôt** en statique.
+**Corrigé** : `.vercelignore` (seul le front est publié) + redéploiement. Vérifié : les 7 chemins sensibles renvoient **404**, le site fonctionne (200).
+
+### Passerelle Antigravity (port 8895) ouverte à Internet sans clé
+`def _auth(self): return True` — la fonction d'authentification était un **stub**. Preuve de consommation : un POST sans clé renvoyait 200 avec une réponse servie de `claude-opus-4-6`, sur l'abonnement **Google One AI Pro** du propriétaire.
+**Corrigé** : vérification réelle (loopback accepté, distant = `GATEWAY_API_KEY` obligatoire, comparaison à temps constant). Vérifié : sans clé **401**, fausse clé **401**, loopback **200**, vraie clé **200**.
+
+## ✅ Corrections déployées
+
+| # | Constat | Correction | Vérification |
+|---|---|---|---|
+| 1 | Pool vision détournait les images vers un canal **hors quota** | Pool vision **supprimé** : les 4 modèles (qwen3.8-flash, glm-5.3-flash, deepseek-v4.1-flash, grok-4.6) sont multimodaux — **prouvé par test image réel** (4 quadrants, ordre non devinable : 4/4 lus) | Requête image réelle → 200 via `qwen3.8-flash` |
+| 2 | `deepseek-v4-flash-vision` (inexistant → 400) et `deepseek-v4-flash-vision-exp` (canal à sec) dans le pool | Retirés de `MODELS` | `MODELS` = 4 entrées |
+| 3 | `route_reason` ne traçait jamais la bascule vision | Trace `+img` ajoutée | `probe_truth+img`, `flux+img` observés en base |
+| 4 | `/gw/api/prices` public : fournisseurs + prix d'achat | Signature HMAC **exigée** hors loopback + vue **anonymisée** (plus de `supplier`, `listing_id`, `channel_id`) | 4 nœuds → **403** ; voie signée → 200, payload 26 508 → **1 737 o** |
+| 5 | Chiffres fabriqués en dur sur le site (`99.9%`, `36 982`, `118 556`, `177 834 027`, `~2.5s`, `99,8 %` / `2,20 s` par modèle) | Remplacés par des mesures réelles ou « — » ; `sanitizeModelStats()` neutralise les valeurs inventées ; la remise est **recalculée** depuis les prix affichés | Site en ligne : 0 occurrence des valeurs fabriquées |
+| 6 | Compteur « tokens réels consommés sur la clé amont » = en fait **facturé** (−34,2 %) | Étiquette corrigée : « tokens facturés (remise cache amont déduite) » | — |
+| 7 | Aucune mesure de latence fiable | Ajout `latency_ms` + p50 réelle 24 h + part de cache dans `/api/public/stats` | `p50_first_token_ms_24h` et `cache_share: 0.26` servis en direct |
+| 8 | `finish_reason: length` réécrit en `stop` (troncature invisible) | Réécriture **supprimée** | Code vérifié |
+| 9 | `flux_estime` : facturation sans décote de cache | Le taux de cache **mesuré** est appliqué aux estimations | Code vérifié |
+| 10 | Mot de passe root SSH actif sur .67 et .69 | Drop-in `99-qh-hardening.conf`, cloud-init neutralisé, `sshd -t` avant reload | 4 nœuds : `passwordauthentication no` |
+| 11 | fail2ban absent sur 3 nœuds | Installé + jail `sshd` | 4 nœuds : `active` (1 banni sur Victor) |
+| 12 | `market30.py` divergent + cadence 120 vs 1200 | Version de Sandra sur les 4 nœuds + `QH_MARKET_INTERVAL=1200` partout ; script de déploiement corrigé | 4 nœuds : `43960a480f` |
+| 13 | Une seule sauvegarde de `hub.db` (2 jours, 7 % du volume) | Sauvegarde quotidienne **vérifiée** (integrity_check) + rotation 14 j + cron 04:30 | Exécution réelle : `integrite=ok, lignes=7352` |
+| 14 | `MemoryMax=infinity` + journald non borné | `MemoryMax=384M` (usage réel ~20 Mo) + journald 200 Mo | 4 nœuds : journal 126-185 Mo, `MemoryMax=402653184` |
+| 15 | 11 clés + 22 abonnements orphelins | Clés `probe-*` **révoquées** (0 restante), abonnements désactivés — **aucune suppression**, clés `fleet-*` (user 18) intactes | Orphelins actifs : 0 |
+
+## Reste à décider (hors périmètre technique)
+
+1. **Rotation du mot de passe root** de .67/.69 : le hash a fuité dans un transcript. L'auth par mot de passe est coupée, donc inexploitable par SSH — à faire quand même par la console du fournisseur.
+2. **Quota non renouvelable** : `PLAN_DEFAULT` = 1 Md de tokens à vie, alors que le site vend « 10 $ rechargés chaque semaine » et « 40 $/mois ». Risque de chargeback — c'est un choix produit.
+3. **3 nœuds sur 4 ne servent rien** : le front ne cible qu'une URL, aucun load-balancer. Soit une vraie répartition, soit retirer « 100 % Uptime » des 3 nœuds inactifs.
+4. **`/api/prices` affiche encore le prix d'achat** : c'est le prix affiché au client par le site lui-même, donc public par construction — à valider comme choix commercial.
+5. **Port 8890 exposé** : ne peut pas être restreint aux IP Vercel (egress dynamique). La protection réelle est le HMAC + la clé API — vérifié : 401/403 depuis Internet.
+

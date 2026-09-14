@@ -1,0 +1,31 @@
+# Quota.Hub — périmètre de déploiement (14-09)
+# ---------------------------------------------
+# Le projet Vercel sert la RACINE du dépôt en statique : sans ce fichier,
+# n'importe qui pouvait télécharger /gateway/gateway.py (code source complet de
+# la passerelle), /gateway/market30.py, /connect.sh, /supabase_schema.sql et
+# /PLAN_50_TACHES.md. Mesuré le 14-09 : HTTP 200 sur ces chemins.
+# Seul le FRONT est publié : index.html, app.js, app.css, assets/, api/.
+.git
+.vercel
+.env*
+node_modules
+__pycache__
+
+# Code serveur et outillage — JAMAIS publics
+gateway/
+_prod/
+audit/
+docs/
+PROMPTS/
+extension/
+connect.sh
+*.py
+*.sh
+*.sql
+*.bak-*
+*.md
+quota-glass.css
+
+# Divers
+.gitignore
+.gitattributes

@@ -61,10 +61,15 @@ MODELS = [m.strip() for m in os.environ.get(
 # Résultat : le volume de tests ne dépend plus du nombre de nœuds ni du nombre
 # d'utilisateurs — un test sert tout le monde, et on garde le même canal pour
 # ne pas casser le cache de prompts (voir pin/hystérésis côté routeur).
-PROBE_INTERVAL = int(os.environ.get("QH_PROBE_INTERVAL", "1800"))   # s (30 min)   # s (20 min)
+PROBE_INTERVAL = int(os.environ.get("QH_PROBE_INTERVAL", "1200"))   # s (20 min)
 PROBE_MODELS = [m.strip() for m in os.environ.get(
     "QH_PROBE_MODELS",
-    "qwen3.8-flash,glm-5.3-flash,grok-4.6,deepseek-v4.1-flash,deepseek-v4-flash-vision-exp"
+    # pool servi aux abonnés/flotte : on ne sonde QUE les modèles routables
+    # (gemini-3.8-flash est forcé et cher → jamais sondé ;
+    #  v4.1-flash / v4-flash-vision / v4-vision : absents du marché a6api → retirés
+    #  le 10-09 après 0 listing + sonde KO sur 17 passes)
+    "qwen3.8-flash,glm-5.3-flash,grok-4.6,deepseek-v4-pro,deepseek-v4-flash,"
+    "deepseek-v4-flash-vision-exp"
 ).split(",") if m.strip()]
 API_BASE = os.environ.get("QH_API_BASE", "https://api.a6api.com")
 KEY_FILE = os.environ.get("A6API_KEY_PATH", os.path.join(DIR, "key.json"))
@@ -282,75 +287,74 @@ def worker_loop() -> None:
 
 
 # ───────────────────── sonde réelle partagée (payante, minuscule) ───────────
-# Document de test calibré à ~2200 tokens (seuil universel où tous les providers activent le cache KV)
-PROBE_CONTEXT = ("Contrôle de performance et de fidélité du routeur intelligent QuotaHub. "
-                 "Vérification de la latence, de la disponibilité réelle et du hit de prompt caching. ") * 75
-
 def probe_model(model_id: str) -> dict:
-    """Sonde ACTIVE DE CACHE en 2 passes successives (toutes les 20 min).
-    Mesure empirique réelle : vérifie si le canal mémorise le contexte et quel % est en cache.
-    Partagé à toute la flotte sans bannir aucun fournisseur."""
+    """Sonde STREAM réelle, même forme que celle du routeur (payload identique,
+    donc latences comparables). Le résultat est PARTAGÉ par toute la flotte."""
     key = _load_key()
     if not key:
-        return {"ok": False, "error": "clé A6API absente", "ts": time.time(), "by": "market-worker"}
-    headers = {"Authorization": "Bearer " + key, "Content-Type": "application/json"}
-    
-    # ── PASSE 1 : Amorçage du cache (1050 tokens) ───────────────────────────
-    p1 = {"model": model_id,
-          "messages": [{"role": "user", "content": PROBE_CONTEXT + "\nRéponds: 1"}],
-          "max_tokens": 16, "stream": False}
-    try:
-        r1 = urllib.request.Request(API_BASE + "/v1/chat/completions", data=json.dumps(p1).encode(), headers=headers)
-        with urllib.request.urlopen(r1, timeout=PROBE_TIMEOUT) as resp1:
-            pass
-    except Exception as e:
-        return {"ok": False, "error": f"amorce: {str(e)[:80]}", "ts": time.time(), "by": "market-worker"}
-
-    time.sleep(0.8) # Délai de propagation du cache amont
-
-    # ── PASSE 2 : Mesure de la persistance de cache et latence ───────────────
-    p2 = {"model": model_id,
-          "messages": [{"role": "user", "content": PROBE_CONTEXT + "\nRéponds: 2"}],
-          "max_tokens": 16, "stream": False}
+        return {"ok": False, "error": "cle A6API absente", "ts": time.time(),
+                "by": "market-worker"}
+    payload = {"model": model_id,
+               "messages": [{"role": "user",
+                             "content": "Nomme 3 langages de programmation en une ligne."}],
+               "max_tokens": 40, "reasoning_effort": "low", "stream": True}
+    r = urllib.request.Request(API_BASE + "/v1/chat/completions",
+                              data=json.dumps(payload).encode(), method="POST",
+                              headers={"Authorization": "Bearer " + key,
+                                       "Content-Type": "application/json"})
     t0 = time.time()
     try:
-        r2 = urllib.request.Request(API_BASE + "/v1/chat/completions", data=json.dumps(p2).encode(), headers=headers)
-        with urllib.request.urlopen(r2, timeout=PROBE_TIMEOUT) as resp2:
-            d = json.loads(resp2.read().decode())
+        with urllib.request.urlopen(r, timeout=PROBE_TIMEOUT) as resp:
+            ttft = None
+            out = b""
+            while True:
+                chunk = resp.read(512)
+                if not chunk:
+                    break
+                out += chunk
+                if ttft is None and b'"content"' in out:
+                    ttft = time.time() - t0
             dt = time.time() - t0
-        u = d.get("usage", {})
-        tin = u.get("prompt_tokens") or 0
-        tout = u.get("completion_tokens") or 0
-        det = u.get("prompt_tokens_details") or {}
-        cac = det.get("cached_tokens") or 0
-        cache_pct = round(100.0 * cac / max(1, tin), 1) if tin else 0.0
-        return {"ok": True, "latency_s": round(dt, 2), "tin": tin, "tout": tout,
-                "cached_tokens": cac, "cache_pct": cache_pct, "ts": time.time(), "by": "market-worker"}
-    except Exception as e:
-        return {"ok": False, "error": f"mesure: {str(e)[:80]}", "ts": time.time(), "by": "market-worker"}
-
-
-def run_probes_once():
-    t0 = time.time()
-    res: dict = {}
-    for m in PROBE_MODELS:
+        tin = tout = 0
         try:
-            res[m] = probe_model(m)
-        except Exception as e:
-            res[m] = {"ok": False, "error": str(e)[:60]}
-        time.sleep(0.3)
-    with LOCK:
-        PROBES.update({"models": res, "generated_at": time.time(),
-                       "passes": PROBES["passes"] + 1})
-    ok = sum(1 for v in res.values() if v.get("ok"))
-    log(f"sonde partagee #{PROBES['passes']} : {ok}/{len(res)} modeles OK (duree {round(time.time()-t0, 1)}s)")
-    return res
+            u = json.loads(out.decode().split("data: [DONE]")[0].strip()
+                           .split("\n")[-1][6:]).get("usage", {})
+            tin = u.get("prompt_tokens") or 0
+            tout = u.get("completion_tokens") or 0
+        except Exception:  # noqa: BLE001
+            pass
+        return {"ok": True, "latency_s": round(ttft or dt, 2),
+                "tin": tin, "tout": tout, "ts": time.time(), "by": "market-worker"}
+    except urllib.error.HTTPError as e:
+        try:
+            err = json.loads(e.read().decode() or "{}")
+            em = err.get("error", {})
+            msg = em.get("message", f"HTTP {e.code}") if isinstance(em, dict) else f"HTTP {e.code}"
+        except Exception:  # noqa: BLE001
+            msg = f"HTTP {e.code}"
+        return {"ok": False, "error": msg[:120], "ts": time.time(), "by": "market-worker"}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:120], "ts": time.time(), "by": "market-worker"}
+
 
 def probe_loop() -> None:
-    """Une fournée de sondes toutes les PROBE_INTERVAL (30 min par défaut)."""
+    """Une fournée de sondes toutes les PROBE_INTERVAL (20 min par défaut)."""
     while True:
         t0 = time.time()
-        run_probes_once()
+        res: dict = {}
+        try:
+            for m in PROBE_MODELS:
+                res[m] = probe_model(m)
+                time.sleep(0.4)
+        except Exception as exc:  # noqa: BLE001
+            with LOCK:
+                PROBES["last_error"] = f"{type(exc).__name__}: {str(exc)[:120]}"
+        with LOCK:
+            PROBES.update({"models": res, "generated_at": time.time(),
+                           "passes": PROBES["passes"] + 1})
+        ok = sum(1 for v in res.values() if v.get("ok"))
+        log(f"sonde partagee #{PROBES['passes']} : {ok}/{len(res)} modeles OK "
+            f"(prochain dans {PROBE_INTERVAL}s)")
         wait = max(5.0, PROBE_INTERVAL - (time.time() - t0))
         time.sleep(wait)
 
@@ -430,4 +434,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # une passe immédiate avant d'ouvrir le port, pour ne jamais servir du vide
+    try:
+        run_pass()
+    except Exception as e:  # noqa: BLE001
+        log(f"passe initiale: {type(e).__name__}: {str(e)[:120]}")
     main()
