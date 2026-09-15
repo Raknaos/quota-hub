@@ -1572,10 +1572,13 @@ async function loadDashboardKeys() {
   }
 
   try {
-    const res = await fetch('/api/gw?path=api/keys', {
+    // GET /api/keys n'existe pas cote passerelle (seuls POST/DELETE sont implementes)
+    // -> la liste des clauses vit dans /api/me (champ keys), qui lui repond 200.
+    const res = await fetch('/api/gw?path=api/me', {
       headers: { 'X-QH-Session': sess }
     });
-    const data = await res.json();
+    const me = await res.json();
+    const data = { keys: me && me.keys };
     if (data && data.keys && data.keys.length > 0) {
       const keysCountEl = $('dash-stat-keys');
       if (keysCountEl) keysCountEl.innerText = data.keys.filter(k => !k.revoked).length;
