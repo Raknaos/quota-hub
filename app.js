@@ -1,7 +1,27 @@
 /* Smart API Cheap — Interface haute fidélité Unorouter x Smart API Cheap */
 const API = '/gw';
+// Session : point d'entrée UNIQUE (bug corrige sept. 2026 : l'ecriture allait en
+// sessionStorage, certaines sections lisaient localStorage -> « session expiree »
+// juste apres une connexion reussie). Les deux stores sont ecrits, la lecture
+// commence par le plus recent (sessionStorage) puis emigre depuis localStorage.
+const SES_KEY = '***';
+function readSession() {
+  try {
+    return sessionStorage.getItem(SES_KEY) || localStorage.getItem(SES_KEY) || '';
+  } catch (e) { return ''; }
+}
+function writeSession(s) {
+  try { sessionStorage.setItem(SES_KEY, s); } catch (e) {}
+  try { localStorage.setItem(SES_KEY, s); } catch (e) {}
+  APP_STATE.session = s || '';
+}
+function clearSession() {
+  try { sessionStorage.removeItem(SES_KEY); } catch (e) {}
+  try { localStorage.removeItem(SES_KEY); } catch (e) {}
+  APP_STATE.session = '';
+}
 const APP_STATE = {
-  session: sessionStorage.getItem('qh_session') || '',
+  session: readSession(),
   me: null,
   keys: [],
   currentTab: 'models',
@@ -1019,8 +1039,7 @@ function initAuth() {
       body: { email: $('auth-email').value.trim(), password: $('auth-password').value }
     });
     if (r.status === 200 && r.data.session) {
-      APP_STATE.session = r.data.session;
-      sessionStorage.setItem('qh_session', r.data.session);
+      writeSession(r.data.session);
       closeAuth();
       await refreshMe();
       switchTab('console');
@@ -1052,16 +1071,14 @@ function initAuth() {
   const session = new URLSearchParams(location.search).get('oauth_session');
   if (session) {
     history.replaceState({}, '', location.pathname);
-    APP_STATE.session = session;
-    sessionStorage.setItem('qh_session', session);
+    writeSession(session);
     refreshMe();
   }
 }
 
 window.logout = () => {
-  APP_STATE.session = '';
+  clearSession();
   APP_STATE.me = null;
-  sessionStorage.removeItem('qh_session');
   setAuthUI();
   switchTab('models');
 };
@@ -1582,7 +1599,7 @@ async function syncModelsWithLiveMarket() {
 async function loadDashboardKeys() {
   const tbody = $('dash-keys-tbody');
   if (!tbody) return;
-  const sess = localStorage.getItem('qh_session');
+  const sess = readSession();
   if (!sess) {
     tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-muted-foreground">Veuillez vous connecter pour voir vos clés API.</td></tr>';
     return;
@@ -1622,7 +1639,7 @@ async function loadDashboardKeys() {
 window.submitCreateKey = async function() {
   const nameInput = $('new-key-name');
   const name = nameInput ? nameInput.value.trim() : 'Agent';
-  const sess = localStorage.getItem('qh_session');
+  const sess = readSession();
   if (!sess) {
     alert('Session expirée. Veuillez vous reconnecter.');
     return;
@@ -1685,7 +1702,7 @@ window.closeKeyModal = function() {
 // 5. Révocation de Clé API
 window.revokeKey = async function(keyId) {
   if (!confirm('Confirmez-vous la révocation immédiate de cette clé API ?')) return;
-  const sess = localStorage.getItem('qh_session');
+  const sess = readSession();
   try {
     const res = await fetch('/api/gw?path=api/keys/' + keyId, {
       method: 'DELETE',
@@ -1701,7 +1718,7 @@ window.revokeKey = async function(keyId) {
 async function loadDashboardUsageLogs() {
   const tbody = $('dash-logs-tbody');
   if (!tbody) return;
-  const sess = localStorage.getItem('qh_session');
+  const sess = readSession();
   if (!sess) return;
 
   try {
@@ -1741,11 +1758,11 @@ window.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
   const qhSession = params.get('session_token') || params.get('qh_session');
   if (qhSession) {
-    localStorage.setItem('qh_session', qhSession);
+    writeSession(qhSession);
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  const existingSess = localStorage.getItem('qh_session');
+  const existingSess = readSession();
   if (existingSess) {
     $('auth-unlogged')?.classList.add('hidden');
     $('auth-logged')?.classList.remove('hidden');
@@ -2284,7 +2301,7 @@ window.selectPaygoAmount = function(amt, btn) {
    le site : la passerelle crée la session, Stripe encaisse, et le crédit n'est
    accordé que par le webhook signé de Stripe. */
 window.startCheckout = async function(kind, value) {
-  const sess = localStorage.getItem('qh_session') || sessionStorage.getItem('qh_session') || APP_STATE.session || '';
+  const sess = readSession() || APP_STATE.session || '';
   if (!sess) {
     try { sessionStorage.setItem('qh_checkout', JSON.stringify({ kind, value })); } catch (e) {}
     openAuthModal('login');
@@ -2315,7 +2332,7 @@ window.executePaygoPayment = function() {
     const st = q.get('paiement');
     if (!st) {
       const pending = sessionStorage.getItem('qh_checkout');
-      if (pending && (localStorage.getItem('qh_session') || sessionStorage.getItem('qh_session'))) {
+      if (pending && readSession()) {
         sessionStorage.removeItem('qh_checkout');
         const it = JSON.parse(pending);
         setTimeout(() => window.startCheckout(it.kind, it.value), 600);
