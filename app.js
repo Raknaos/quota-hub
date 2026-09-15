@@ -30,6 +30,29 @@ const APP_STATE = {
   chatHistory: []
 };
 
+// Un crash d'init ne doit plus jamais couper tout le boot (le 15/09, initAuth()
+// visait #form-auth inexistant -> exception -> plus rien ne s'exécutait, et le
+// retour OAuth ?oauth_session= n'était jamais lu : « je me co et ensuite rien »).
+function safe(label, fn) {
+  try { fn(); } catch (e) { console.error('[init] ' + label + ' :', e); }
+}
+// Capture de session AU CHARGEMENT (avant DOMContentLoaded) : le serveur renvoie
+// le navigateur sur https://smartapi.cheap/?oauth_session=...&oauthed=1
+(function captureOAuthSession() {
+  const url = new URL(location.href);
+  const s = url.searchParams.get('oauth_session')
+         || url.searchParams.get('session_token')
+         || url.searchParams.get('qh_session');
+  if (s) {
+    writeSession(s);
+    url.searchParams.delete('oauth_session');
+    url.searchParams.delete('session_token');
+    url.searchParams.delete('qh_session');
+    url.searchParams.delete('oauthed');
+    history.replaceState({}, '', url.pathname + (url.search || ''));
+  }
+})();
+
 const $ = id => document.getElementById(id);
 /* Le credit est un MONTANT EN DOLLARS (1 $ paye = 1 $ d'usage) : la passerelle
    renvoie deja le solde en $ (subscription.<plan>.credit_usd). L'ancienne
@@ -1007,74 +1030,14 @@ window.switchTab = function(tab) {
 
 /* === AUTHENTIFICATION === */
 let currentAuthMode = 'login';
-window.openAuth = mode => {
-  currentAuthMode = mode;
-  setAuthMode(mode);
-  $('auth-modal').style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-};
-window.closeAuth = () => {
-  $('auth-modal').style.display = 'none';
-  document.body.style.overflow = '';
-};
-
-window.setAuthMode = mode => {
-  currentAuthMode = mode;
-  $('tab-auth-signin').classList.toggle('active', mode === 'login');
-  $('tab-auth-signup').classList.toggle('active', mode === 'signup');
-  $('auth-title').textContent = mode === 'login' ? 'Bienvenue.' : 'Créer votre espace.';
-  $('auth-subtitle').textContent = mode === 'login' ? 'Connectez-vous pour retrouver votre console.' : 'Créez un compte pour générer vos clés API.';
-  $('btn-auth-submit').textContent = mode === 'login' ? 'Se connecter' : 'Créer mon compte';
-  $('auth-error').hidden = true;
-};
-
-function initAuth() {
-  $('form-auth').onsubmit = async e => {
-    e.preventDefault();
-    const btn = $('btn-auth-submit');
-    btn.disabled = true;
-    btn.textContent = 'Connexion…';
-    const endpoint = currentAuthMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-    const r = await apiCall(endpoint, {
-      body: { email: $('auth-email').value.trim(), password: $('auth-password').value }
-    });
-    if (r.status === 200 && r.data.session) {
-      writeSession(r.data.session);
-      closeAuth();
-      await refreshMe();
-      switchTab('console');
-    } else {
-      $('auth-error').textContent = r.data.error?.message || 'Échec de la connexion';
-      $('auth-error').hidden = false;
-    }
-    btn.disabled = false;
-    btn.textContent = currentAuthMode === 'login' ? 'Se connecter' : 'Créer mon compte';
-  };
-
-  const oauth = async provider => {
-    const note = $('oauth-note');
-    const r = await apiCall('/api/auth/oauth/start?provider=' + provider, { method: 'GET' });
-    if (r.status === 200 && r.data.url) {
-      if (note) note.hidden = true;
-      location.href = r.data.url;
-      return;
-    }
-    if (note) {
-      note.textContent = 'La connexion ' + (provider === 'google' ? 'Google' : 'GitHub') + ' arrive bientôt. Utilisez votre email pour démarrer immédiatement.';
-      note.hidden = false;
-    }
-  };
-
-  $('btn-oauth-google').onclick = () => oauth('google');
-  $('btn-oauth-github').onclick = () => oauth('github');
-
-  const session = new URLSearchParams(location.search).get('oauth_session');
-  if (session) {
-    history.replaceState({}, '', location.pathname);
-    writeSession(session);
-    refreshMe();
-  }
-}
+/* === AUTHENTIFICATION — bloc legacy desactive (sept. 2026) ===
+   Le modal reel (index.html ligne ~1200) est pilote par openAuthModal/closeAuthModal/
+   submitAuth plus bas dans ce fichier, avec les ids auth-form, auth-submit-btn,
+   auth-error-msg. L'ancien bloc visait form-auth, btn-auth-submit, tab-auth-signin...
+   ids qui n'existent pas : initAuth() plantait sur sa premiere ligne et coupait tout
+   le DOMContentLoaded principal -> apres le retour OAuth, « rien » ne s'affichait.
+   La capture de ?oauth_session= est desormais faite en tete de fichier (writeSession). */
+function initAuth() {}
 
 window.logout = () => {
   clearSession();
@@ -1085,8 +1048,11 @@ window.logout = () => {
 
 function setAuthUI() {
   const logged = !!APP_STATE.me?.user;
-  $('auth-guest-view').style.display = logged ? 'none' : 'flex';
-  $('auth-user-view').style.display = logged ? 'flex' : 'none';
+  const u = $('auth-unlogged'), l = $('auth-logged');
+  if (u) u.classList.toggle('hidden', logged);
+  if (l) l.classList.toggle('hidden', !logged);
+  const em = $('dash-user-email');
+  if (em && APP_STATE.me?.user) em.textContent = APP_STATE.me.user.email || '';
   if (logged) {
     const email = APP_STATE.me.user.email || '';
     const avatar = document.querySelector('.user-avatar');
@@ -1136,7 +1102,7 @@ function renderKeys() {
 }
 
 window.openKeyModal = () => {
-  if (!APP_STATE.me) { openAuth('login'); return; }
+  if (!APP_STATE.me) { window.openAuthModal('login'); return; }
   $('key-name-input').value = '';
   $('modal-key').showModal();
 };
@@ -1299,15 +1265,15 @@ window.copyText = (text, btn) => {
 /* === INITIALISATION GLOBALE === */
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.nav-link').forEach(x => x.onclick = () => switchTab(x.dataset.tab));
-  initAuth();
-  initKeyCreation();
-  initRedeem();
-  initRouterStatus();
-  initAutoMix();
-  initChatDropdown();
-  initChatSubmit();
-  renderModelsTable();
-  renderClassements();
+  safe('auth', initAuth);
+  safe('keys', initKeyCreation);
+  safe('redeem', initRedeem);
+  safe('router', initRouterStatus);
+  safe('automix', initAutoMix);
+  safe('chat-dd', initChatDropdown);
+  safe('chat-submit', initChatSubmit);
+  safe('models', renderModelsTable);
+  safe('classements', renderClassements);
 
   const menu = $('mobile-menu-toggle'), nav = $('main-nav');
   if (menu && nav) {
